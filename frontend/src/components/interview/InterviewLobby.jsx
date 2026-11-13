@@ -5,6 +5,7 @@ import {
     ArrowLeft, ArrowRight, CheckCircle, Sparkles, Users,
     FileText, Search, Star, Code2, MessageSquare, X,
     GraduationCap, Briefcase, RefreshCw, Zap, Mic, Volume2, KeyRound, User, Video, VideoOff, AlertTriangle,
+    Calendar, Clock, Timer, Download,
 } from 'lucide-react';
 
 // ─── Static data (hoisted outside component to avoid recreation) ───
@@ -283,6 +284,128 @@ function InterviewLobby({
     const navigate = useNavigate();
     const { user } = useAuth();
     const [speakerCheckStatus, setSpeakerCheckStatus] = React.useState('not_checked');
+    const [lobbyNow, setLobbyNow] = React.useState(Date.now());
+
+    React.useEffect(() => {
+        if (!customQuestionSet?.scheduledAt) return;
+        const timer = setInterval(() => setLobbyNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [customQuestionSet?.scheduledAt]);
+
+    const scheduledStartTime = customQuestionSet?.scheduledAt ? new Date(customQuestionSet.scheduledAt).getTime() : null;
+    const scheduledDurationMins = Number(customQuestionSet?.scheduledDurationMinutes) || 45;
+    const earlyCheckinBufferMs = 10 * 60 * 1000;
+    const sessionWindowEndTime = scheduledStartTime ? scheduledStartTime + (scheduledDurationMins + 30) * 60 * 1000 : null;
+
+    const isUpcomingSchedule = Boolean(scheduledStartTime && lobbyNow < (scheduledStartTime - earlyCheckinBufferMs));
+    const isScheduleExpired = Boolean(sessionWindowEndTime && lobbyNow > sessionWindowEndTime);
+    const isScheduleOpen = Boolean(scheduledStartTime && !isUpcomingSchedule && !isScheduleExpired);
+
+    const msUntilScheduled = scheduledStartTime ? Math.max(0, scheduledStartTime - lobbyNow) : 0;
+    const hoursRemaining = Math.floor(msUntilScheduled / (1000 * 60 * 60));
+    const minutesRemaining = Math.floor((msUntilScheduled % (1000 * 60 * 60)) / (1000 * 60));
+    const secondsRemaining = Math.floor((msUntilScheduled % (1000 * 60)) / 1000);
+    const formattedCountdown = `${String(hoursRemaining).padStart(2, '0')}:${String(minutesRemaining).padStart(2, '0')}:${String(secondsRemaining).padStart(2, '0')}`;
+
+    const candidateTimezone = React.useMemo(() => {
+        try {
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local Time';
+        } catch {
+            return 'Local Time';
+        }
+    }, []);
+
+    const formattedScheduledDate = React.useMemo(() => {
+        if (!scheduledStartTime) return '';
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZoneName: 'short',
+            }).format(new Date(scheduledStartTime));
+        } catch {
+            return new Date(scheduledStartTime).toLocaleString();
+        }
+    }, [scheduledStartTime]);
+
+    const googleCalendarUrl = React.useMemo(() => {
+        if (!scheduledStartTime) return null;
+        try {
+            const start = new Date(scheduledStartTime);
+            const end = new Date(start.getTime() + (scheduledDurationMins || 45) * 60 * 1000);
+            const formatGCal = (d) => d.toISOString().replace(/-|:|\.\d{3}/g, '');
+            const dates = `${formatGCal(start)}/${formatGCal(end)}`;
+            const joinUrl = typeof window !== 'undefined' ? window.location.href : '';
+            const details = `Private Interview Session: ${customQuestionSet?.title || 'PrepLoop Assessment'}\nRole: ${customQuestionSet?.settings?.roleName || 'Candidate'}\nJoin Link: ${joinUrl}`;
+            return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(customQuestionSet?.title || 'Private Interview')}&dates=${dates}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(joinUrl)}`;
+        } catch {
+            return null;
+        }
+    }, [scheduledStartTime, scheduledDurationMins, customQuestionSet?.title, customQuestionSet?.settings?.roleName]);
+
+    const handleDownloadIcs = useCallback(() => {
+        if (!scheduledStartTime) return;
+        try {
+            const start = new Date(scheduledStartTime);
+            const end = new Date(start.getTime() + (scheduledDurationMins || 45) * 60 * 1000);
+            const formatIcs = (d) => d.toISOString().replace(/-|:|\.\d{3}/g, '');
+            const joinUrl = typeof window !== 'undefined' ? window.location.href : '';
+            const icsContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//PrepLoop//Private Interview Session//EN',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+                'BEGIN:VEVENT',
+                `SUMMARY:${customQuestionSet?.title || 'Private Interview Assessment'}`,
+                `DESCRIPTION:Private Interview Session\\nRole: ${customQuestionSet?.settings?.roleName || 'Candidate'}\\nJoin URL: ${joinUrl}`,
+                `LOCATION:${joinUrl}`,
+                `DTSTART:${formatIcs(start)}`,
+                `DTEND:${formatIcs(end)}`,
+                `DTSTAMP:${formatIcs(new Date())}`,
+                `UID:${Date.now()}@preploop.com`,
+                'STATUS:CONFIRMED',
+                'END:VEVENT',
+                'END:VCALENDAR',
+            ].join('\r\n');
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${(customQuestionSet?.title || 'interview').replace(/[^a-z0-9]/gi, '_')}.ics`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch { /* empty */ }
+    }, [scheduledStartTime, scheduledDurationMins, customQuestionSet?.title, customQuestionSet?.settings?.roleName]);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const paramEmail = params.get('email');
+            const paramName = params.get('name');
+            if (paramEmail && !candidateEmail) {
+                onCandidateEmailChange?.(paramEmail.trim());
+            }
+            if (paramName && !candidateName) {
+                onCandidateNameChange?.(paramName.trim());
+            }
+        } catch { /* empty */ }
+    }, [candidateEmail, candidateName, onCandidateEmailChange, onCandidateNameChange]);
+
+    const isEmailPreFilledFromUrl = React.useMemo(() => {
+        if (typeof window === 'undefined') return false;
+        try {
+            return Boolean(new URLSearchParams(window.location.search).get('email'));
+        } catch {
+            return false;
+        }
+    }, []);
 
     const handleTestSpeaker = useCallback(() => {
         setSpeakerCheckStatus('testing');
@@ -405,10 +528,94 @@ function InterviewLobby({
                                 </p>
                             )}
 
-                            {(customQuestionSet.requiresPasscode || customQuestionSet.expiresAt || customQuestionSet.remainingAttempts !== null) && (
+                            {(customQuestionSet.requiresPasscode || customQuestionSet.expiresAt || customQuestionSet.remainingAttempts !== null || customQuestionSet.scheduledAt) && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                                    {customQuestionSet.scheduledAt && (
+                                        <span style={{ color: '#38bdf8', fontSize: '12px', background: 'rgba(56,189,248,.1)', border: '1px solid rgba(56,189,248,.25)', padding: '6px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <Calendar size={13} /> Scheduled: {formattedScheduledDate} ({scheduledDurationMins}m)
+                                        </span>
+                                    )}
                                     {customQuestionSet.expiresAt && <span style={{ color: '#fbbf24', fontSize: '12px', background: 'rgba(251,191,36,.08)', padding: '6px 9px', borderRadius: '8px' }}>Link expires {new Date(customQuestionSet.expiresAt).toLocaleString()}</span>}
                                     {customQuestionSet.remainingAttempts !== null && <span style={{ color: '#a5b4fc', fontSize: '12px', background: 'rgba(129,140,248,.08)', padding: '6px 9px', borderRadius: '8px' }}>{customQuestionSet.remainingAttempts} attempt{customQuestionSet.remainingAttempts === 1 ? '' : 's'} remaining</span>}
+                                </div>
+                            )}
+
+                            {/* Scheduled Interview Waiting Room or Active Schedule Banner */}
+                            {isUpcomingSchedule && (
+                                <div style={{ background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.08))', border: '1px solid rgba(56, 189, 248, 0.35)', borderRadius: '14px', padding: '20px', marginBottom: '20px', textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px' }}>
+                                        <Clock size={16} /> Scheduled Session Waiting Room
+                                    </div>
+                                    <div style={{ color: '#fff', fontSize: '30px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px', margin: '6px 0 8px' }}>
+                                        {formattedCountdown}
+                                    </div>
+                                    <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '13px', lineHeight: '1.5' }}>
+                                        This private interview is scheduled for <strong>{formattedScheduledDate}</strong> ({candidateTimezone}).
+                                    </div>
+                                    <div style={{ color: '#93c5fd', fontSize: '12px', marginTop: '6px' }}>
+                                        Please complete your camera, microphone, and speaker preflight checks below while waiting. The interview will unlock automatically at the scheduled time.
+                                    </div>
+                                    <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                        {googleCalendarUrl && (
+                                            <a
+                                                href={googleCalendarUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '6px 14px',
+                                                    borderRadius: '8px',
+                                                    background: 'rgba(56, 189, 248, 0.15)',
+                                                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                                                    color: '#7dd3fc',
+                                                    fontSize: '12px',
+                                                    fontWeight: '600',
+                                                    textDecoration: 'none',
+                                                    cursor: 'pointer',
+                                                }}
+                                                title="Add this scheduled session to your Google Calendar"
+                                            >
+                                                <Calendar size={13} /> Google Calendar
+                                            </a>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadIcs}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '6px 14px',
+                                                borderRadius: '8px',
+                                                background: 'rgba(99, 102, 241, 0.15)',
+                                                border: '1px solid rgba(99, 102, 241, 0.35)',
+                                                color: '#a5b4fc',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                            }}
+                                            title="Download Outlook / Apple Calendar (.ics) file"
+                                        >
+                                            <Download size={13} /> Download .ics
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isScheduleOpen && (
+                                <div style={{ background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <CheckCircle size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
+                                    <div style={{ fontSize: '13px', color: '#86efac' }}>
+                                        <strong>Session Open:</strong> Scheduled for {new Date(scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({candidateTimezone}, {scheduledDurationMins} min fixed session). You may begin now.
+                                    </div>
+                                </div>
+                            )}
+
+                            {isScheduleExpired && (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px', color: '#fca5a5', fontSize: '13px' }}>
+                                    ⚠️ This scheduled interview session window has concluded. Please contact your interview organizer to reschedule.
                                 </div>
                             )}
 
@@ -466,16 +673,26 @@ function InterviewLobby({
                                         <div className="form-group" style={{ margin: 0 }}>
                                             <label htmlFor="candidate-email" style={{ color: '#e4e4e7', display: 'block', marginBottom: '6px', fontSize: '12px' }}>
                                                 Your Email Address {customQuestionSet.requiresEmailAllowlist && '*'}
+                                                {isEmailPreFilledFromUrl && customQuestionSet.requiresEmailAllowlist && (
+                                                    <span style={{ color: '#38bdf8', marginLeft: '6px', fontWeight: 'normal' }}>
+                                                        (🔒 Locked from invite link)
+                                                    </span>
+                                                )}
                                             </label>
                                             <input
                                                 id="candidate-email"
                                                 type="email"
                                                 autoComplete="email"
                                                 value={candidateEmail}
+                                                disabled={isEmailPreFilledFromUrl && customQuestionSet.requiresEmailAllowlist}
                                                 onChange={(event) => onCandidateEmailChange?.(event.target.value)}
                                                 placeholder={customQuestionSet.requiresEmailAllowlist ? 'Authorized invitee email' : 'e.g. alex@example.com'}
                                                 maxLength={120}
-                                                style={{ width: '100%' }}
+                                                style={{
+                                                    width: '100%',
+                                                    opacity: (isEmailPreFilledFromUrl && customQuestionSet.requiresEmailAllowlist) ? 0.75 : 1,
+                                                    cursor: (isEmailPreFilledFromUrl && customQuestionSet.requiresEmailAllowlist) ? 'not-allowed' : 'text',
+                                                }}
                                             />
                                         </div>
                                     </div>
@@ -557,11 +774,36 @@ function InterviewLobby({
                             <button
                                 className="ai-setup-nav-btn ai-setup-nav-btn--next"
                                 onClick={onStartInterview}
-                                disabled={loading || !micCheckStatus.startsWith('ready:') || (customQuestionSet.requiresPasscode && !questionSetPasscode.trim()) || (customQuestionSet.requiresEmailAllowlist && !candidateEmail.trim()) || customQuestionSet.remainingAttempts === 0}
-                                style={{ width: '100%', justifyContent: 'center', padding: '16px 24px', fontSize: '16px', fontWeight: '700', borderRadius: '12px' }}
+                                disabled={loading || isUpcomingSchedule || isScheduleExpired || !micCheckStatus.startsWith('ready:') || (customQuestionSet.requiresPasscode && !questionSetPasscode.trim()) || (customQuestionSet.requiresEmailAllowlist && !candidateEmail.trim()) || customQuestionSet.remainingAttempts === 0}
+                                style={{
+                                    width: '100%',
+                                    justifyContent: 'center',
+                                    padding: '16px 24px',
+                                    fontSize: '16px',
+                                    fontWeight: '700',
+                                    borderRadius: '12px',
+                                    opacity: (isUpcomingSchedule || isScheduleExpired) ? 0.65 : 1,
+                                    cursor: (isUpcomingSchedule || isScheduleExpired) ? 'not-allowed' : 'pointer',
+                                }}
                             >
-                                {loading ? 'Starting Interview...' : 'Begin Interview'}
-                                <ArrowRight size={18} />
+                                {isUpcomingSchedule ? (
+                                    <>
+                                        <Clock size={18} />
+                                        Session Unlocks in {formattedCountdown}
+                                    </>
+                                ) : isScheduleExpired ? (
+                                    <>
+                                        <AlertTriangle size={18} />
+                                        Scheduled Window Concluded
+                                    </>
+                                ) : loading ? (
+                                    'Starting Interview...'
+                                ) : (
+                                    <>
+                                        Begin Interview
+                                        <ArrowRight size={18} />
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

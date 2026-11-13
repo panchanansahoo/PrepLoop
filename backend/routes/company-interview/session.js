@@ -13,7 +13,7 @@ import { buildInitialVoiceTelemetry, _buildVoiceTelemetrySnapshot } from '../../
 import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
-import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
+import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail, getInterviewScheduleStatus } from '../../utils/privateInterviewAccess.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 import { redactTranscriptTurns } from '../../services/resumeRedactor.js';
 import { quotaGuard, DEGRADATION_MODES } from '../../services/quotaGuard.js';
@@ -192,6 +192,27 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     if (isInterviewLinkExpired(questionSet.expires_at)) {
       return res.status(410).json({ error: 'This interview link has expired' });
     }
+
+    const scheduledAt = questionSet.scheduled_at || questionSet.settings?.scheduledAt || null;
+    const scheduledDurationMinutes = questionSet.scheduled_duration_minutes || questionSet.settings?.scheduledDurationMinutes || 45;
+    const scheduleInfo = getInterviewScheduleStatus(scheduledAt, scheduledDurationMinutes);
+
+    if (scheduleInfo.status === 'upcoming') {
+      return res.status(425).json({
+        error: `This interview is scheduled for ${new Date(scheduledAt).toLocaleString()}. You can join once the scheduled session opens.`,
+        code: 'SCHEDULE_NOT_STARTED',
+        scheduledAt,
+        secondsUntilStart: scheduleInfo.secondsUntilStart,
+      });
+    }
+    if (scheduleInfo.status === 'ended') {
+      return res.status(410).json({
+        error: 'This scheduled interview session window has ended.',
+        code: 'SCHEDULE_ENDED',
+        scheduledAt,
+      });
+    }
+
     if (!verifyInterviewPasscode(questionSetPasscode, questionSet.passcode_hash)) {
       return res.status(401).json({ error: 'The interview passcode is incorrect' });
     }
@@ -218,6 +239,62 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     const firstQTimeLimit = typeof firstQ === 'object' ? firstQ?.timeLimit : null;
 
     const interviewerName = questionSet.settings?.interviewerName || (await generateInterviewerName(questionSet.settings?.companyName || company || 'PrepLoop'));
+
+    // Resumption check: If candidate passed an active attemptId (e.g. page refresh), resume attempt
+    const requestedAttemptId = req.body?.attemptId;
+    if (requestedAttemptId) {
+      const { data: existingAttempt } = await supabaseAdmin
+        .from('admin_interview_attempts')
+        .select('*')
+        .eq('id', requestedAttemptId)
+        .eq('question_set_id', questionSet.id)
+        .is('completed_at', null)
+        .maybeSingle();
+
+      if (existingAttempt && new Date(existingAttempt.expires_at).getTime() > Date.now()) {
+        const curIdx = existingAttempt.current_question_index || 0;
+        const resumedQ = questions[curIdx] || questions[0];
+        const resumedQText = typeof resumedQ === 'string' ? resumedQ : (resumedQ?.question || 'Tell me about yourself.');
+        const resumedQContext = typeof resumedQ === 'object' ? resumedQ?.context : null;
+        const resumedQTopics = typeof resumedQ === 'object' && Array.isArray(resumedQ?.expectedTopics) ? resumedQ.expectedTopics : [];
+        const resumedQTimeLimit = typeof resumedQ === 'object' ? resumedQ?.timeLimit : null;
+
+        return res.json(withRuntime({
+          question: resumedQText,
+          questionSetId: questionSet.id,
+          attemptId: existingAttempt.id,
+          questionSetCode: questionSet.share_code,
+          scheduledAt,
+          scheduledDurationMinutes,
+          totalScheduleSeconds: Number(scheduledDurationMinutes) * 60,
+          isResumed: true,
+          context: {
+            company: questionSet.settings?.companyName || company || 'Company',
+            role: questionSet.settings?.roleName || role || 'Candidate',
+            stage: questionSet.interview_type || 'Technical',
+            difficulty: questionSet.difficulty || 'medium',
+            totalQuestions: questions.length,
+            questionSetTitle: questionSet.title,
+            customInstructions: questionSet.settings?.customInstructions || '',
+          },
+          tips: resumedQTopics.length > 0
+            ? [`Key topics: ${resumedQTopics.join(', ')}`]
+            : ['Answer clearly and directly.', 'Use specific examples where possible.'],
+          interviewerReaction: 'greeting',
+          thinkTime: resumedQTimeLimit || 30,
+          questionSource: 'admin-custom',
+          questionMeta: {
+            id: `admin-q-${curIdx + 1}`,
+            track: 'admin-custom',
+            sequence: curIdx + 1,
+            interviewerName,
+            context: resumedQContext,
+            expectedTopics: resumedQTopics,
+          },
+        }));
+      }
+    }
+
     const attemptId = _crypto.randomUUID();
     const { error: attemptError } = await supabaseAdmin
       .from('admin_interview_attempts')
@@ -251,6 +328,9 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
       questionSetId: questionSet.id,
       attemptId,
       questionSetCode: questionSet.share_code,
+      scheduledAt,
+      scheduledDurationMinutes,
+      totalScheduleSeconds: Number(scheduledDurationMinutes) * 60,
       context: {
         company: questionSet.settings?.companyName || company || 'Company',
         role: questionSet.settings?.roleName || role || 'Candidate',

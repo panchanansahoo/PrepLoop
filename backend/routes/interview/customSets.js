@@ -3,7 +3,14 @@ import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { optionalAuth } from '../../middleware/auth.ts';
 import { customInterviewLimiter, customInterviewSubmissionLimiter } from '../../middleware/apiRateLimiter.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
-import { isInterviewLinkExpired, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
+import {
+  isInterviewLinkExpired,
+  verifyInterviewInviteeEmail,
+  getInterviewScheduleStatus,
+  matchExpectedTopics,
+  evaluateAssessmentIntegrity,
+} from '../../utils/privateInterviewAccess.js';
+import { dispatchInterviewWebhook } from '../../utils/interviewMailer.js';
 
 const router = express.Router();
 
@@ -37,6 +44,14 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
       ? data.allowed_emails
       : (Array.isArray(data.settings?.allowedEmails) ? data.settings.allowedEmails : []);
 
+    const scheduledAt = data.scheduled_at || data.settings?.scheduledAt || null;
+    const scheduledDurationMinutes = data.scheduled_duration_minutes || data.settings?.scheduledDurationMinutes || 45;
+    const scheduleInfo = getInterviewScheduleStatus(scheduledAt, scheduledDurationMinutes);
+
+    if (scheduleInfo.status === 'ended') {
+      return res.status(410).json({ error: 'This scheduled interview session has ended' });
+    }
+
     res.json({
       questionSet: {
         id: data.id,
@@ -48,6 +63,12 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
         requiresPasscode: Boolean(data.passcode_hash),
         requiresEmailAllowlist: allowedEmails.length > 0,
         expiresAt: data.expires_at,
+        scheduledAt,
+        scheduledDurationMinutes,
+        scheduleStatus: scheduleInfo.status,
+        isScheduled: scheduleInfo.isScheduled,
+        secondsUntilStart: scheduleInfo.secondsUntilStart,
+        canStartNow: scheduleInfo.canStartNow,
         remainingAttempts: data.max_attempts === null
           ? null
           : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
@@ -95,6 +116,14 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
       ? data.allowed_emails
       : (Array.isArray(data.settings?.allowedEmails) ? data.settings.allowedEmails : []);
 
+    const scheduledAt = data.scheduled_at || data.settings?.scheduledAt || null;
+    const scheduledDurationMinutes = data.scheduled_duration_minutes || data.settings?.scheduledDurationMinutes || 45;
+    const scheduleInfo = getInterviewScheduleStatus(scheduledAt, scheduledDurationMinutes);
+
+    if (scheduleInfo.status === 'ended') {
+      return res.status(410).json({ error: 'This scheduled interview session has ended' });
+    }
+
     res.json({
       questionSet: {
         id: data.id,
@@ -106,6 +135,12 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
         requiresPasscode: Boolean(data.passcode_hash),
         requiresEmailAllowlist: allowedEmails.length > 0,
         expiresAt: data.expires_at,
+        scheduledAt,
+        scheduledDurationMinutes,
+        scheduleStatus: scheduleInfo.status,
+        isScheduled: scheduleInfo.isScheduled,
+        secondsUntilStart: scheduleInfo.secondsUntilStart,
+        canStartNow: scheduleInfo.canStartNow,
         remainingAttempts: data.max_attempts === null
           ? null
           : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
@@ -133,7 +168,7 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
 
     const { data: questionSet, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, is_active, requires_login, allowed_emails, settings')
+      .select('id, title, is_active, requires_login, allowed_emails, settings')
       .eq('share_code', code)
       .single();
 
@@ -158,7 +193,7 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
     }
     const { data: attempt, error: attemptError } = await supabaseAdmin
       .from('admin_interview_attempts')
-      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at')
+      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at, question_snapshot')
       .eq('id', attemptId || '')
       .eq('question_set_id', questionSet.id)
       .single();
@@ -208,6 +243,65 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
       : 0;
     const sanitizedUserId = req.user?.id || null;
 
+    const rawSnapshots = Array.isArray(req.body.snapshots) ? req.body.snapshots : [];
+    const sanitizedSnapshots = rawSnapshots
+      .filter((s) => s && typeof s === 'object' && typeof s.thumbnail === 'string')
+      .slice(0, 5)
+      .map((s) => ({
+        trigger: String(s.trigger || 'checkpoint').slice(0, 50),
+        timestamp: s.timestamp || new Date().toISOString(),
+        thumbnail: s.thumbnail.slice(0, 50000),
+      }));
+
+    const baseIntegrity = evaluateAssessmentIntegrity(
+      req.body.tabSwitchCount ?? req.body.tabSwitches,
+      req.body.pasteCount ?? req.body.pastes
+    );
+    const integrity = {
+      ...baseIntegrity,
+      snapshots: sanitizedSnapshots,
+    };
+
+    const questionList = Array.isArray(attempt.question_snapshot) && attempt.question_snapshot.length > 0
+      ? attempt.question_snapshot
+      : (Array.isArray(questionSet.questions) ? questionSet.questions : []);
+
+    const candidateTurns = serverResponses.filter((r) => r && r.role === 'candidate');
+    const breakdown = questionList.map((qItem, idx) => {
+      const qText = typeof qItem === 'string' ? qItem : (qItem?.question || qItem?.text || `Question ${idx + 1}`);
+      const expectedTopics = Array.isArray(qItem?.expectedTopics)
+        ? qItem.expectedTopics
+        : (Array.isArray(qItem?.topics) ? qItem.topics : (Array.isArray(qItem?.keywords) ? qItem.keywords : []));
+
+      const matchedTurn = candidateTurns.find((t) => t.questionIndex === idx) ||
+        candidateTurns.find((t) => t.question && t.question.trim().toLowerCase() === qText.trim().toLowerCase()) ||
+        candidateTurns[idx];
+
+      const answer = matchedTurn?.content || matchedTurn?.text || '';
+      const topicEvaluation = matchExpectedTopics(answer, expectedTopics);
+      const turnScore = answer ? evaluateFresherAnswer(answer, attempt.stage || 'Technical').score : 0;
+
+      return {
+        questionIndex: idx + 1,
+        question: qText,
+        answer: answer || 'No response recorded',
+        score: turnScore,
+        coveredTopics: topicEvaluation.coveredTopics,
+        missedTopics: topicEvaluation.missedTopics,
+        coverageRatio: topicEvaluation.coverageRatio,
+        elapsedSeconds: matchedTurn?.elapsedSeconds || 0,
+        timeLimit: qItem?.timeLimit || null,
+      };
+    });
+
+    const passingScore = Number(questionSet.settings?.passingScore) || 70;
+    let decision = 'qualified';
+    if (integrity.flagged || serverOverallScore < passingScore - 15) {
+      decision = 'rejected';
+    } else if (serverOverallScore < passingScore) {
+      decision = 'review_needed';
+    }
+
     const submissionPayload = {
       question_set_id: questionSet.id,
       attempt_id: attemptId,
@@ -218,6 +312,10 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
       scores: {
         serverOverallScore,
         answerCount: candidateAnswers.length,
+        integrity,
+        breakdown,
+        passingScore,
+        decision,
       },
       overall_score: serverOverallScore,
       duration: sanitizedDuration,
@@ -244,6 +342,31 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
       console.error('Failed to finalize custom interview attempt:', markSubmittedError.code || markSubmittedError.message);
     }
 
+    const webhookUrl = questionSet.settings?.webhookUrl;
+    if (webhookUrl) {
+      dispatchInterviewWebhook(webhookUrl, questionSet.settings?.webhookSecret, {
+        event: 'interview.submission.completed',
+        questionSetId: questionSet.id,
+        questionSetTitle: questionSet.title || 'Private Interview',
+        attemptId,
+        candidateName: submissionPayload.user_name,
+        candidateEmail: submissionPayload.user_email,
+        overallScore: serverOverallScore,
+        passingScore,
+        decision,
+        integrity: {
+          rating: integrity.integrityRating,
+          score: integrity.integrityScore,
+          flagged: integrity.flagged,
+          tabSwitchCount: integrity.tabSwitchCount,
+          pasteCount: integrity.pasteCount,
+          snapshotsCount: sanitizedSnapshots.length,
+        },
+        durationSeconds: sanitizedDuration,
+        completedAt: submissionPayload.completed_at,
+      }).catch((err) => console.error('Submission webhook error:', err.message));
+    }
+
     res.status(201).json({ success: true, submissionId: data?.id });
   } catch (error) {
     console.error('Save submission error:', error);
@@ -263,7 +386,7 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
 
     const { data: questionSet, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, is_active, requires_login, allowed_emails, settings')
+      .select('id, title, is_active, requires_login, allowed_emails, settings, questions')
       .eq('share_code', code)
       .single();
 
@@ -288,7 +411,7 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
     }
     const { data: attempt, error: attemptError } = await supabaseAdmin
       .from('admin_interview_attempts')
-      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at')
+      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at, question_snapshot')
       .eq('id', attemptId || '')
       .eq('question_set_id', questionSet.id)
       .single();
@@ -334,7 +457,71 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       }))
       .filter((qa) => Boolean(qa.answer));
 
-    let scores = {};
+    const rawSnapshots = Array.isArray(req.body.snapshots) ? req.body.snapshots : [];
+    const sanitizedSnapshots = rawSnapshots
+      .filter((s) => s && typeof s === 'object' && typeof s.thumbnail === 'string')
+      .slice(0, 5)
+      .map((s) => ({
+        trigger: String(s.trigger || 'checkpoint').slice(0, 50),
+        timestamp: s.timestamp || new Date().toISOString(),
+        thumbnail: s.thumbnail.slice(0, 50000),
+      }));
+
+    const baseIntegrity = evaluateAssessmentIntegrity(
+      req.body.tabSwitchCount ?? req.body.tabSwitches,
+      req.body.pasteCount ?? req.body.pastes
+    );
+    const integrity = {
+      ...baseIntegrity,
+      snapshots: sanitizedSnapshots,
+    };
+
+    const questionList = Array.isArray(attempt.question_snapshot) && attempt.question_snapshot.length > 0
+      ? attempt.question_snapshot
+      : (Array.isArray(questionSet.questions) ? questionSet.questions : []);
+
+    const candidateTurns = serverResponses.filter((r) => r && r.role === 'candidate');
+    const breakdown = questionList.map((qItem, idx) => {
+      const qText = typeof qItem === 'string' ? qItem : (qItem?.question || qItem?.text || `Question ${idx + 1}`);
+      const expectedTopics = Array.isArray(qItem?.expectedTopics)
+        ? qItem.expectedTopics
+        : (Array.isArray(qItem?.topics) ? qItem.topics : (Array.isArray(qItem?.keywords) ? qItem.keywords : []));
+
+      const matchedTurn = candidateTurns.find((t) => t.questionIndex === idx) ||
+        candidateTurns.find((t) => t.question && t.question.trim().toLowerCase() === qText.trim().toLowerCase()) ||
+        candidateTurns[idx];
+
+      const answer = matchedTurn?.content || matchedTurn?.text || '';
+      const topicEvaluation = matchExpectedTopics(answer, expectedTopics);
+      const turnScore = answer ? evaluateFresherAnswer(answer, attempt.stage || 'Technical').score : 0;
+
+      return {
+        questionIndex: idx + 1,
+        question: qText,
+        answer: answer || 'No response recorded',
+        score: turnScore,
+        coveredTopics: topicEvaluation.coveredTopics,
+        missedTopics: topicEvaluation.missedTopics,
+        coverageRatio: topicEvaluation.coverageRatio,
+        elapsedSeconds: matchedTurn?.elapsedSeconds || 0,
+        timeLimit: qItem?.timeLimit || null,
+      };
+    });
+
+    const passingScore = Number(questionSet.settings?.passingScore) || 70;
+    let decision = 'qualified';
+    if (integrity.flagged || overallScore < passingScore - 15) {
+      decision = 'rejected';
+    } else if (overallScore < passingScore) {
+      decision = 'review_needed';
+    }
+
+    let scores = {
+      integrity,
+      breakdown,
+      passingScore,
+      decision,
+    };
     let overallScore = 0;
     if (candidateAnswers.length > 0) {
       try {
@@ -349,6 +536,7 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
         if (evaluation && typeof evaluation.overallScore === 'number') {
           overallScore = evaluation.overallScore;
           scores = {
+            ...scores,
             clarity: evaluation.clarity || 0,
             relevance: evaluation.relevance || 0,
             depth: evaluation.depth || 0,
@@ -395,6 +583,31 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       .update({ submitted_at: new Date().toISOString() })
       .eq('id', attempt.id)
       .is('submitted_at', null);
+
+    const webhookUrl = questionSet.settings?.webhookUrl;
+    if (webhookUrl) {
+      dispatchInterviewWebhook(webhookUrl, questionSet.settings?.webhookSecret, {
+        event: 'interview.submission.completed',
+        questionSetId: questionSet.id,
+        questionSetTitle: questionSet.title || 'Private Interview',
+        attemptId: attempt.id,
+        candidateName: safeUserName,
+        candidateEmail: safeUserEmail,
+        overallScore,
+        passingScore,
+        decision,
+        integrity: {
+          rating: integrity.integrityRating,
+          score: integrity.integrityScore,
+          flagged: integrity.flagged,
+          tabSwitchCount: integrity.tabSwitchCount,
+          pasteCount: integrity.pasteCount,
+          snapshotsCount: sanitizedSnapshots.length,
+        },
+        durationSeconds: sanitizedDuration,
+        completedAt: new Date().toISOString(),
+      }).catch((err) => console.error('Submission webhook error:', err.message));
+    }
 
     res.status(201).json({ success: true, submissionId: data?.id });
   } catch (error) {

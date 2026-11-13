@@ -2,6 +2,7 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin, invalidateUserRole } from '../middleware/auth.ts';
 import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
+import { dispatchCandidateInvitations, dispatchInterviewWebhook } from '../utils/interviewMailer.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
@@ -344,7 +345,8 @@ router.post('/question-sets', async (req, res) => {
       title, description, interviewType = 'technical',
       difficulty = 'medium', requiresLogin = false,
       questions = [], settings = {}, passcode = '', expiresAt = null, maxAttempts = null,
-      allowedEmails = [], role = '', roleName = ''
+      allowedEmails = [], role = '', roleName = '',
+      scheduledAt = null, scheduledDurationMinutes = 45,
     } = req.body;
 
     if (typeof title !== 'string' || !title.trim()) {
@@ -384,7 +386,7 @@ router.post('/question-sets', async (req, res) => {
     });
 
     const shareCode = generateShareCode();
-    const accessLimits = normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, allowedEmails });
+    const accessLimits = normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, allowedEmails, scheduledAt, scheduledDurationMinutes });
     const mergedSettings = { ...settings };
     const rawRoleName = typeof roleName === 'string' && roleName.trim() ? roleName : (typeof role === 'string' ? role : '');
     if (rawRoleName.trim()) {
@@ -393,28 +395,61 @@ router.post('/question-sets', async (req, res) => {
     if (accessLimits.allowed_emails) {
       mergedSettings.allowedEmails = accessLimits.allowed_emails;
     }
+    if (accessLimits.scheduled_at) {
+      mergedSettings.scheduledAt = accessLimits.scheduled_at;
+    }
+    if (accessLimits.scheduled_duration_minutes) {
+      mergedSettings.scheduledDurationMinutes = accessLimits.scheduled_duration_minutes;
+    }
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_question_sets')
-      .insert({
-        admin_id: req.user.id,
-        title: title.trim(),
-        description: typeof description === 'string' && description.trim() ? description.trim() : null,
-        share_code: shareCode,
-        interview_type: interviewType,
-        difficulty,
-        requires_login: requiresLogin,
-        questions: validatedQuestions,
-        settings: mergedSettings,
-        ...accessLimits,
-      })
-      .select()
-      .single();
+    const insertPayload = {
+      admin_id: req.user.id,
+      title: title.trim(),
+      description: typeof description === 'string' && description.trim() ? description.trim() : null,
+      share_code: shareCode,
+      interview_type: interviewType,
+      difficulty,
+      requires_login: requiresLogin,
+      questions: validatedQuestions,
+      settings: mergedSettings,
+      ...accessLimits,
+    };
 
-    if (error) throw error;
+    let data;
+    try {
+      const res = await supabaseAdmin
+        .from('admin_question_sets')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (res.error) throw res.error;
+      data = res.data;
+    } catch (insertError) {
+      // Fallback if scheduled columns are not yet migrated: insert without the new columns and rely on settings
+      if (insertError.message && (insertError.message.includes('scheduled_at') || insertError.message.includes('scheduled_duration_minutes'))) {
+        const { scheduled_at: _sa, scheduled_duration_minutes: _sdm, ...safePayload } = insertPayload;
+        const res = await supabaseAdmin
+          .from('admin_question_sets')
+          .insert(safePayload)
+          .select()
+          .single();
+        if (res.error) throw res.error;
+        data = res.data;
+      } else {
+        throw insertError;
+      }
+    }
 
     const { passcode_hash: _passcodeHash, ...safeQuestionSet } = data;
-    res.status(201).json({ questionSet: safeQuestionSet, shareCode: data.share_code, token: data.share_code });
+    res.status(201).json({
+      questionSet: {
+        ...safeQuestionSet,
+        scheduledAt: data.scheduled_at || data.settings?.scheduledAt || null,
+        scheduledDurationMinutes: data.scheduled_duration_minutes || data.settings?.scheduledDurationMinutes || 45,
+      },
+      shareCode: data.share_code,
+      token: data.share_code,
+    });
   } catch (error) {
     console.error('Create question set error:', error);
     const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
@@ -460,12 +495,19 @@ router.get('/question-sets', async (req, res) => {
         ? s.allowed_emails
         : (Array.isArray(s.settings?.allowedEmails) ? s.settings.allowedEmails : []);
 
+      const scheduledAt = s.scheduled_at || s.settings?.scheduledAt || null;
+      const scheduledDurationMinutes = s.scheduled_duration_minutes || s.settings?.scheduledDurationMinutes || 45;
+
       return {
         ...s,
         has_passcode: Boolean(passcodeHash),
         has_allowlist: allowlist.length > 0,
         allowed_emails: allowlist,
         roleName: s.settings?.roleName || '',
+        scheduled_at: scheduledAt,
+        scheduledAt,
+        scheduled_duration_minutes: scheduledDurationMinutes,
+        scheduledDurationMinutes,
         questionCount: Array.isArray(s.questions) ? s.questions.length : 0,
         submissionCount: submissionCounts[s.id] || 0,
       };
@@ -502,6 +544,9 @@ router.get('/question-sets/:id', async (req, res) => {
       ? safeQuestionSet.allowed_emails
       : (Array.isArray(safeQuestionSet.settings?.allowedEmails) ? safeQuestionSet.settings.allowedEmails : []);
 
+    const scheduledAt = safeQuestionSet.scheduled_at || safeQuestionSet.settings?.scheduledAt || null;
+    const scheduledDurationMinutes = safeQuestionSet.scheduled_duration_minutes || safeQuestionSet.settings?.scheduledDurationMinutes || 45;
+
     res.json({
       questionSet: {
         ...safeQuestionSet,
@@ -509,6 +554,10 @@ router.get('/question-sets/:id', async (req, res) => {
         has_allowlist: allowlist.length > 0,
         allowed_emails: allowlist,
         roleName: safeQuestionSet.settings?.roleName || '',
+        scheduled_at: scheduledAt,
+        scheduledAt,
+        scheduled_duration_minutes: scheduledDurationMinutes,
+        scheduledDurationMinutes,
       }
     });
   } catch (error) {
@@ -524,7 +573,8 @@ router.put('/question-sets/:id', async (req, res) => {
       title, description, interviewType, difficulty,
       requiresLogin, isActive, questions, settings,
       passcode, clearPasscode, expiresAt, maxAttempts,
-      allowedEmails, role, roleName
+      allowedEmails, role, roleName,
+      scheduledAt, scheduledDurationMinutes
     } = req.body;
 
     // Verify ownership
@@ -589,6 +639,18 @@ router.put('/question-sets/:id', async (req, res) => {
     if (expiresAt !== undefined || maxAttempts !== undefined) {
       Object.assign(updates, normalizeInterviewLimits({ expiresAt, maxAttempts }, { isUpdate: true }));
     }
+    if (scheduledAt !== undefined || scheduledDurationMinutes !== undefined) {
+      const scheduleLimits = normalizeInterviewLimits({ scheduledAt, scheduledDurationMinutes }, { isUpdate: true });
+      if (scheduleLimits.scheduled_at !== undefined) {
+        updates.scheduled_at = scheduleLimits.scheduled_at;
+        mergedSettings.scheduledAt = scheduleLimits.scheduled_at;
+      }
+      if (scheduleLimits.scheduled_duration_minutes !== undefined) {
+        updates.scheduled_duration_minutes = scheduleLimits.scheduled_duration_minutes;
+        mergedSettings.scheduledDurationMinutes = scheduleLimits.scheduled_duration_minutes;
+      }
+    }
+    updates.settings = mergedSettings;
     if (questions !== undefined) {
       if (!Array.isArray(questions) || questions.length === 0) {
         return res.status(400).json({ error: 'At least one question is required' });
@@ -609,17 +671,41 @@ router.put('/question-sets/:id', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_question_sets')
-      .update(updates)
-      .eq('id', req.params.id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    let data;
+    try {
+      const res = await supabaseAdmin
+        .from('admin_question_sets')
+        .update(updates)
+        .eq('id', req.params.id)
+        .select()
+        .single();
+      if (res.error) throw res.error;
+      data = res.data;
+    } catch (updateError) {
+      if (updateError.message && (updateError.message.includes('scheduled_at') || updateError.message.includes('scheduled_duration_minutes'))) {
+        const { scheduled_at: _sa, scheduled_duration_minutes: _sdm, ...safeUpdates } = updates;
+        const res = await supabaseAdmin
+          .from('admin_question_sets')
+          .update(safeUpdates)
+          .eq('id', req.params.id)
+          .select()
+          .single();
+        if (res.error) throw res.error;
+        data = res.data;
+      } else {
+        throw updateError;
+      }
+    }
 
     const { passcode_hash: passcodeHash, ...safeQuestionSet } = data;
-    res.json({ questionSet: { ...safeQuestionSet, has_passcode: Boolean(passcodeHash) } });
+    res.json({
+      questionSet: {
+        ...safeQuestionSet,
+        has_passcode: Boolean(passcodeHash),
+        scheduledAt: data.scheduled_at || data.settings?.scheduledAt || null,
+        scheduledDurationMinutes: data.scheduled_duration_minutes || data.settings?.scheduledDurationMinutes || 45,
+      }
+    });
   } catch (error) {
     console.error('Update question set error:', error);
     const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
@@ -697,6 +783,242 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
   } catch (error) {
     console.error('Get submissions error:', error);
     res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
+});
+
+// ─── Get Live Attempts Roster for a Question Set ─────────────────
+router.get('/question-sets/:id/attempts', async (req, res) => {
+  try {
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, questions')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const { data: attempts, error } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .select('id, user_id, stage, current_question_index, responses, expires_at, completed_at, submitted_at, created_at')
+      .eq('question_set_id', req.params.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    const totalQuestions = Array.isArray(existing.questions) ? existing.questions.length : 0;
+    const now = Date.now();
+
+    const roster = (attempts || []).map((att) => {
+      let status = 'in_progress';
+      if (att.submitted_at) {
+        status = 'submitted';
+      } else if (att.completed_at) {
+        status = 'completed';
+      } else if (att.expires_at && new Date(att.expires_at).getTime() < now) {
+        status = 'expired';
+      }
+
+      const turns = Array.isArray(att.responses) ? att.responses : [];
+      const answersCount = turns.filter((r) => r && r.role === 'candidate').length;
+
+      return {
+        id: att.id,
+        status,
+        stage: att.stage,
+        currentQuestionIndex: att.current_question_index ?? 0,
+        currentQuestionNumber: Math.min(totalQuestions, (att.current_question_index ?? 0) + 1),
+        totalQuestions,
+        answersCount,
+        turnsCount: turns.length,
+        startedAt: att.created_at,
+        completedAt: att.completed_at,
+        submittedAt: att.submitted_at,
+        expiresAt: att.expires_at,
+      };
+    });
+
+    const activeCount = roster.filter((r) => r.status === 'in_progress').length;
+    const completedCount = roster.filter((r) => r.status === 'submitted' || r.status === 'completed').length;
+
+    res.json({
+      questionSetTitle: existing.title,
+      attempts: roster,
+      summary: {
+        activeCount,
+        completedCount,
+        totalCount: roster.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get attempts error:', error);
+    res.status(500).json({ error: 'Failed to fetch interview attempts' });
+  }
+});
+
+// ─── Update Candidate Submission Review & Recruiter Notes ────────
+router.patch('/submissions/:id/review', async (req, res) => {
+  try {
+    const { reviewerNotes, reviewerDecision } = req.body;
+
+    const { data: submission, error: fetchErr } = await supabaseAdmin
+      .from('admin_interview_submissions')
+      .select('id, scores, question_set_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchErr || !submission) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    // Verify admin owns the question set
+    const { data: setOwner, error: setErr } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id')
+      .eq('id', submission.question_set_id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (setErr || !setOwner) {
+      return res.status(403).json({ error: 'Unauthorized to review this submission' });
+    }
+
+    const existingScores = typeof submission.scores === 'object' && submission.scores !== null
+      ? submission.scores
+      : {};
+
+    const updatedScores = {
+      ...existingScores,
+      reviewerNotes: typeof reviewerNotes === 'string' ? reviewerNotes.trim() : (existingScores.reviewerNotes || ''),
+      decision: reviewerDecision || existingScores.decision || 'review_needed',
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: req.user.email || req.user.id,
+    };
+
+    const { data: updated, error: updateErr } = await supabaseAdmin
+      .from('admin_interview_submissions')
+      .update({ scores: updatedScores })
+      .eq('id', submission.id)
+      .select('id, scores')
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    res.json({ success: true, submission: updated });
+  } catch (error) {
+    console.error('Update submission review error:', error);
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+// ─── Dispatch Candidate Email Invitations ────────────────────────
+router.post('/question-sets/:id/dispatch-invites', async (req, res) => {
+  try {
+    const { emails, customMessage, baseUrl } = req.body;
+
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, description, share_code, allowed_emails, scheduled_at, scheduled_duration_minutes, settings')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const hostOrigin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+    const targetBaseUrl = baseUrl || hostOrigin || 'https://preploop.com';
+
+    const dispatchResult = await dispatchCandidateInvitations({
+      questionSet: existing,
+      candidateEmails: Array.isArray(emails) && emails.length > 0 ? emails : existing.allowed_emails,
+      customMessage: typeof customMessage === 'string' ? customMessage : '',
+      baseUrl: targetBaseUrl,
+      organizerName: req.user.user_metadata?.full_name || req.user.email || 'PrepLoop Recruiting',
+    });
+
+    res.json({
+      success: true,
+      ...dispatchResult,
+    });
+  } catch (error) {
+    console.error('Dispatch candidate invites error:', error);
+    res.status(400).json({ error: error.message || 'Failed to dispatch candidate invitations' });
+  }
+});
+
+// ─── Test Recruiter Submission Webhook (Direct) ──────────────────
+router.post('/question-sets/test-webhook', async (req, res) => {
+  try {
+    const { webhookUrl, webhookSecret } = req.body;
+    if (!webhookUrl) {
+      return res.status(400).json({ error: 'Webhook URL is required' });
+    }
+
+    const pingResult = await dispatchInterviewWebhook(webhookUrl, webhookSecret, {
+      event: 'interview.webhook.test',
+      test: true,
+      timestamp: new Date().toISOString(),
+      message: 'This is an automated test ping from PrepLoop Interview Platform.',
+    });
+
+    res.json({
+      success: pingResult.success,
+      status: pingResult.status || null,
+      latencyMs: pingResult.latencyMs || 0,
+      error: pingResult.error || null,
+    });
+  } catch (error) {
+    console.error('Direct test webhook error:', error);
+    res.status(500).json({ error: 'Failed to dispatch test webhook' });
+  }
+});
+
+// ─── Test Recruiter Submission Webhook ───────────────────────────
+router.post('/question-sets/:id/test-webhook', async (req, res) => {
+  try {
+    const { webhookUrl: directUrl, webhookSecret: directSecret } = req.body;
+
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, settings')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const targetUrl = directUrl || existing.settings?.webhookUrl;
+    const targetSecret = directSecret || existing.settings?.webhookSecret;
+
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'No webhook URL provided or configured' });
+    }
+
+    const pingResult = await dispatchInterviewWebhook(targetUrl, targetSecret, {
+      event: 'interview.webhook.test',
+      questionSetId: existing.id,
+      questionSetTitle: existing.title,
+      test: true,
+      timestamp: new Date().toISOString(),
+      message: 'This is an automated test ping from PrepLoop Interview Platform.',
+    });
+
+    res.json({
+      success: pingResult.success,
+      status: pingResult.status || null,
+      latencyMs: pingResult.latencyMs || 0,
+      error: pingResult.error || null,
+    });
+  } catch (error) {
+    console.error('Test webhook error:', error);
+    res.status(500).json({ error: 'Failed to dispatch test webhook' });
   }
 });
 

@@ -53,16 +53,22 @@ function InterviewTopBar({
 }) {
     const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
 
+    const totalScheduleBudget = useMemo(() => {
+        if (Number(customQuestionSet?.scheduledDurationMinutes) > 0) {
+            return Number(customQuestionSet.scheduledDurationMinutes) * 60;
+        }
+        if (Array.isArray(customQuestionSet?.questions) && customQuestionSet.questions.length > 0) {
+            return customQuestionSet.questions.reduce((acc, q) => acc + (Number(q.timeLimit) || 60), 0);
+        }
+        return totalQuestions * getQuestionTimeLimit(resolvedStage);
+    }, [customQuestionSet, totalQuestions, resolvedStage]);
+
     // Global timer — remaining time for entire interview
     const globalRemaining = useMemo(() => {
-        let totalBudget = 0;
-        if (Array.isArray(customQuestionSet?.questions) && customQuestionSet.questions.length > 0) {
-            totalBudget = customQuestionSet.questions.reduce((acc, q) => acc + (Number(q.timeLimit) || 60), 0);
-        } else {
-            totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
-        }
-        return formatTime(Math.max(0, totalBudget - elapsed));
-    }, [totalQuestions, resolvedStage, elapsed, customQuestionSet]);
+        return formatTime(Math.max(0, totalScheduleBudget - elapsed));
+    }, [totalScheduleBudget, elapsed]);
+
+    const schedulePercent = Math.min(100, Math.max(0, Math.round((elapsed / Math.max(1, totalScheduleBudget)) * 100)));
 
     // Per-question timer
     const questionTimer = useMemo(() => {
@@ -84,15 +90,30 @@ function InterviewTopBar({
             : '';
 
     return (
-        <header className="ai-vc-topbar">
+        <header className="ai-vc-topbar" style={{ position: 'relative' }}>
+            <div
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    height: '2px',
+                    width: `${schedulePercent}%`,
+                    background: schedulePercent > 90 ? '#ef4444' : schedulePercent > 75 ? '#f59e0b' : '#38bdf8',
+                    transition: 'width 1s linear',
+                    zIndex: 10,
+                }}
+                title={`Fixed Session Schedule: ${schedulePercent}% elapsed`}
+            />
             <div className="ai-vc-topbar-left">
                 <div className="ai-vc-logo" onClick={onNavigateBack}>
                     <Sparkles size={16} />
                     <span>PrepLoop</span>
                 </div>
                 <div className="ai-vc-separator" />
-                <div className="ai-mode-badge" title={customQuestionSet ? `Private Question Set: ${customQuestionSet.title}` : undefined}>
-                    {customQuestionSet ? `🔒 ${customQuestionSet.title || 'Private Interview'}` : '🎙️ Interview Mode'}
+                <div className="ai-mode-badge" title={customQuestionSet ? `Private Session: ${customQuestionSet.title} (${customQuestionSet.scheduledDurationMinutes || 45}m)` : undefined}>
+                    {customQuestionSet
+                        ? `🔒 ${customQuestionSet.title || 'Private Session'}${customQuestionSet.scheduledDurationMinutes ? ` (${customQuestionSet.scheduledDurationMinutes}m)` : ''}`
+                        : '🎙️ Interview Mode'}
                 </div>
             </div>
             <div className="ai-vc-topbar-center">

@@ -20,6 +20,7 @@ import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 import { callFastReply, callTurnScoring } from '../../services/llmRouter.js';
 import quotaGuard from '../../services/quotaGuard.js';
 import { correctSttTechnicalTerms, stripFillersForLlm, getGenericFollowUp } from '../../utils/technicalPronunciation.js';
+import { matchExpectedTopics } from '../../utils/privateInterviewAccess.js';
 
 const router = express.Router();
 
@@ -112,6 +113,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
   });
   let customAttempt = null;
   let customCurrentQuestionText = '';
+  let customAttemptProbingQuestion = null;
 
   try {
     // ─── Admin Custom Question Set Flow ───
@@ -140,7 +142,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
 
       const { data: questionSet, error: questionSetError } = await _supabaseAdmin
         .from('admin_question_sets')
-        .select('questions, is_active, requires_login, share_code')
+        .select('questions, is_active, requires_login, share_code, settings')
         .eq('id', attempt.question_set_id)
         .single();
       if (questionSetError || !questionSet || !questionSet.is_active || questionSet.share_code !== _questionSetCode) {
@@ -157,8 +159,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
       if (allQuestions.length === 0) {
         return res.status(400).json({ error: 'Question set has no questions configured' });
       }
-      const nextQuestionIndex = attempt.current_question_index + 1;
-      const attemptComplete = nextQuestionIndex >= allQuestions.length;
+
       const currentQuestionItem = allQuestions[attempt.current_question_index];
       const currentQuestionText = typeof currentQuestionItem === 'string'
         ? currentQuestionItem
@@ -174,6 +175,31 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
       if (answerText.length > 20000) {
         return res.status(400).json({ error: 'Interview response is too large' });
       }
+
+      const expectedTopics = typeof currentQuestionItem === 'object' && Array.isArray(currentQuestionItem?.expectedTopics)
+        ? currentQuestionItem.expectedTopics
+        : (Array.isArray(currentQuestionItem?.topics) ? currentQuestionItem.topics : []);
+      const probingMode = Boolean(questionSet.settings?.probingMode);
+      const hasProbedCurrent = storedResponses.some(
+        (r) => r && r.questionIndex === attempt.current_question_index && r.isProbe
+      );
+      const topicEval = matchExpectedTopics(answerText, expectedTopics);
+      const shouldProbe = probingMode &&
+        !hasProbedCurrent &&
+        answerText.length > 15 &&
+        (topicEval.missedTopics.length > 0 || answerText.split(/\s+/).length < 25);
+
+      let nextQuestionIndex = attempt.current_question_index;
+      let attemptComplete = false;
+
+      if (shouldProbe) {
+        const targetTopic = topicEval.missedTopics[0] || 'the practical trade-offs';
+        customAttemptProbingQuestion = `You touched on key aspects. Could you elaborate specifically on ${targetTopic} in your approach?`;
+      } else {
+        nextQuestionIndex = attempt.current_question_index + 1;
+        attemptComplete = nextQuestionIndex >= allQuestions.length;
+      }
+
       const nextResponses = answerText
         ? [...storedResponses, {
           role: 'candidate',
@@ -182,6 +208,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
           content: answerText,
           questionIndex: attempt.current_question_index,
           elapsedSeconds: elapsedForQuestion,
+          isProbe: shouldProbe,
           overTime: Number.isFinite(configuredTimeLimit) && elapsedForQuestion > configuredTimeLimit + 10,
           code: typeof code === 'string' ? code.slice(0, 50000) : undefined,
           timestamp: new Date().toISOString(),
@@ -193,6 +220,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
           content: '',
           questionIndex: attempt.current_question_index,
           elapsedSeconds: elapsedForQuestion,
+          isProbe: false,
           timestamp: new Date().toISOString(),
         }];
       const updatePayload = attemptComplete
@@ -219,6 +247,26 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
       const qIndex = safeQuestionNumber - 1;
       const isComplete = qIndex >= allQuestions.length;
       const evaluated = evaluateFresherAnswer(userAnswer, customAttempt?.stage || stage, code);
+
+      if (customAttemptProbingQuestion) {
+        return res.json(withRuntime({
+          feedback: 'Understood. A quick follow-up to explore deeper before we move forward:',
+          followUpQuestion: customAttemptProbingQuestion,
+          complete: false,
+          score: evaluated.score,
+          strengths: evaluated.strengths,
+          improvements: evaluated.improvements,
+          interviewerReaction: 'thoughtful',
+          thinkTime: 0,
+          questionSource: 'admin-custom',
+          questionMeta: {
+            id: null,
+            track: 'admin-custom',
+            sequence: (customAttempt?.current_question_index ?? 0) + 1,
+            isProbe: true,
+          },
+        }));
+      }
 
       const feedbackOptions = [
         'Good answer, thank you for sharing that.',

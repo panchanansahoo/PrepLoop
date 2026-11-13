@@ -86,7 +86,8 @@ import {
   UserCheck, UserX, MessageSquare, Loader2, RefreshCw,
   Briefcase, Plus, Edit3, ToggleLeft, ToggleRight, X, ExternalLink,
   ListChecks, Copy, Check, UploadCloud, FileUp, ChevronDown, ChevronUp,
-  Eye, Clock, HelpCircle, Sparkles, Share2
+  Eye, Clock, HelpCircle, Sparkles, Share2, Download, Printer, CheckCircle2, XCircle,
+  Mail, Send, Camera
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -142,12 +143,28 @@ export default function AdminDashboard() {
   const [showSetPreview, setShowSetPreview] = useState(false);
   const [previewModalSet, setPreviewModalSet] = useState(null);
 
-  // Submissions modal state
+  // Submissions & Live Roster modal state
   const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+  const [submissionsModalTab, setSubmissionsModalTab] = useState('submissions');
   const [activeSetForSubmissions, setActiveSetForSubmissions] = useState(null);
   const [submissionsList, setSubmissionsList] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [attemptsList, setAttemptsList] = useState([]);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [expandedSubmissionId, setExpandedSubmissionId] = useState(null);
+  const [printingSubmission, setPrintingSubmission] = useState(null);
+  const [submissionDecisionFilter, setSubmissionDecisionFilter] = useState('all');
+  const [editingReviewNotes, setEditingReviewNotes] = useState({});
+  const [savingReviewId, setSavingReviewId] = useState(null);
+
+  // Personalized candidate invites modal
+  const [showPersonalizedInvitesModal, setShowPersonalizedInvitesModal] = useState(false);
+  const [activeSetForInvites, setActiveSetForInvites] = useState(null);
+  const [copiedIndividualLink, setCopiedIndividualLink] = useState(null);
+  const [dispatchingInvites, setDispatchingInvites] = useState(false);
+  const [dispatchResults, setDispatchResults] = useState(null);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [testWebhookResult, setTestWebhookResult] = useState(null);
 
   // Question Set Form
   const initialSetForm = {
@@ -160,11 +177,17 @@ export default function AdminDashboard() {
     clearPasscode: false,
     hasPasscode: false,
     expiresAt: '',
+    scheduledAt: '',
+    scheduledDurationMinutes: 45,
+    passingScore: 70,
     maxAttempts: '',
     allowedEmails: '',
     companyName: '',
     roleName: '',
     customInstructions: '',
+    webhookUrl: '',
+    webhookSecret: '',
+    probingMode: false,
     questions: [
       { question: '', context: '', expectedTopics: '', timeLimit: 60 }
     ],
@@ -422,11 +445,17 @@ export default function AdminDashboard() {
       clearPasscode: false,
       hasPasscode: Boolean(qs.has_passcode),
       expiresAt: qs.expires_at ? new Date(qs.expires_at).toISOString().slice(0, 16) : '',
+      scheduledAt: (qs.scheduled_at || qs.settings?.scheduledAt) ? new Date(qs.scheduled_at || qs.settings?.scheduledAt).toISOString().slice(0, 16) : '',
+      scheduledDurationMinutes: qs.scheduled_duration_minutes || qs.settings?.scheduledDurationMinutes || 45,
       maxAttempts: qs.max_attempts ?? '',
       allowedEmails: allowlistStr,
       companyName: qs.settings?.companyName || '',
       roleName: qs.settings?.roleName || qs.roleName || '',
       customInstructions: qs.settings?.customInstructions || '',
+      passingScore: qs.settings?.passingScore ?? 70,
+      webhookUrl: qs.settings?.webhookUrl || '',
+      webhookSecret: qs.settings?.webhookSecret || '',
+      probingMode: Boolean(qs.settings?.probingMode),
       questions: questionsArr.length > 0 ? questionsArr : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }],
     });
     setShowBulkUpload(false);
@@ -596,6 +625,8 @@ export default function AdminDashboard() {
       passcode: setForm.passcode,
       clearPasscode: setForm.clearPasscode,
       expiresAt: setForm.expiresAt ? new Date(setForm.expiresAt).toISOString() : null,
+      scheduledAt: setForm.scheduledAt ? new Date(setForm.scheduledAt).toISOString() : null,
+      scheduledDurationMinutes: Number(setForm.scheduledDurationMinutes) || 45,
       maxAttempts: setForm.maxAttempts,
       allowedEmails: emailsList,
       role: setForm.roleName?.trim() || '',
@@ -606,6 +637,12 @@ export default function AdminDashboard() {
         roleName: setForm.roleName?.trim() || '',
         customInstructions: setForm.customInstructions?.trim() || '',
         allowedEmails: emailsList,
+        scheduledAt: setForm.scheduledAt ? new Date(setForm.scheduledAt).toISOString() : null,
+        scheduledDurationMinutes: Number(setForm.scheduledDurationMinutes) || 45,
+        passingScore: Number(setForm.passingScore) || 70,
+        webhookUrl: setForm.webhookUrl?.trim() || '',
+        webhookSecret: setForm.webhookSecret?.trim() || '',
+        probingMode: Boolean(setForm.probingMode),
       }
     };
 
@@ -617,7 +654,7 @@ export default function AdminDashboard() {
       } else {
         const res = await adminApi.post(buildAdminApiUrl('/admin/question-sets'), payload);
         const token = res.data.token || res.data.questionSet.share_code;
-        setSuccess(`Question set created! Candidate link: ${window.location.origin}/app?token=${token}`);
+        setSuccess(`Question set created! Candidate join link: ${window.location.origin}/ai-interview?token=${token}`);
       }
       setShowSetModal(false);
       fetchQuestionSets();
@@ -659,26 +696,182 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDispatchEmailInvites = async () => {
+    if (!activeSetForInvites) return;
+    setDispatchingInvites(true);
+    setDispatchResults(null);
+    clearMessages();
+    try {
+      const res = await adminApi.post(buildAdminApiUrl(`/admin/question-sets/${activeSetForInvites.id}/dispatch-invites`), {
+        emails: activeSetForInvites.allowed_emails,
+        customMessage: `Please join your scheduled technical interview for "${activeSetForInvites.title}".`,
+      });
+      setDispatchResults(res.data);
+      if (res.data.isSimulated) {
+        setSuccess(`Generated invitation previews for ${res.data.total} candidates (email service running in simulation mode).`);
+      } else {
+        setSuccess(`Successfully sent ${res.data.sent} candidate invitation emails!`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to dispatch candidate invitations');
+    } finally {
+      setDispatchingInvites(false);
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    if (!setForm.webhookUrl) {
+      setError('Please provide a Webhook URL to test');
+      return;
+    }
+    setTestingWebhook(true);
+    setTestWebhookResult(null);
+    clearMessages();
+    try {
+      const endpoint = editingSet
+        ? `/admin/question-sets/${editingSet.id}/test-webhook`
+        : `/admin/question-sets/test-webhook`;
+      const res = await adminApi.post(buildAdminApiUrl(endpoint), {
+        webhookUrl: setForm.webhookUrl.trim(),
+        webhookSecret: setForm.webhookSecret?.trim() || '',
+      });
+      setTestWebhookResult(res.data);
+      if (res.data.success) {
+        setSuccess(`Webhook test succeeded! (HTTP ${res.data.status}, ${res.data.latencyMs}ms)`);
+      } else {
+        setError(`Webhook ping failed: ${res.data.error || 'Endpoint responded with error'}`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to test webhook');
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
+
+  const [copiedInviteCode, setCopiedInviteCode] = useState(null);
+
   const handleCopyShareLink = (code) => {
-    const link = `${window.location.origin}/app?token=${code}`;
+    const link = `${window.location.origin}/ai-interview?token=${code}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2500);
     });
   };
 
+  const handleCopyFullInvite = (qs) => {
+    const link = `${window.location.origin}/ai-interview?token=${qs.share_code}`;
+    const scheduleStr = (qs.scheduled_at || qs.settings?.scheduledAt)
+      ? `${new Date(qs.scheduled_at || qs.settings?.scheduledAt).toLocaleString()} (${qs.scheduled_duration_minutes || qs.settings?.scheduledDurationMinutes || 45} minutes)`
+      : 'Flexible / On-demand';
+    const roleStr = qs.settings?.roleName || qs.roleName || 'Candidate Assessment';
+    const companyStr = qs.settings?.companyName || 'PrepLoop';
+    const qCount = Array.isArray(qs.questions) ? qs.questions.length : 0;
+
+    const inviteText = [
+      `You're invited to an interview with ${companyStr}!`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `Session: ${qs.title}`,
+      `Role: ${roleStr}`,
+      `Format: ${qs.interview_type || 'Technical'} (${qCount} fixed questions)`,
+      `Schedule: ${scheduleStr}`,
+      `Direct Join Link: ${link}`,
+      qs.has_passcode ? `(A passcode is required to enter this session)` : '',
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `Please ensure you join from a quiet location with a working microphone and camera.`,
+    ].filter(Boolean).join('\n');
+
+    navigator.clipboard.writeText(inviteText).then(() => {
+      setCopiedInviteCode(qs.share_code);
+      setSuccess('Candidate invitation template copied to clipboard!');
+      setTimeout(() => setCopiedInviteCode(null), 3000);
+    });
+  };
+
+  const handleExportSubmissionsCsv = () => {
+    if (!submissionsList || submissionsList.length === 0) return;
+    const headers = ['Candidate Name', 'Email', 'Overall Score', 'Duration (Seconds)', 'Completed At', 'Question Count', 'Integrity Rating', 'Tab Switches'];
+    const rows = submissionsList.map(sub => [
+      `"${(sub.user_name || 'Guest Candidate').replace(/"/g, '""')}"`,
+      `"${(sub.user_email || '').replace(/"/g, '""')}"`,
+      sub.overall_score ?? 0,
+      sub.duration ?? 0,
+      `"${sub.completed_at || sub.created_at || ''}"`,
+      Array.isArray(sub.responses) ? sub.responses.length : 0,
+      `"${sub.scores?.integrity?.integrityRating || 'clean'}"`,
+      sub.scores?.integrity?.tabSwitchCount ?? 0,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${(activeSetForSubmissions?.title || 'interview').replace(/[^a-z0-9]/gi, '_')}_submissions.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrintReport = (sub) => {
+    setPrintingSubmission(sub);
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  };
+
   const handleViewSubmissions = async (qs) => {
     setActiveSetForSubmissions(qs);
     setShowSubmissionsModal(true);
+    setSubmissionsModalTab('submissions');
     setSubmissionsLoading(true);
     setExpandedSubmissionId(null);
     try {
-      const res = await adminApi.get(buildAdminApiUrl(`/admin/question-sets/${qs.id}/submissions`));
-      setSubmissionsList(res.data.submissions || []);
+      const [subsRes, attsRes] = await Promise.all([
+        adminApi.get(buildAdminApiUrl(`/admin/question-sets/${qs.id}/submissions`)),
+        adminApi.get(buildAdminApiUrl(`/admin/question-sets/${qs.id}/attempts`)).catch(() => ({ data: { attempts: [] } })),
+      ]);
+      setSubmissionsList(subsRes.data.submissions || []);
+      setAttemptsList(attsRes.data?.attempts || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load submissions');
     } finally {
       setSubmissionsLoading(false);
+    }
+  };
+
+  const handleRefreshAttempts = async (qsId) => {
+    setAttemptsLoading(true);
+    try {
+      const res = await adminApi.get(buildAdminApiUrl(`/admin/question-sets/${qsId}/attempts`));
+      setAttemptsList(res.data?.attempts || []);
+    } catch (err) {
+      console.error('Failed to refresh attempts:', err);
+    } finally {
+      setAttemptsLoading(false);
+    }
+  };
+
+  const handleSaveSubmissionReview = async (subId, notes, decision) => {
+    setSavingReviewId(subId);
+    try {
+      const res = await adminApi.patch(buildAdminApiUrl(`/admin/submissions/${subId}/review`), {
+        reviewerNotes: notes,
+        reviewerDecision: decision,
+      });
+      setSubmissionsList(prev => prev.map(s => {
+        if (s.id === subId) {
+          return {
+            ...s,
+            scores: res.data.submission?.scores || s.scores,
+          };
+        }
+        return s;
+      }));
+      setSuccess('Candidate review updated successfully!');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update candidate review');
+    } finally {
+      setSavingReviewId(null);
     }
   };
 
@@ -1180,7 +1373,7 @@ export default function AdminDashboard() {
               <tbody>
                 {questionSets.map(qs => {
                   const qCount = Array.isArray(qs.questions) ? qs.questions.length : 0;
-                  const shareUrl = `${window.location.origin}/app?token=${qs.share_code}`;
+                  const shareUrl = `${window.location.origin}/ai-interview?token=${qs.share_code}`;
                   const isCopied = copiedCode === qs.share_code;
 
                   return (
@@ -1234,6 +1427,11 @@ export default function AdminDashboard() {
                         </button>
                         {qs.has_allowlist && <span style={{ display: 'block', width: 'fit-content', marginTop: '4px', fontSize: '10px', color: '#6ee7b7' }}>Email Allowlist</span>}
                         {qs.has_passcode && <span style={{ display: 'block', width: 'fit-content', marginTop: '4px', fontSize: '10px', color: '#c4b5fd' }}>Passcode</span>}
+                        {(qs.scheduled_at || qs.settings?.scheduledAt) && (
+                          <span style={{ display: 'block', width: 'fit-content', marginTop: '4px', fontSize: '10px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            🗓️ {new Date(qs.scheduled_at || qs.settings?.scheduledAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} ({qs.scheduled_duration_minutes || qs.settings?.scheduledDurationMinutes || 45}m)
+                          </span>
+                        )}
                         {qs.expires_at && <span style={{ display: 'block', marginTop: '4px', fontSize: '10px', color: new Date(qs.expires_at) <= new Date() ? '#fca5a5' : 'rgba(255,255,255,.45)' }}>Expires {new Date(qs.expires_at).toLocaleDateString()}</span>}
                         {Number.isInteger(qs.max_attempts) && <span style={{ display: 'block', marginTop: '4px', fontSize: '10px', color: 'rgba(255,255,255,.45)' }}>{qs.attempts_started || 0}/{qs.max_attempts} attempts used</span>}
                       </td>
@@ -1259,6 +1457,15 @@ export default function AdminDashboard() {
                             <span style={{ fontSize: '11px', fontWeight: '600' }}>
                               {isCopied ? 'Copied!' : (qs.share_code?.length > 12 ? `${qs.share_code.slice(0, 8)}...` : qs.share_code)}
                             </span>
+                          </button>
+                          <button
+                            className="admin-btn-sm"
+                            onClick={() => handleCopyFullInvite(qs)}
+                            style={{ background: copiedInviteCode === qs.share_code ? 'rgba(34,197,94,0.15)' : 'rgba(56,189,248,0.12)', color: copiedInviteCode === qs.share_code ? '#86efac' : '#38bdf8', border: '1px solid rgba(56,189,248,0.25)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                            title="Copy formatted email/Slack invitation template with full schedule details"
+                          >
+                            {copiedInviteCode === qs.share_code ? <Check size={13} /> : <Share2 size={13} />}
+                            <span style={{ fontSize: '11px' }}>Invite</span>
                           </button>
                           <a
                             href={shareUrl}
@@ -1290,6 +1497,18 @@ export default function AdminDashboard() {
                         >
                           <BarChart3 size={13} />
                           <span style={{ fontSize: '11px' }}>Results</span>
+                        </button>
+                        <button
+                          className="admin-btn-sm"
+                          style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#6ee7b7', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                          onClick={() => {
+                            setActiveSetForInvites(qs);
+                            setShowPersonalizedInvitesModal(true);
+                          }}
+                          title="Generate candidate personalized invite links"
+                        >
+                          <Share2 size={13} />
+                          <span style={{ fontSize: '11px' }}>Invites</span>
                         </button>
                         <button className="admin-btn-sm promote" onClick={() => openEditSet(qs)} title="Edit Question Set">
                           <Edit3 size={14} />
@@ -1415,6 +1634,58 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Fixed Schedule & Session Window */}
+              <div className="form-row" style={{ background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: '10px', padding: '12px 14px', margin: '8px 0 16px', gap: '16px' }}>
+                <div className="form-group" style={{ flex: 1.5, margin: 0 }}>
+                  <label style={{ color: '#38bdf8', fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🗓️ Fixed Schedule Time (optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={setForm.scheduledAt}
+                    onChange={e => setSetForm({ ...setForm, scheduledAt: e.target.value })}
+                  />
+                  <span style={{ color: 'rgba(255,255,255,.5)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    Locks interview until this scheduled time. Candidates see a waiting room countdown until unlocked.
+                  </span>
+                </div>
+                <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                  <label style={{ color: '#38bdf8', fontWeight: '700', fontSize: '13px' }}>
+                    Fixed Session Duration
+                  </label>
+                  <select
+                    value={setForm.scheduledDurationMinutes}
+                    onChange={e => setSetForm({ ...setForm, scheduledDurationMinutes: Number(e.target.value) || 45 })}
+                  >
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes (Standard)</option>
+                    <option value="60">60 minutes (1 hour)</option>
+                    <option value="90">90 minutes</option>
+                    <option value="120">120 minutes (2 hours)</option>
+                  </select>
+                  <span style={{ color: 'rgba(255,255,255,.5)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    Scheduled interview window length.
+                  </span>
+                </div>
+                <div className="form-group" style={{ width: '140px', margin: 0 }}>
+                  <label style={{ color: '#22c55e', fontWeight: '700', fontSize: '13px' }}>
+                    Pass Threshold %
+                  </label>
+                  <input
+                    type="number"
+                    min="30"
+                    max="100"
+                    value={setForm.passingScore ?? 70}
+                    onChange={e => setSetForm({ ...setForm, passingScore: Math.min(100, Math.max(30, Number(e.target.value) || 70)) })}
+                    style={{ width: '100%' }}
+                  />
+                  <span style={{ color: 'rgba(255,255,255,.5)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    Auto-qualify target.
+                  </span>
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>{editingSet?.has_passcode ? 'Change passcode (optional)' : 'Passcode (optional)'}</label>
@@ -1479,6 +1750,71 @@ export default function AdminDashboard() {
                   onChange={e => setSetForm({ ...setForm, customInstructions: e.target.value })}
                   placeholder="e.g. Please speak clearly and outline trade-offs for each architectural choice."
                 />
+              </div>
+
+              {/* ─── Webhook & Probing Settings ─── */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', margin: '16px 0' }}>
+                <div style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: '#38bdf8', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                  ⚡ Integrations & Adaptive Probing
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group" style={{ flex: 2 }}>
+                    <label>Candidate Submission Webhook URL (Slack/Teams/ATS)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="url"
+                        value={setForm.webhookUrl}
+                        onChange={e => setSetForm({ ...setForm, webhookUrl: e.target.value })}
+                        placeholder="https://hooks.slack.com/services/... or https://api.yourats.com/webhook"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="admin-btn-secondary"
+                        onClick={handleTestWebhook}
+                        disabled={testingWebhook || !setForm.webhookUrl}
+                        style={{ whiteSpace: 'nowrap', padding: '6px 14px', fontSize: '12px' }}
+                      >
+                        {testingWebhook ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+                        {testingWebhook ? ' Testing...' : ' Test Ping'}
+                      </button>
+                    </div>
+                    <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                      Receives JSON payload with candidate score, integrity rating, decision, and breakdown upon completion.
+                    </span>
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label>Webhook Secret Key (optional)</label>
+                    <input
+                      type="password"
+                      value={setForm.webhookSecret}
+                      onChange={e => setSetForm({ ...setForm, webhookSecret: e.target.value })}
+                      placeholder="HMAC-SHA256 Secret"
+                    />
+                    <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                      Passed in X-PrepLoop-Signature header.
+                    </span>
+                  </div>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px', cursor: 'pointer', padding: '8px 12px', background: setForm.probingMode ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.02)', borderRadius: '8px', border: setForm.probingMode ? '1px solid rgba(56,189,248,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+                  <input
+                    type="checkbox"
+                    checked={setForm.probingMode}
+                    onChange={e => setSetForm({ ...setForm, probingMode: e.target.checked })}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: setForm.probingMode ? '#38bdf8' : '#e2e8f0' }}>
+                      🧠 Adaptive AI Probing Mode
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                      When enabled, if the candidate gives a brief answer or misses expected topics, the AI interviewer dynamically asks 1 sharp follow-up question on that topic before advancing.
+                    </div>
+                  </div>
+                </label>
               </div>
 
               {/* ─── Questions Builder ─── */}
@@ -1882,13 +2218,198 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
-              <button className="admin-modal-close" onClick={() => setShowSubmissionsModal(false)}>
-                <X size={20} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="admin-btn-sm"
+                  onClick={handleExportSubmissionsCsv}
+                  disabled={submissionsList.length === 0}
+                  style={{
+                    background: 'rgba(34,197,94,0.15)',
+                    color: '#86efac',
+                    border: '1px solid rgba(34,197,94,0.3)',
+                    padding: '6px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '6px',
+                    cursor: submissionsList.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: submissionsList.length === 0 ? 0.5 : 1,
+                  }}
+                  title="Download candidate responses as CSV"
+                >
+                  <Download size={14} /> Export CSV
+                </button>
+                <button className="admin-modal-close" onClick={() => setShowSubmissionsModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Tabs: Submissions vs Live Roster */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '0 24px', background: 'rgba(0,0,0,0.2)' }}>
+              <button
+                type="button"
+                onClick={() => setSubmissionsModalTab('submissions')}
+                style={{
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: submissionsModalTab === 'submissions' ? '2px solid #6366f1' : '2px solid transparent',
+                  color: submissionsModalTab === 'submissions' ? '#fff' : 'rgba(255,255,255,0.5)',
+                  cursor: 'pointer',
+                }}
+              >
+                Completed Submissions ({submissionsList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubmissionsModalTab('roster')}
+                style={{
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: submissionsModalTab === 'roster' ? '2px solid #38bdf8' : '2px solid transparent',
+                  color: submissionsModalTab === 'roster' ? '#fff' : 'rgba(255,255,255,0.5)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                Live Candidate Activity
+                {attemptsList.filter(a => a.status === 'in_progress').length > 0 && (
+                  <span style={{ background: '#22c55e', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '800' }}>
+                    {attemptsList.filter(a => a.status === 'in_progress').length} active
+                  </span>
+                )}
               </button>
             </div>
 
             <div style={{ padding: '20px 24px 24px' }}>
-              {submissionsLoading ? (
+              {submissionsModalTab === 'roster' ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
+                        <strong>{attemptsList.length}</strong> Total Session{attemptsList.length === 1 ? '' : 's'}
+                      </span>
+                      <span style={{ fontSize: '13px', color: '#86efac', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                        {attemptsList.filter(a => a.status === 'in_progress').length} In Progress
+                      </span>
+                      <span style={{ fontSize: '13px', color: '#93c5fd' }}>
+                        {attemptsList.filter(a => a.status === 'submitted' || a.status === 'completed').length} Completed
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRefreshAttempts(activeSetForSubmissions?.id)}
+                      disabled={attemptsLoading}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <RefreshCw size={12} className={attemptsLoading ? 'spin' : ''} /> Refresh Live
+                    </button>
+                  </div>
+
+                  {attemptsLoading ? (
+                    <div className="admin-loading" style={{ padding: '40px 0' }}>
+                      <Loader2 size={24} className="spin" />
+                      <span>Checking active sessions...</span>
+                    </div>
+                  ) : attemptsList.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(255,255,255,0.4)' }}>
+                      <p style={{ fontSize: '14px', margin: 0 }}>No candidate sessions have started yet.</p>
+                      <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'rgba(255,255,255,0.3)' }}>
+                        Share the join link with candidates to track live progress here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {attemptsList.map((att) => {
+                        const isInProgress = att.status === 'in_progress';
+                        const isSubmitted = att.status === 'submitted';
+                        const isCompleted = att.status === 'completed';
+
+                        const statusBadgeColor = isInProgress ? '#22c55e' : (isSubmitted || isCompleted) ? '#38bdf8' : '#94a3b8';
+                        const statusBadgeBg = isInProgress ? 'rgba(34,197,94,0.12)' : (isSubmitted || isCompleted) ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.05)';
+                        const statusBadgeBorder = isInProgress ? 'rgba(34,197,94,0.3)' : (isSubmitted || isCompleted) ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.1)';
+
+                        return (
+                          <div
+                            key={att.id}
+                            style={{
+                              background: 'rgba(255,255,255,0.02)',
+                              border: isInProgress ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: '10px',
+                              padding: '12px 16px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    color: statusBadgeColor,
+                                    background: statusBadgeBg,
+                                    border: `1px solid ${statusBadgeBorder}`,
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                  }}
+                                >
+                                  {isInProgress && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }}></span>}
+                                  {att.status.replace('_', ' ')}
+                                </span>
+                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>
+                                  Session <code>{att.id.slice(0, 8)}...</code>
+                                </span>
+                              </div>
+
+                              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '4px' }}>
+                                Started {new Date(att.startedAt).toLocaleTimeString()} · Stage: {att.stage || 'Technical'}
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#38bdf8' }}>
+                                Question {att.currentQuestionNumber} of {att.totalQuestions || '—'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                                {att.answersCount} turn{att.answersCount === 1 ? '' : 's'} recorded
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : submissionsLoading ? (
                 <div className="admin-loading" style={{ padding: '40px 0' }}>
                   <Loader2 size={24} className="spin" />
                   <span>Loading candidate responses...</span>
@@ -1902,10 +2423,86 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {submissionsList.map(sub => {
+                  {/* Decision Filter Pills */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginRight: '4px' }}>Filter:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDecisionFilter('all')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: submissionDecisionFilter === 'all' ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        border: 'none',
+                      }}
+                    >
+                      All ({submissionsList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDecisionFilter('qualified')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: submissionDecisionFilter === 'qualified' ? '#22c55e' : 'rgba(34,197,94,0.1)',
+                        color: submissionDecisionFilter === 'qualified' ? '#fff' : '#86efac',
+                        border: '1px solid rgba(34,197,94,0.3)',
+                      }}
+                    >
+                      ✓ Qualified ({submissionsList.filter(s => (s.scores?.decision || (s.overall_score >= 70 ? 'qualified' : '')) === 'qualified').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDecisionFilter('review_needed')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: submissionDecisionFilter === 'review_needed' ? '#f59e0b' : 'rgba(245,158,11,0.1)',
+                        color: submissionDecisionFilter === 'review_needed' ? '#fff' : '#fcd34d',
+                        border: '1px solid rgba(245,158,11,0.3)',
+                      }}
+                    >
+                      Review Needed ({submissionsList.filter(s => (s.scores?.decision || '') === 'review_needed').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionDecisionFilter('rejected')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: submissionDecisionFilter === 'rejected' ? '#ef4444' : 'rgba(239,68,68,0.1)',
+                        color: submissionDecisionFilter === 'rejected' ? '#fff' : '#fca5a5',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                      }}
+                    >
+                      Rejected ({submissionsList.filter(s => (s.scores?.decision || (s.overall_score < 55 ? 'rejected' : '')) === 'rejected').length})
+                    </button>
+                  </div>
+
+                  {submissionsList
+                    .filter(sub => {
+                      if (submissionDecisionFilter === 'all') return true;
+                      const decision = sub.scores?.decision || (sub.overall_score >= 70 ? 'qualified' : 'review_needed');
+                      return decision === submissionDecisionFilter;
+                    })
+                    .map(sub => {
                     const isExpanded = expandedSubmissionId === sub.id;
                     const score = sub.overall_score || 0;
                     const scoreColor = score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+                    const decision = sub.scores?.decision || (score >= 70 ? 'qualified' : score >= 55 ? 'review_needed' : 'rejected');
 
                     return (
                       <div
@@ -1928,15 +2525,74 @@ export default function AdminDashboard() {
                           onClick={() => setExpandedSubmissionId(isExpanded ? null : sub.id)}
                         >
                           <div>
-                            <div style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>
-                              {sub.user_name || sub.user_email || 'Candidate (Guest)'}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>
+                                {sub.user_name || sub.user_email || 'Candidate (Guest)'}
+                              </span>
+                              {decision === 'qualified' && (
+                                <span style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac', border: '1px solid rgba(34,197,94,0.3)', padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  ✓ Qualified
+                                </span>
+                              )}
+                              {decision === 'review_needed' && (
+                                <span style={{ background: 'rgba(245,158,11,0.15)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.3)', padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  Review Needed
+                                </span>
+                              )}
+                              {decision === 'rejected' && (
+                                <span style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  Rejected
+                                </span>
+                              )}
                             </div>
-                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
                               {sub.user_email || 'Direct link session'} · {new Date(sub.completed_at || sub.created_at).toLocaleString()}
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {sub.scores?.integrity && (
+                              <div>
+                                {sub.scores.integrity.tabSwitchCount === 0 && (sub.scores.integrity.pasteCount || 0) === 0 ? (
+                                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#22c55e', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', padding: '4px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <Shield size={11} /> Clean Focus (0 switches, 0 pastes)
+                                  </span>
+                                ) : sub.scores.integrity.integrityRating === 'moderate' ? (
+                                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', padding: '4px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <AlertTriangle size={11} /> {sub.scores.integrity.tabSwitchCount} Switch{sub.scores.integrity.tabSwitchCount === 1 ? '' : 'es'}{sub.scores.integrity.pasteCount > 0 ? `, ${sub.scores.integrity.pasteCount} Paste${sub.scores.integrity.pasteCount === 1 ? '' : 's'}` : ''}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#ef4444', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', padding: '4px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <AlertTriangle size={11} /> Flagged: {sub.scores.integrity.tabSwitchCount} Switch{sub.scores.integrity.tabSwitchCount === 1 ? '' : 'es'}{sub.scores.integrity.pasteCount > 0 ? `, ${sub.scores.integrity.pasteCount} Paste${sub.scores.integrity.pasteCount === 1 ? '' : 's'}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePrintReport(sub);
+                              }}
+                              style={{
+                                background: 'rgba(99,102,241,0.12)',
+                                border: '1px solid rgba(99,102,241,0.3)',
+                                color: '#a5b4fc',
+                                borderRadius: '8px',
+                                padding: '5px 10px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontWeight: '600',
+                              }}
+                              title="Print / Save PDF Evaluation Report"
+                            >
+                              <Printer size={13} /> Print
+                            </button>
+
                             <div style={{ textAlign: 'right' }}>
                               <div style={{ fontSize: '15px', fontWeight: '800', color: scoreColor }}>
                                 {score} / 100
@@ -1956,7 +2612,91 @@ export default function AdminDashboard() {
                         {/* Expanded conversation */}
                         {isExpanded && (
                           <div style={{ padding: '0 18px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.15)' }}>
-                            <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '14px 0 10px' }}>
+                            {/* Proctoring Visual Telemetry Snapshots */}
+                            {Array.isArray(sub.scores?.integrity?.snapshots) && sub.scores.integrity.snapshots.length > 0 && (
+                              <div style={{ marginTop: '16px', marginBottom: '20px' }}>
+                                <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#a78bfa', letterSpacing: '0.5px', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Camera size={14} /> 📸 Proctoring Visual Telemetry ({sub.scores.integrity.snapshots.length} Checkpoints)
+                                </h4>
+                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                  {sub.scores.integrity.snapshots.map((snap, snapIdx) => (
+                                    <div key={snapIdx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '6px', textAlign: 'center' }}>
+                                      <img
+                                        src={snap.thumbnail}
+                                        alt={`Proctoring Checkpoint ${snapIdx + 1}`}
+                                        style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '4px', display: 'block' }}
+                                      />
+                                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#38bdf8', marginTop: '4px', textTransform: 'capitalize' }}>
+                                        {snap.trigger.replace(/_/g, ' ')}
+                                      </div>
+                                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                                        {new Date(snap.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Question Topic Breakdown */}
+                            {Array.isArray(sub.scores?.breakdown) && sub.scores.breakdown.length > 0 && (
+                              <div style={{ marginTop: '16px', marginBottom: '20px' }}>
+                                <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#38bdf8', letterSpacing: '0.5px', margin: '0 0 12px' }}>
+                                  🎯 Question-by-Question Topic Coverage & Scoring
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                  {sub.scores.breakdown.map((q, qIdx) => (
+                                    <div
+                                      key={qIdx}
+                                      style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.06)',
+                                        borderRadius: '10px',
+                                        padding: '12px 14px',
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>
+                                          Q{q.questionIndex}: {q.question}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                          <span style={{ fontSize: '12px', fontWeight: '800', color: q.score >= 70 ? '#22c55e' : q.score >= 50 ? '#f59e0b' : '#ef4444' }}>
+                                            {q.score} / 100
+                                          </span>
+                                          {q.elapsedSeconds > 0 && (
+                                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                                              {q.elapsedSeconds}s
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Expected Topics Pills */}
+                                      {((Array.isArray(q.coveredTopics) && q.coveredTopics.length > 0) || (Array.isArray(q.missedTopics) && q.missedTopics.length > 0)) && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                          {q.coveredTopics?.map((t, idx) => (
+                                            <span key={`cov-${idx}`} style={{ fontSize: '11px', color: '#86efac', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                              <CheckCircle2 size={10} /> {t}
+                                            </span>
+                                          ))}
+                                          {q.missedTopics?.map((t, idx) => (
+                                            <span key={`mis-${idx}`} style={{ fontSize: '11px', color: '#fca5a5', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                              <XCircle size={10} /> {t}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5', background: 'rgba(0,0,0,0.2)', padding: '8px 10px', borderRadius: '6px', fontStyle: 'italic' }}>
+                                        &ldquo;{q.answer}&rdquo;
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '16px 0 10px' }}>
                               Interview Transcript & Answers ({Array.isArray(sub.responses) ? sub.responses.length : 0} turns)
                             </h4>
 
@@ -1992,12 +2732,450 @@ export default function AdminDashboard() {
                                 </p>
                               )}
                             </div>
+
+                            {/* Recruiter Evaluation Notes & Decision Panel */}
+                            <div style={{ marginTop: '18px', padding: '14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#a5b4fc', letterSpacing: '0.5px', margin: 0 }}>
+                                  📝 Recruiter Review & Decision
+                                </h4>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSubmissionReview(sub.id, editingReviewNotes[sub.id] ?? sub.scores?.reviewerNotes ?? '', 'qualified')}
+                                    disabled={savingReviewId === sub.id}
+                                    style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '4px', background: (sub.scores?.decision || decision) === 'qualified' ? '#22c55e' : 'rgba(34,197,94,0.12)', color: (sub.scores?.decision || decision) === 'qualified' ? '#fff' : '#86efac', border: '1px solid rgba(34,197,94,0.3)', cursor: 'pointer', fontWeight: '700' }}
+                                  >
+                                    ✓ Qualified
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSubmissionReview(sub.id, editingReviewNotes[sub.id] ?? sub.scores?.reviewerNotes ?? '', 'review_needed')}
+                                    disabled={savingReviewId === sub.id}
+                                    style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '4px', background: (sub.scores?.decision || decision) === 'review_needed' ? '#f59e0b' : 'rgba(245,158,11,0.12)', color: (sub.scores?.decision || decision) === 'review_needed' ? '#fff' : '#fcd34d', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer', fontWeight: '700' }}
+                                  >
+                                    Review
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSubmissionReview(sub.id, editingReviewNotes[sub.id] ?? sub.scores?.reviewerNotes ?? '', 'rejected')}
+                                    disabled={savingReviewId === sub.id}
+                                    style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '4px', background: (sub.scores?.decision || decision) === 'rejected' ? '#ef4444' : 'rgba(239,68,68,0.12)', color: (sub.scores?.decision || decision) === 'rejected' ? '#fff' : '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer', fontWeight: '700' }}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+
+                              <textarea
+                                rows={2}
+                                value={editingReviewNotes[sub.id] !== undefined ? editingReviewNotes[sub.id] : (sub.scores?.reviewerNotes || '')}
+                                onChange={(e) => setEditingReviewNotes({ ...editingReviewNotes, [sub.id]: e.target.value })}
+                                placeholder="Add private evaluation notes for this candidate (e.g. strong technical grasp, proceed to final interview)..."
+                                style={{ width: '100%', fontSize: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '8px 10px', color: '#fff', resize: 'vertical' }}
+                              />
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveSubmissionReview(sub.id, editingReviewNotes[sub.id] ?? sub.scores?.reviewerNotes ?? '', sub.scores?.decision || decision)}
+                                  disabled={savingReviewId === sub.id}
+                                  style={{ padding: '5px 14px', fontSize: '12px', borderRadius: '6px', background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                                >
+                                  {savingReviewId === sub.id ? 'Saving...' : 'Save Notes'}
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Evaluation Report Dialog */}
+      {printingSubmission && (
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => setPrintingSubmission(null)}
+          style={{ zIndex: 1200 }}
+        >
+          <div
+            className="admin-modal"
+            id="printable-assessment-report"
+            style={{
+              maxWidth: '850px',
+              width: '92%',
+              maxHeight: '90vh',
+              background: '#0f172a',
+              color: '#f8fafc',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '16px',
+              padding: '32px',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with Print & Close controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid rgba(255,255,255,0.08)', paddingBottom: '20px', marginBottom: '24px' }}>
+              <div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#6366f1', fontWeight: '800' }}>
+                  PrepLoop Verified Assessment Report
+                </div>
+                <h2 style={{ fontSize: '22px', fontWeight: '800', margin: '4px 0 0', color: '#fff' }}>
+                  {activeSetForSubmissions?.title || 'Private Interview Assessment'}
+                </h2>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
+                  Session Code: <code style={{ color: '#38bdf8' }}>{activeSetForSubmissions?.share_code || '—'}</code> · Type: {activeSetForSubmissions?.interview_type || 'Technical'}
+                </div>
+              </div>
+
+              <div className="print-hide" style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    background: '#6366f1',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  <Printer size={15} /> Print / Save PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintingSubmission(null)}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Candidate & Integrity Overview Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Candidate</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginTop: '4px' }}>
+                  {printingSubmission.user_name || 'Guest Candidate'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  {printingSubmission.user_email || 'Direct invite link'}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Performance Score</div>
+                <div style={{ fontSize: '20px', fontWeight: '800', marginTop: '2px', color: (printingSubmission.overall_score || 0) >= 70 ? '#22c55e' : (printingSubmission.overall_score || 0) >= 50 ? '#f59e0b' : '#ef4444' }}>
+                  {printingSubmission.overall_score || 0} <span style={{ fontSize: '13px', fontWeight: '500', color: 'rgba(255,255,255,0.4)' }}>/ 100</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  Duration: {Math.round((printingSubmission.duration || 0) / 60)} minutes
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Session Integrity</div>
+                <div style={{ fontSize: '15px', fontWeight: '700', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', color: (printingSubmission.scores?.integrity?.tabSwitchCount || 0) === 0 && (printingSubmission.scores?.integrity?.pasteCount || 0) === 0 ? '#22c55e' : (printingSubmission.scores?.integrity?.tabSwitchCount || 0) <= 2 ? '#f59e0b' : '#ef4444' }}>
+                  <Shield size={16} />
+                  {(printingSubmission.scores?.integrity?.tabSwitchCount || 0) === 0 && (printingSubmission.scores?.integrity?.pasteCount || 0) === 0
+                    ? 'Clean Focus (0 switches, 0 pastes)'
+                    : `${printingSubmission.scores?.integrity?.tabSwitchCount || 0} Switch(es) · ${printingSubmission.scores?.integrity?.pasteCount || 0} Paste(s)`}
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  Completed: {new Date(printingSubmission.completed_at || printingSubmission.created_at).toLocaleDateString()}
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '14px 16px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontWeight: '700' }}>Hiring Status</div>
+                <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', color: (printingSubmission.scores?.decision || 'qualified') === 'qualified' ? '#22c55e' : (printingSubmission.scores?.decision === 'review_needed' ? '#f59e0b' : '#ef4444') }}>
+                  {(printingSubmission.scores?.decision || (printingSubmission.overall_score >= 70 ? 'qualified' : 'review_needed')).replace('_', ' ')}
+                </div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  Target: {printingSubmission.scores?.passingScore ?? 70}%
+                </div>
+              </div>
+            </div>
+
+            {printingSubmission.scores?.reviewerNotes && (
+              <div style={{ marginBottom: '24px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#a5b4fc', fontWeight: '800', marginBottom: '4px' }}>
+                  Recruiter Reviewer Notes
+                </div>
+                <div style={{ fontSize: '13px', color: '#fff', lineHeight: '1.5' }}>
+                  {printingSubmission.scores.reviewerNotes}
+                </div>
+              </div>
+            )}
+
+            {/* Proctoring Visual Snapshots */}
+            {Array.isArray(printingSubmission.scores?.integrity?.snapshots) && printingSubmission.scores.integrity.snapshots.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#a78bfa', margin: '0 0 10px' }}>
+                  Verified Proctoring Checkpoints ({printingSubmission.scores.integrity.snapshots.length})
+                </h3>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {printingSubmission.scores.integrity.snapshots.map((snap, snapIdx) => (
+                    <div key={snapIdx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '6px', textAlign: 'center' }}>
+                      <img
+                        src={snap.thumbnail}
+                        alt={`Checkpoint ${snapIdx + 1}`}
+                        style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '4px', display: 'block' }}
+                      />
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#38bdf8', marginTop: '4px', textTransform: 'capitalize' }}>
+                        {snap.trigger.replace(/_/g, ' ')}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
+                        {new Date(snap.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Question by question section */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#38bdf8', margin: '0 0 14px' }}>
+                Question Performance & Topic Mastery
+              </h3>
+              {Array.isArray(printingSubmission.scores?.breakdown) && printingSubmission.scores.breakdown.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {printingSubmission.scores.breakdown.map((q, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '10px',
+                        padding: '14px 16px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#fff' }}>
+                          Question {q.questionIndex}: {q.question}
+                        </div>
+                        <div style={{ fontWeight: '800', fontSize: '14px', color: q.score >= 70 ? '#22c55e' : q.score >= 50 ? '#f59e0b' : '#ef4444' }}>
+                          {q.score} / 100
+                        </div>
+                      </div>
+
+                      {((Array.isArray(q.coveredTopics) && q.coveredTopics.length > 0) || (Array.isArray(q.missedTopics) && q.missedTopics.length > 0)) && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '8px 0 10px' }}>
+                          {q.coveredTopics?.map((t, tI) => (
+                            <span key={`p-cov-${tI}`} style={{ fontSize: '11px', color: '#86efac', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <CheckCircle2 size={10} /> {t}
+                            </span>
+                          ))}
+                          {q.missedTopics?.map((t, tI) => (
+                            <span key={`p-mis-${tI}`} style={{ fontSize: '11px', color: '#fca5a5', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <XCircle size={10} /> {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: '12px', lineHeight: '1.5', color: '#cbd5e1', background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: '8px' }}>
+                        {q.answer}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', padding: '16px 0' }}>
+                  No per-question breakdown recorded.
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+              <span>Generated by PrepLoop Enterprise Evaluation Engine</span>
+              <span>Confidential Assessment Document</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Personalized Candidate Invites Modal */}
+      {showPersonalizedInvitesModal && activeSetForInvites && (
+        <div className="admin-modal-backdrop" onClick={() => setShowPersonalizedInvitesModal(false)}>
+          <div
+            className="admin-modal"
+            style={{ maxWidth: '680px', width: '92%', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px', marginBottom: '20px' }}>
+              <div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', color: '#10b981', fontWeight: '800' }}>
+                  Candidate Link Dispatch
+                </div>
+                <h2 style={{ fontSize: '20px', fontWeight: '800', margin: '4px 0 0', color: '#fff' }}>
+                  Personalized Candidate Join Links
+                </h2>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
+                  {activeSetForInvites.title} · Share Code: <code>{activeSetForInvites.share_code}</code>
+                </div>
+              </div>
+              <button className="admin-modal-close" onClick={() => setShowPersonalizedInvitesModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Schedule details note */}
+            {activeSetForInvites.scheduled_at && (
+              <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '12px', color: '#7dd3fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={15} style={{ flexShrink: 0 }} />
+                <span>
+                  Fixed Session: <strong>{new Date(activeSetForInvites.scheduled_at).toLocaleString()}</strong> ({activeSetForInvites.scheduled_duration_minutes || 45} mins). Candidate emails will be pre-filled and locked.
+                </span>
+              </div>
+            )}
+
+            {/* List of candidates from allowed_emails or fallback */}
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '0 0 10px' }}>
+                Authorized Candidate Links ({activeSetForInvites.allowed_emails?.length || 0})
+              </h4>
+
+              {Array.isArray(activeSetForInvites.allowed_emails) && activeSetForInvites.allowed_emails.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                  {activeSetForInvites.allowed_emails.map((email, idx) => {
+                    const candidateUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
+                    const isCopied = copiedIndividualLink === email;
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          borderRadius: '8px',
+                          padding: '10px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>
+                            {email}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {candidateUrl}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(candidateUrl);
+                            setCopiedIndividualLink(email);
+                            setTimeout(() => setCopiedIndividualLink(null), 2500);
+                          }}
+                          style={{
+                            background: isCopied ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.15)',
+                            color: isCopied ? '#86efac' : '#a5b4fc',
+                            border: isCopied ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(99,102,241,0.3)',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isCopied ? <Check size={13} /> : <Copy size={13} />}
+                          {isCopied ? 'Copied' : 'Copy Link'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                  <p style={{ fontSize: '13px', margin: 0 }}>This question set does not have an email allowlist configured.</p>
+                  <p style={{ fontSize: '11px', margin: '4px 0 0' }}>Candidates can join directly using the general candidate token <code>{activeSetForInvites.share_code}</code>.</p>
+                </div>
+              )}
+            </div>
+
+              {/* Email dispatch results summary banner */}
+              {dispatchResults && (
+                <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', background: dispatchResults.isSimulated ? 'rgba(234,179,8,0.1)' : 'rgba(34,197,94,0.1)', border: dispatchResults.isSimulated ? '1px solid rgba(234,179,8,0.25)' : '1px solid rgba(34,197,94,0.25)', fontSize: '12px', color: dispatchResults.isSimulated ? '#fde047' : '#86efac' }}>
+                  {dispatchResults.isSimulated ? (
+                    <div>ℹ️ <strong>Simulated Email Dispatch:</strong> Generated {dispatchResults.total} candidate invitations with calendar attachments (.ics). (Email service credentials not configured in environment).</div>
+                  ) : (
+                    <div>✓ <strong>Dispatched:</strong> {dispatchResults.sent} sent, {dispatchResults.failed} failed of {dispatchResults.total} candidate emails.</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => {
+                  setShowPersonalizedInvitesModal(false);
+                  setDispatchResults(null);
+                }}
+              >
+                Close
+              </button>
+              {Array.isArray(activeSetForInvites.allowed_emails) && activeSetForInvites.allowed_emails.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="admin-btn-secondary"
+                    disabled={dispatchingInvites}
+                    onClick={handleDispatchEmailInvites}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}
+                  >
+                    {dispatchingInvites ? <Loader2 size={14} className="spin" /> : <Mail size={14} />}
+                    {dispatchingInvites ? 'Sending Invites...' : 'Send Email Invites'}
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn-primary"
+                    onClick={() => {
+                      const allLinksText = activeSetForInvites.allowed_emails.map(email => {
+                        const url = `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
+                        return `${email}: ${url}`;
+                      }).join('\n');
+                      navigator.clipboard.writeText(allLinksText);
+                      setSuccess('All candidate personalized join links copied to clipboard!');
+                      setTimeout(() => setShowPersonalizedInvitesModal(false), 800);
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Copy size={14} /> Copy All Links
+                  </button>
+                </>
               )}
             </div>
           </div>

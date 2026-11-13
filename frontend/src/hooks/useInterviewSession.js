@@ -785,6 +785,19 @@ export function useInterviewSession(options = {}) {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  const tabSwitchCountRef = useRef(0);
+  const pasteCountRef = useRef(0);
+
+  useEffect(() => {
+    const handlePaste = () => {
+      if (phaseRef.current === "interview") {
+        pasteCountRef.current += 1;
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
   // These callbacks are stable; depending on them (instead of the whole
   // `intelligence` object) avoids re-running effects on every score update.
   const { ingestTranscript, ingestAudioConfidence } = intelligence;
@@ -1329,6 +1342,33 @@ export function useInterviewSession(options = {}) {
   const interviewerTargetModeRef = useRef("listening");
   const videoRef = useRef(null);
   const analysisRequestIdRef = useRef(0);
+  const proctoringSnapshotsRef = useRef([]);
+
+  const captureProctoringSnapshot = useCallback((trigger = "checkpoint") => {
+    try {
+      if (typeof document === "undefined") return null;
+      const videoEl = videoRef.current;
+      if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(videoEl, 0, 0, 160, 120);
+      const thumbnail = canvas.toDataURL("image/jpeg", 0.45);
+      const snapshot = {
+        trigger,
+        timestamp: new Date().toISOString(),
+        thumbnail,
+      };
+      if (proctoringSnapshotsRef.current.length < 5) {
+        proctoringSnapshotsRef.current.push(snapshot);
+      }
+      return snapshot;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const generateAnalysis = useCallback(async () => {
     // Flush any pending evaluations with 10s timeout + 1 retry so the final report incorporates every turn score
@@ -1584,6 +1624,7 @@ export function useInterviewSession(options = {}) {
       _user?.email ||
       null;
     try {
+      captureProctoringSnapshot("submission");
       const res = await authFetch(`/api/interview/question-set/${code}/submit`, {
         method: "POST",
         body: JSON.stringify({
@@ -1594,10 +1635,16 @@ export function useInterviewSession(options = {}) {
           duration: elapsed || 0,
           userName: candidateDisplayName,
           userEmail: candidateDisplayEmail,
+          tabSwitchCount: tabSwitchCountRef.current,
+          pasteCount: pasteCountRef.current,
+          snapshots: proctoringSnapshotsRef.current,
         }),
       });
       if (res.ok) {
         setSubmissionStatus("saved");
+        try {
+          sessionStorage.removeItem(`attempt_${code}`);
+        } catch { /* empty */ }
         return;
       }
       const body = await res.json().catch(() => ({}));
@@ -1805,9 +1852,20 @@ export function useInterviewSession(options = {}) {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.hidden) {
+        if (phaseRef.current === "interview") {
+          tabSwitchCountRef.current += 1;
+        }
         stopSilenceHandling();
-      } else if (isListeningRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
-        startSilenceHandling();
+      } else {
+        if (isListeningRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
+          startSilenceHandling();
+        }
+        if (phaseRef.current === "interview" && tabSwitchCountRef.current > 0) {
+          setInterviewerStatus(`⚠️ Focus Alert: Tab switch #${tabSwitchCountRef.current} logged. Please remain in this window.`);
+          playWarningChime(speakerMuted);
+          captureProctoringSnapshot(`tab_switch_${tabSwitchCountRef.current}`);
+          setTimeout(() => setInterviewerStatus(""), 4500);
+        }
       }
     };
     const handleOffline = () => {
@@ -2086,6 +2144,15 @@ export function useInterviewSession(options = {}) {
         startPayload.questionSetCode = questionSetCode;
         startPayload.token = questionSetCode;
         startPayload.questionSetPasscode = questionSetPasscode;
+        let storedAttemptId = customAttemptIdRef.current;
+        if (!storedAttemptId && typeof sessionStorage !== 'undefined') {
+          try {
+            storedAttemptId = sessionStorage.getItem(`attempt_${questionSetCode}`);
+          } catch { /* empty */ }
+        }
+        if (storedAttemptId) {
+          startPayload.attemptId = storedAttemptId;
+        }
         if (candidateName?.trim()) {
           startPayload.userName = candidateName.trim();
         }
@@ -2128,6 +2195,11 @@ export function useInterviewSession(options = {}) {
       }
       if (data.attemptId) {
         customAttemptIdRef.current = data.attemptId;
+        if (typeof sessionStorage !== 'undefined' && questionSetCode) {
+          try {
+            sessionStorage.setItem(`attempt_${questionSetCode}`, data.attemptId);
+          } catch { /* empty */ }
+        }
       }
       questionBankIdsRef.current = Array.isArray(data.questionBank) ? data.questionBank : [];
       currentQuestionIdRef.current = data.questionMeta?.id || null;
@@ -2147,7 +2219,8 @@ export function useInterviewSession(options = {}) {
         `Welcome! Let's start this ${resolvedStage.toLowerCase()} interview. Tell me about a project you've worked on that you're proud of.`;
       const questionText = sanitizeOpeningQuestionText(rawQuestionText, resolvedStage);
       setCurrentQuestion(questionText);
-      setQuestionIndex(1);
+      const startingIndex = data.isResumed && data.questionMeta?.sequence ? Number(data.questionMeta.sequence) : 1;
+      setQuestionIndex(startingIndex);
       setConversation([
         { role: "interviewer", content: questionText, timestamp: Date.now() },
       ]);
@@ -2159,6 +2232,7 @@ export function useInterviewSession(options = {}) {
       setPhase("interview");
       phaseRef.current = "interview";
       setLoading(false);
+      setTimeout(() => captureProctoringSnapshot("session_start"), 2000);
 
       // Warm-up line: a short human greeting before Q1 — the most humanizing moment
       // Makes the transition from "connecting" to "interview" feel natural
@@ -3251,11 +3325,45 @@ export function useInterviewSession(options = {}) {
   }, [isPaused, startVoiceRecording, stopVoiceRecording, voiceAI]);
 
   const endInterviewRef = useRef(null);
+  const scheduledBudgetWarned5MinRef = useRef(false);
+  const scheduledBudgetWarned1MinRef = useRef(false);
+
   useEffect(() => {
     endInterviewRef.current = endInterview;
   }, [endInterview]);
+
   useEffect(() => {
     if (phase !== "interview" || isPaused) return;
+
+    // Check fixed schedule time budget if configured
+    if (customQuestionSet?.scheduledAt) {
+      const scheduledDurationMinutes = Number(customQuestionSet.scheduledDurationMinutes) || 45;
+      const scheduledBudgetSeconds = scheduledDurationMinutes * 60;
+      const remainingSeconds = scheduledBudgetSeconds - elapsed;
+
+      if (remainingSeconds <= 300 && remainingSeconds > 290 && !scheduledBudgetWarned5MinRef.current) {
+        scheduledBudgetWarned5MinRef.current = true;
+        setInterviewerStatus("⚠️ 5 minutes remaining in this scheduled session");
+        playWarningChime(speakerMuted);
+        setTimeout(() => setInterviewerStatus(""), 5000);
+      }
+
+      if (remainingSeconds <= 60 && remainingSeconds > 50 && !scheduledBudgetWarned1MinRef.current) {
+        scheduledBudgetWarned1MinRef.current = true;
+        setInterviewerStatus("⚠️ 1 minute remaining — finalizing session");
+        playWarningChime(speakerMuted);
+        setTimeout(() => setInterviewerStatus(""), 5000);
+      }
+
+      if (elapsed >= scheduledBudgetSeconds) {
+        console.info(
+          `[AI Interview] Scheduled session duration expired (${scheduledDurationMinutes}m). Auto-ending interview.`,
+        );
+        if (endInterviewRef.current) endInterviewRef.current("scheduled_time_expired");
+        return;
+      }
+    }
+
     const resolvedStage = STAGE_MAP[interviewType] || "Technical";
     const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
     if (elapsed >= totalBudget) {
@@ -3264,7 +3372,7 @@ export function useInterviewSession(options = {}) {
       );
       if (endInterviewRef.current) endInterviewRef.current();
     }
-  }, [elapsed, phase, isPaused, interviewType, totalQuestions]);
+  }, [elapsed, phase, isPaused, interviewType, totalQuestions, customQuestionSet?.scheduledAt, customQuestionSet?.scheduledDurationMinutes, speakerMuted]);
 
   const toggleMic = useCallback(() => {
     if (isPausedRef.current) return;
@@ -3514,6 +3622,9 @@ export function useInterviewSession(options = {}) {
       realisticJitter,
       whiteboardSnapshot,
       realismScore: calculateRealismScore(),
+      tabSwitchCount: tabSwitchCountRef.current,
+      pasteCount: pasteCountRef.current,
+      proctoringSnapshots: proctoringSnapshotsRef.current,
     },
     refs: {
       voiceHookRef,
@@ -3524,6 +3635,9 @@ export function useInterviewSession(options = {}) {
       chatEndRef,
       silenceStageTimerRef,
       stateRefs,
+      tabSwitchCountRef,
+      pasteCountRef,
+      proctoringSnapshotsRef,
       questionIndexRef,
       timerRef,
       questionTimerRef,

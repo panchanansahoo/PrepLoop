@@ -680,3 +680,30 @@
   border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
+/* Print Assessment Report Styles */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #printable-assessment-report,
+  #printable-assessment-report * {
+    visibility: visible !important;
+  }
+  #printable-assessment-report {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 24px !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    box-shadow: none !important;
+  }
+  .print-hide {
+    display: none !important;
+  }
+}
+
+
