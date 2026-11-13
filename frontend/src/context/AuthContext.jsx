@@ -44,8 +44,37 @@ function isSafeRetryRequestUrl(requestUrl) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      if (token && stored) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        return JSON.parse(stored);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [loading, setLoading] = useState(() => {
+    try {
+      const token = localStorage.getItem('token');
+      const stored = localStorage.getItem('user');
+      // If we already have a valid token and cached user, don't block the UI
+      if (token && stored) {
+        return false;
+      }
+      // If there is no token and no Supabase, user is definitely unauthenticated
+      if (!token && !supabase) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
   axios.defaults.withCredentials = true;
 
@@ -60,40 +89,61 @@ export function AuthProvider({ children }) {
     const initializeAuth = async () => {
       try {
         if (supabase) {
-          const { data: { session }, _error } = await supabase.auth.getSession();
+          // Timeout getSession so slow network or Supabase latency does not block startup
+          const sessionPromise = supabase.auth.getSession();
+          const timeoutPromise = new Promise((resolve) =>
+            setTimeout(() => resolve({ data: { session: null }, timeout: true }), 2000)
+          );
+
+          const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
 
           if (session) {
             const token = session.access_token;
             localStorage.setItem('token', token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-            try {
-              // apiClient's default export resolves to response data, not the Axios response.
-              const response = await apiClient.get('/api/user/profile');
-              const profileData = response.user;
-              const fullUser = {
-                id: session.user.id,
-                email: session.user.email,
-                fullName: profileData.fullName || session.user.user_metadata?.full_name,
-                subscriptionTier: profileData.subscriptionTier || 'free',
-                experienceLevel: profileData.experienceLevel || 'beginner',
-                role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
-              };
-              if (mounted) setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
-            } catch (err) {
-              console.error('Profile sync error', err);
-              const userMetadata = session.user.user_metadata || {};
-              const fullUser = {
-                id: session.user.id,
-                email: session.user.email,
-                fullName: userMetadata.full_name,
-                role: session.user.app_metadata?.role || userMetadata.role || 'user',
-                ...userMetadata
-              };
-              if (mounted) setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
+            const userMetadata = session.user.user_metadata || {};
+            const initialUser = {
+              id: session.user.id,
+              email: session.user.email,
+              fullName: userMetadata.full_name || session.user.email?.split('@')[0],
+              role: session.user.app_metadata?.role || userMetadata.role || 'user',
+              subscriptionTier: 'free',
+              experienceLevel: 'beginner',
+              ...userMetadata,
+            };
+
+            // Immediately unblock UI with session/cached user
+            if (mounted) {
+              setUser((prev) => prev || initialUser);
+              setLoading(false);
             }
+
+            // Sync full profile in the background without blocking app startup
+            apiClient.get('/api/user/profile', { timeout: 5000 })
+              .then((response) => {
+                if (!mounted) return;
+                const profileData = response?.user || response?.data?.user;
+                if (profileData) {
+                  const fullUser = {
+                    ...initialUser,
+                    ...profileData,
+                    fullName: profileData.fullName || userMetadata.full_name,
+                    subscriptionTier: profileData.subscriptionTier || 'free',
+                    experienceLevel: profileData.experienceLevel || 'beginner',
+                    role: profileData.role || session.user.app_metadata?.role || userMetadata.role || 'user',
+                  };
+                  setUser(fullUser);
+                  localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
+                }
+              })
+              .catch((err) => {
+                console.warn('Background profile sync note:', err?.message || err);
+                if (mounted) {
+                  localStorage.setItem('user', JSON.stringify(stripAuthToken(initialUser)));
+                }
+              });
+
             return;
           }
         }
@@ -101,11 +151,11 @@ export function AuthProvider({ children }) {
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
 
-        if (token && userData) {
-          if (mounted) {
+        if (token && userData && mounted) {
+          try {
             setUser(JSON.parse(userData));
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          }
+          } catch {}
         }
 
       } catch (error) {
@@ -130,31 +180,40 @@ export function AuthProvider({ children }) {
           localStorage.setItem('token', token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-          try {
-            // apiClient's default export resolves to response data, not the Axios response.
-            const response = await apiClient.get('/api/user/profile');
-            const profileData = response.user;
-            const fullUser = {
-              ...profileData,
-              id: profileData.id,
-              email: profileData.email || session.user.email,
-              fullName: profileData.fullName,
-              role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
-            };
-            if (mounted) {
-              setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
-            }
-          } catch (e) {
-            console.error('Profile fetch failed', e);
-            const u = {
-              id: session.user.id,
-              email: session.user.email,
-              fullName: session.user.user_metadata?.full_name,
-              role: session.user.app_metadata?.role || session.user.user_metadata?.role || 'user'
-            };
-            if (mounted) setUser(u);
+          const userMetadata = session.user.user_metadata || {};
+          const initialUser = {
+            id: session.user.id,
+            email: session.user.email,
+            fullName: userMetadata.full_name || session.user.email?.split('@')[0],
+            role: session.user.app_metadata?.role || userMetadata.role || 'user',
+            subscriptionTier: 'free',
+            experienceLevel: 'beginner',
+            ...userMetadata,
+          };
+
+          if (mounted) {
+            setUser((prev) => prev || initialUser);
+            setLoading(false);
           }
+
+          apiClient.get('/api/user/profile', { timeout: 5000 })
+            .then((response) => {
+              if (!mounted) return;
+              const profileData = response?.user || response?.data?.user;
+              if (profileData) {
+                const fullUser = {
+                  ...initialUser,
+                  ...profileData,
+                  fullName: profileData.fullName || userMetadata.full_name,
+                  role: profileData.role || session.user.app_metadata?.role || userMetadata.role || 'user',
+                };
+                setUser(fullUser);
+                localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
+              }
+            })
+            .catch((e) => {
+              console.warn('Profile fetch note in background:', e?.message || e);
+            });
         } else if (event === 'SIGNED_OUT') {
           if (mounted) {
             setUser(null);
@@ -357,17 +416,8 @@ export function AuthProvider({ children }) {
     return () => axios.interceptors.response.eject(interceptor);
   }, []); // safe — uses ref, no stale closure
 
-  if (loading) {
-    return (
-      <div className="loading" role="status" aria-label="Loading application">
-        <div className="spinner" aria-hidden="true"></div>
-        <span className="sr-only">Loading, please wait…</span>
-      </div>
-    );
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, getAuthHeaders, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshSession, getAuthHeaders, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

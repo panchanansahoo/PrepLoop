@@ -131,4 +131,20 @@ describe('AuthContext auth flows', () => {
     expect(storedUser.access_token).toBeUndefined();
     expect(storedUser.token).toBeUndefined();
   });
+
+  it('renders children immediately without full-screen loading blocker', () => {
+    function Child() {
+      const { loading } = useAuth();
+      return <div data-testid="child-mounted">Ready: {String(!loading)}</div>;
+    }
+
+    render(
+      <AuthProvider>
+        <Child />
+      </AuthProvider>
+    );
+
+    // Child should be mounted immediately in the DOM without waiting for network
+    expect(screen.getByTestId('child-mounted')).toBeInTheDocument();
+  });
 });

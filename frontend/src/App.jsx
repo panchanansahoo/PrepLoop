@@ -117,14 +117,16 @@ const LiveCodingCopilot = lazyWithRecovery(() => import('./pages/LiveCodingCopil
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
+  const { user, loading } = useAuth();
+  if (loading) return <RouteLoadingSkeleton />;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
 function AdminRoute({ children }) {
-  const { user, isAdmin } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  if (!isAdmin) return <Navigate to="/dashboard" />;
+  const { user, isAdmin, loading } = useAuth();
+  if (loading) return <RouteLoadingSkeleton />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -416,14 +418,27 @@ function AppContent() {
 
 
 function App() {
-  const [appReady, setAppReady] = useState(false);
+  const [appReady, setAppReady] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem('preploop_app_ready'));
+    } catch {
+      return false;
+    }
+  });
+
+  const handleAppReady = () => {
+    try {
+      sessionStorage.setItem('preploop_app_ready', 'true');
+    } catch {}
+    setAppReady(true);
+  };
 
   return (
     <GlobalErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
           <CoinProvider>
-            {!appReady && <LoadingScreen onFinished={() => setAppReady(true)} />}
+            {!appReady && <LoadingScreen onFinished={handleAppReady} />}
             <Router
               future={{
                 v7_startTransition: true,
