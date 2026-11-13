@@ -18,4 +18,10 @@ export const analyticsApi = {
         const res = await apiClient.get("/api/career/analytics");
         return res.data;
     },
+
+    /** GET /api/improvement-plan/latest — user's latest improvement plan */
+    async getImprovementPlan() {
+        const res = await apiClient.get("/api/improvement-plan/latest");
+        return res.data?.plan || res.data;
+    },
 };

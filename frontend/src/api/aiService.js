@@ -3,6 +3,7 @@
  * Wrapper functions for all AI features endpoints
  */
 
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
 import { API_URL } from '../config/api.js';
 
@@ -262,7 +263,7 @@ async function apiRequest(endpoint, options = {}) {
     throw new Error('Authentication required. Please log in first.');
   }
 
-  const response = await fetch(buildAiFeaturesUrl(endpoint), {
+  const response = await authFetch(buildAiFeaturesUrl(endpoint), {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -294,7 +295,7 @@ async function _apiRequestAbsolute(endpoint, options = {}) {
     throw new Error('Authentication required. Please log in first.');
   }
 
-  const response = await fetch(buildApiRootUrl(endpoint), {
+  const response = await authFetch(buildApiRootUrl(endpoint), {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,

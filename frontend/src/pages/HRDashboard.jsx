@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Plus, Trash2, Users, Briefcase, LogOut, ChevronRight, CheckCircle, X, Building, Video, Star, MapPin, DollarSign, Link as _LinkIcon, FileText } from 'lucide-react';
 import { buildApiUrl } from '../utils/safeApiUrl';
+import { authFetch } from '../utils/authFetch';
 
 import { API_URL } from '../config/api.js';
 
@@ -61,21 +62,21 @@ export default function HRDashboard() {
 
   const loadSlots = async () => {
     try {
-      const res = await fetch(buildHrApiUrl('/hr/my-slots'), { headers: getHeaders() });
+      const res = await authFetch(buildHrApiUrl('/hr/my-slots'), { headers: getHeaders() });
       if (res.ok) setSlots(await res.json());
     } catch (err) { console.error(err); }
   };
 
   const loadBookings = async () => {
     try {
-      const res = await fetch(buildHrApiUrl('/hr/my-bookings'), { headers: getHeaders() });
+      const res = await authFetch(buildHrApiUrl('/hr/my-bookings'), { headers: getHeaders() });
       if (res.ok) setBookings(await res.json());
     } catch (err) { console.error(err); }
   };
 
   const loadJobs = async () => {
     try {
-      const res = await fetch(buildHrApiUrl('/hr/my-jobs'), { headers: getHeaders() });
+      const res = await authFetch(buildHrApiUrl('/hr/my-jobs'), { headers: getHeaders() });
       if (res.ok) setJobs(await res.json());
     } catch (err) { console.error(err); }
   };
@@ -83,7 +84,7 @@ export default function HRDashboard() {
   const createSlot = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(buildHrApiUrl('/hr/slots'), {
+      const res = await authFetch(buildHrApiUrl('/hr/slots'), {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(slotForm),
@@ -102,7 +103,12 @@ export default function HRDashboard() {
   const deleteSlot = async (id) => {
     if (!confirm('Delete this slot?')) return;
     try {
-      await fetch(buildHrApiUrl(`/hr/slots/${id}`), { method: 'DELETE', headers: getHeaders() });
+      const res = await authFetch(buildHrApiUrl(`/hr/slots/${id}`), { method: 'DELETE', headers: getHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to delete');
+        return;
+      }
       loadSlots();
     } catch { alert('Failed to delete'); }
   };
@@ -112,11 +118,16 @@ export default function HRDashboard() {
     if (!rating) return;
     const feedback = prompt('Any feedback for the student?') || '';
     try {
-      await fetch(buildHrApiUrl(`/hr/complete/${bookingId}`), {
+      const res = await authFetch(buildHrApiUrl(`/hr/complete/${bookingId}`), {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify({ rating: parseInt(rating), feedback }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to complete');
+        return;
+      }
       loadBookings();
     } catch { alert('Failed to complete'); }
   };
@@ -124,7 +135,7 @@ export default function HRDashboard() {
   const createJob = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(buildHrApiUrl('/hr/jobs'), {
+      const res = await authFetch(buildHrApiUrl('/hr/jobs'), {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(jobForm),
@@ -143,7 +154,12 @@ export default function HRDashboard() {
   const deleteJob = async (id) => {
     if (!confirm('Delete this job posting?')) return;
     try {
-      await fetch(buildHrApiUrl(`/hr/jobs/${id}`), { method: 'DELETE', headers: getHeaders() });
+      const res = await authFetch(buildHrApiUrl(`/hr/jobs/${id}`), { method: 'DELETE', headers: getHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to delete');
+        return;
+      }
       loadJobs();
     } catch { alert('Failed to delete'); }
   };

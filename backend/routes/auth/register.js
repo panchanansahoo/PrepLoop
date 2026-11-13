@@ -230,8 +230,15 @@ router.post('/activate-account', verificationLimiter, async (req, res) => {
     const bearerToken = authHeader.slice(7);
     try {
       const { data: { user: authUser } } = await supabaseAdmin.auth.getUser(bearerToken);
-      if (authUser && (authUser.role === 'admin' || authUser.user_metadata?.role === 'admin')) {
-        isAdmin = true;
+      if (authUser) {
+        const { data: callerProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('role')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        if (callerProfile?.role === 'admin' || authUser.app_metadata?.role === 'admin') {
+          isAdmin = true;
+        }
       }
     } catch { }
   }

@@ -164,65 +164,93 @@ export const enhancedSecurity = (options = {}) => {
       });
     }
 
-    // Rate limiting check
-    const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1' || ip === 'localhost' || process.env.NODE_ENV === 'development';
-    const maxRequests = isLocalhost ? 5000 : THRESHOLDS.MAX_REQUESTS_PER_MINUTE;
-    const requestCount = checkRateLimit(ip);
-    if (requestCount > maxRequests) {
-      trackIPActivity(ip, 'rate_limit_exceeded', 'high');
-      logger.warn('Rate limit exceeded', { ip, requestId, count: requestCount });
-      return res.status(429).json({ 
-        error: 'Too many requests',
-        message: 'Please slow down and try again later'
-      });
-    }
-
-    // Detect suspicious patterns
-    const suspiciousPattern = detectSuspiciousPatterns(req, customSkipRoutes);
-    if (suspiciousPattern) {
-      trackIPActivity(ip, 'suspicious_pattern', 'high');
-      logger.error('Suspicious pattern detected', { 
-        ip, 
-        requestId, 
-        pattern: suspiciousPattern,
-        url: req.originalUrl 
-      });
-      return res.status(400).json({ 
-        error: 'Invalid request',
-        message: 'Request contains suspicious patterns'
-      });
-    }
-
-    // Validate content-type for POST/PUT/PATCH
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      const contentType = req.headers['content-type'];
-      // SECURITY (M5): Accept form-urlencoded in addition to JSON and multipart
-      if (!contentType || (
-        !contentType.includes('application/json') && 
-        !contentType.includes('multipart/form-data') &&
-        !contentType.includes('application/x-www-form-urlencoded') &&
-        !contentType.includes('text/plain')
-      )) {
-        logger.warn('Invalid content-type', { ip, requestId, contentType });
-        return res.status(415).json({ 
-          error: 'Unsupported Media Type',
-          message: 'Content-Type must be application/json, multipart/form-data, or application/x-www-form-urlencoded'
+    const continueSecurityChecks = () => {
+      // Rate limiting check
+      const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1' || ip === 'localhost' || process.env.NODE_ENV === 'development';
+      const maxRequests = isLocalhost ? 5000 : THRESHOLDS.MAX_REQUESTS_PER_MINUTE;
+      const requestCount = checkRateLimit(ip);
+      if (requestCount > maxRequests) {
+        trackIPActivity(ip, 'rate_limit_exceeded', 'high');
+        logger.warn('Rate limit exceeded', { ip, requestId, count: requestCount });
+        return res.status(429).json({ 
+          error: 'Too many requests',
+          message: 'Please slow down and try again later'
         });
       }
+
+      // Detect suspicious patterns
+      const suspiciousPattern = detectSuspiciousPatterns(req, customSkipRoutes);
+      if (suspiciousPattern) {
+        trackIPActivity(ip, 'suspicious_pattern', 'high');
+        logger.error('Suspicious pattern detected', { 
+          ip, 
+          requestId, 
+          pattern: suspiciousPattern,
+          url: req.originalUrl 
+        });
+        return res.status(400).json({ 
+          error: 'Invalid request',
+          message: 'Request contains suspicious patterns'
+        });
+      }
+
+      // Validate content-type for POST/PUT/PATCH
+      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        const contentType = req.headers['content-type'];
+        // SECURITY (M5): Accept form-urlencoded in addition to JSON and multipart
+        if (!contentType || (
+          !contentType.includes('application/json') && 
+          !contentType.includes('multipart/form-data') &&
+          !contentType.includes('application/x-www-form-urlencoded') &&
+          !contentType.includes('text/plain')
+        )) {
+          logger.warn('Invalid content-type', { ip, requestId, contentType });
+          return res.status(415).json({ 
+            error: 'Unsupported Media Type',
+            message: 'Content-Type must be application/json, multipart/form-data, or application/x-www-form-urlencoded'
+          });
+        }
+      }
+
+      // Track normal activity
+      trackIPActivity(ip, 'normal', 'low');
+
+      // Add security headers to response
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      // Allow microphone on same-origin for voice interviews; keep camera and geolocation disabled
+      res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
+
+      return next();
+    };
+
+    if (ip && cacheManager.isConnected) {
+      return cacheManager.get(`security:blocked:${ip}`)
+        .then((remoteBlocked) => {
+          if (remoteBlocked?.blocked) {
+            enforceMapCapacity(suspiciousIPs);
+            suspiciousIPs.set(ip, {
+              requests: 1,
+              failedAuth: 0,
+              suspiciousPatterns: 0,
+              firstSeen: Date.now(),
+              lastSeen: Date.now(),
+              blocked: true,
+            });
+            logger.error('Blocked IP attempted access (Redis blocklist)', { ip, requestId, url: req.originalUrl });
+            return res.status(403).json({
+              error: 'Access denied',
+              message: 'Your IP has been temporarily blocked due to suspicious activity'
+            });
+          }
+          return continueSecurityChecks();
+        })
+        .catch(() => continueSecurityChecks());
     }
 
-    // Track normal activity
-    trackIPActivity(ip, 'normal', 'low');
-
-    // Add security headers to response
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    // Allow microphone on same-origin for voice interviews; keep camera and geolocation disabled
-    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
-
-    next();
+    return continueSecurityChecks();
   };
 };
 

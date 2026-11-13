@@ -20,7 +20,7 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
 function InterviewResults({
     analysisResult,
     analysisLoading,
-    interviewer,
+    interviewer = {},
     interviewType,
     conversation,
     submissionStatus,
@@ -275,8 +275,8 @@ function InterviewResults({
                                'General'} Interview
                         </h1>
                         <div className="ai-result-meta">
-                            <span><Building2 size={13} /> {interviewer.company}</span>
-                            <span><User size={13} /> {interviewer.name}</span>
+                            <span><Building2 size={13} /> {interviewer?.company || 'PrepLoop'}</span>
+                            <span><User size={13} /> {interviewer?.name || 'Interviewer'}</span>
                             <span><Clock size={13} /> {a?.stats?.duration || '00:00'}</span>
                         </div>
                     </div>
@@ -1073,7 +1073,7 @@ function InterviewResults({
                                             <span>{stepText}</span>
                                         </div>
                                         {isCode ? (
-                                            <button type="button" className="ai-result-focus-btn" style={{ fontSize: '12px', padding: '6px 12px', minWidth: 'fit-content' }} onClick={() => navigate('/coding-playground')}>
+                                            <button type="button" className="ai-result-focus-btn" style={{ fontSize: '12px', padding: '6px 12px', minWidth: 'fit-content' }} onClick={() => navigate('/playground')}>
                                                 Coding Playground <ChevronRight size={12} />
                                             </button>
                                         ) : isMock ? (

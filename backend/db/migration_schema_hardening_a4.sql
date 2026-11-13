@@ -11,12 +11,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 2. Missing composite indexes (safe idempotent creation)
-CREATE INDEX IF NOT EXISTS idx_job_applications_user
-  ON job_applications (user_id, status, applied_at DESC);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'job_applications') THEN
+    CREATE INDEX IF NOT EXISTS idx_job_applications_user
+      ON job_applications (user_id, status, applied_at DESC);
+  END IF;
+END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'interview_transcripts') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'interview_transcripts') THEN
     CREATE INDEX IF NOT EXISTS idx_interview_transcripts_session
       ON interview_transcripts (session_id, created_at DESC);
   END IF;

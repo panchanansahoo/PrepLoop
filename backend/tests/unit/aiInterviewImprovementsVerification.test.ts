@@ -173,6 +173,7 @@ describe('AI Interview Regression & Verification: Areas #3 and #5', () => {
       const server = http.createServer();
       service.initialize(server);
 
+      vi.spyOn(service, 'extractUserId').mockResolvedValue('test-user-id');
       vi.spyOn(service, 'generateQuestion').mockResolvedValue('Explain event loop in Node.js.');
       vi.spyOn(service, 'generateFeedback').mockResolvedValue({
         comment: 'Clear explanation of call stack and callback queue.',

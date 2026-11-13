@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
@@ -37,8 +37,23 @@ export default function AIInterviewPage() {
     const [cameraCheckStatus, setCameraCheckStatus] = useState('not_checked');
     const [lobbyMicStream, setLobbyMicStream] = useState(null);
     const [lobbyCameraStream, setLobbyCameraStream] = useState(null);
+    const lobbyMicStreamRef = useRef(null);
+    const lobbyCameraStreamRef = useRef(null);
     const [lobbyMicLevel, setLobbyMicLevel] = useState(0);
     const [preflightError, setPreflightError] = useState(null);
+
+    useEffect(() => {
+        lobbyMicStreamRef.current = lobbyMicStream;
+    }, [lobbyMicStream]);
+
+    useEffect(() => {
+        lobbyCameraStreamRef.current = lobbyCameraStream;
+    }, [lobbyCameraStream]);
+
+    useEffect(() => () => {
+        lobbyMicStreamRef.current?.getTracks().forEach((t) => t.stop());
+        lobbyCameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    }, []);
 
     const checkMicrophone = useCallback(async () => {
         if (!navigator.mediaDevices?.getUserMedia) {

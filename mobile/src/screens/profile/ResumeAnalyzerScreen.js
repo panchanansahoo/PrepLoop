@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     StatusBar, Alert,
@@ -62,6 +62,24 @@ export default function ResumeAnalyzerScreen({ navigation }) {
     const [result, setResult] = useState(null);
     const [fileName, setFileName] = useState("");
 
+    useEffect(() => {
+        let isMounted = true;
+        async function loadLatest() {
+            try {
+                const latest = await resumeApi.getLatest();
+                if (latest && (latest.analysis || latest.ats_score != null || latest.atsScore != null) && isMounted) {
+                    setResult(latest);
+                }
+            } catch {
+                // No previous analysis available — show upload prompt
+            }
+        }
+        loadLatest();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     async function pickAndAnalyze() {
         try {
             const res = await DocumentPicker.getDocumentAsync({
@@ -82,7 +100,8 @@ export default function ResumeAnalyzerScreen({ navigation }) {
         }
     }
 
-    const analysis = result?.analysis;
+    const analysis = result?.analysis || (result?.ats_score != null ? { atsScore: result.ats_score, ...result } : result);
+    const scoreVal = analysis?.atsScore ?? analysis?.ats_score ?? 0;
 
     return (
         <View style={s.container}>
@@ -128,12 +147,12 @@ export default function ResumeAnalyzerScreen({ navigation }) {
                         {/* Score */}
                         <Card elevated style={s.scoreCard}>
                             <View style={s.scoreRow}>
-                                <ScoreRing score={analysis.atsScore || 0} />
+                                <ScoreRing score={scoreVal} />
                                 <View style={s.scoreInfo}>
                                     <Text style={s.scoreLabel}>Your ATS Score</Text>
                                     <Text style={s.scoreHint}>
-                                        {analysis.atsScore >= 75 ? "Great! Your resume is well-optimized." :
-                                         analysis.atsScore >= 50 ? "Good start. Room for improvement." :
+                                        {scoreVal >= 75 ? "Great! Your resume is well-optimized." :
+                                         scoreVal >= 50 ? "Good start. Room for improvement." :
                                          "Needs significant improvement."}
                                     </Text>
                                 </View>

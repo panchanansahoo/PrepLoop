@@ -12,7 +12,8 @@ const ICE_SERVERS = {
 
 export function usePeerInterview({ roomCode, initialRole = 'candidate', initialLanguage = 'javascript' } = {}) {
   const { user } = useAuth();
-  const userId = user?.id || `anon_${Math.random().toString(36).substring(2, 9)}`;
+  const anonIdRef = useRef(`anon_${Math.random().toString(36).substring(2, 9)}`);
+  const userId = user?.id || anonIdRef.current;
 
   const [connected, setConnected] = useState(false);
   const [session, setSession] = useState(null);
@@ -94,12 +95,27 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
     }
   }, []);
 
+  // Initialize Local Media on mount
+  useEffect(() => {
+    startMedia();
+  }, [startMedia]);
+
   // WebSocket Connection
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    // Vite dev server proxies API, websocket backend connects directly or via ws path
-    const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${host}:5000/ws/collaborate?token=${user?.token || ''}&userId=${userId}`;
+    const token = localStorage.getItem('token') || '';
+    let wsBase = `${protocol}//${import.meta.env.PROD ? window.location.host : `${host}:5000`}`;
+    if (API_URL) {
+      try {
+        const parsedApi = new URL(API_URL, window.location.origin);
+        const wsProto = parsedApi.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsBase = `${wsProto}//${parsedApi.host}`;
+      } catch {
+        // Keep fallback wsBase
+      }
+    }
+    const wsUrl = import.meta.env.VITE_WS_URL || `${wsBase}/ws/collaborate?token=${encodeURIComponent(token)}&userId=${encodeURIComponent(userId)}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -234,6 +250,8 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'leave_session' }));
         ws.close();
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
       }
     };
   }, [roomCode, userId]);
@@ -322,6 +340,7 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
     isVideoMuted,
     toggleAudio,
     toggleVideo,
+    startMedia,
     evaluation,
     submitEvaluation,
     statusMessage,

@@ -1024,7 +1024,13 @@ router.post('/mentor/book', authenticateToken, async (req, res) => {
       .select('*')
       .single();
 
-    if (bookingError) throw bookingError;
+    if (bookingError) {
+      await supabaseAdmin
+        .from('mentor_mock_slots')
+        .update({ is_booked: false })
+        .eq('id', slotId);
+      throw bookingError;
+    }
 
     res.json({ booking });
   } catch (error) {

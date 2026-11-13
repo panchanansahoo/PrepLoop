@@ -5,8 +5,10 @@
 
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createLogger } from '../utils/structuredLogger.js';
+import { verifySupabaseToken } from '../middleware/auth.ts';
 import crypto from 'crypto';
 import type { IncomingMessage, Server } from 'http';
+import type { Duplex } from 'stream';
 
 const logger = createLogger('collaboration');
 
@@ -20,6 +22,7 @@ export interface SessionSettings {
   maxParticipants: number;
   allowEditing: boolean;
   requireApproval: boolean;
+  allowedCollaborators?: string[];
 }
 
 export interface RubricEvaluation {
@@ -56,21 +59,36 @@ export class CollaborationService {
   /**
    * Initialize WebSocket server
    */
-  initialize(server: Server): void {
-    this.wss = new WebSocketServer({ server, path: '/ws/collaborate' });
+  initialize(server?: Server, { noServer = false }: { noServer?: boolean } = {}): void {
+    this.wss = noServer || !server
+      ? new WebSocketServer({ noServer: true })
+      : new WebSocketServer({ server, path: '/ws/collaborate' });
 
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-      this.handleConnection(ws, req);
+      void this.handleConnection(ws, req);
     });
 
     logger.info('Collaboration service initialized');
   }
 
   /**
+   * Handle HTTP upgrade for /ws/collaborate
+   */
+  handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void {
+    if (!this.wss) {
+      socket.destroy();
+      return;
+    }
+    (this.wss as any).handleUpgrade(request, socket, head, (ws: WebSocket) => {
+      (this.wss as any)?.emit('connection', ws, request);
+    });
+  }
+
+  /**
    * Handle new WebSocket connection
    */
-  handleConnection(ws: WebSocket, req: IncomingMessage): void {
-    const userId = this.extractUserId(req);
+  async handleConnection(ws: WebSocket, req: IncomingMessage): Promise<void> {
+    const userId = await this.extractUserId(req);
 
     if (!userId) {
       ws.close(1008, 'Unauthorized');
@@ -110,7 +128,9 @@ export class CollaborationService {
           break;
 
         case 'join_session':
-          this.joinSession(userId, message.data.sessionId);
+          if (message.data?.sessionId) {
+            this.joinSession(userId, message.data.sessionId);
+          }
           break;
 
         case 'leave_session':
@@ -178,6 +198,7 @@ export class CollaborationService {
         maxParticipants: data.maxParticipants || 4,
         allowEditing: data.allowEditing !== false,
         requireApproval: data.requireApproval || false,
+        allowedCollaborators: Array.isArray(data.allowedCollaborators) ? data.allowedCollaborators : undefined,
       },
       roles: { [userId]: data.role || 'interviewer' },
       evaluation: null,
@@ -208,6 +229,19 @@ export class CollaborationService {
       this.sendToUser(userId, {
         type: 'error',
         message: 'Session not found',
+      });
+      return;
+    }
+
+    if (
+      session.settings.allowedCollaborators &&
+      session.settings.allowedCollaborators.length > 0 &&
+      userId !== session.host &&
+      !session.settings.allowedCollaborators.includes(userId)
+    ) {
+      this.sendToUser(userId, {
+        type: 'error',
+        message: 'Unauthorized: Not a permitted collaborator for this session',
       });
       return;
     }
@@ -500,9 +534,36 @@ export class CollaborationService {
     };
   }
 
-  extractUserId(req: IncomingMessage): string | null {
-    const url = new URL(req.url || '', 'http://localhost');
-    return url.searchParams.get('userId');
+  async extractUserId(req: IncomingMessage): Promise<string | null> {
+    try {
+      const url = new URL(req.url || '', 'http://localhost');
+      const queryToken = url.searchParams.get('token')?.trim();
+      const authHeader = req.headers.authorization;
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+      let cookieToken: string | null = null;
+      const cookieHeader = req.headers.cookie || '';
+      for (const part of cookieHeader.split(';')) {
+        const sep = part.indexOf('=');
+        if (sep < 1) continue;
+        if (part.slice(0, sep).trim() === 'preploop_access') {
+          try {
+            cookieToken = decodeURIComponent(part.slice(sep + 1).trim());
+          } catch {
+            cookieToken = part.slice(sep + 1).trim();
+          }
+          break;
+        }
+      }
+
+      const token = bearerToken || queryToken || cookieToken;
+      if (!token) return null;
+
+      const verifiedUser = await verifySupabaseToken(token);
+      return verifiedUser?.id || null;
+    } catch {
+      return null;
+    }
   }
 
   generateSessionId(): string {

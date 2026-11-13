@@ -31,4 +31,16 @@ export const coinsApi = {
             ? data
             : data.items || data.transactions || data.data || [];
     },
+
+    /**
+     * Spend coins.
+     * POST /api/coins/spend — requires { amount, description }
+     */
+    async spendCoins(amount, description = "AI assistant query") {
+        const res = await apiClient.post("/api/coins/spend", {
+            amount,
+            description,
+        });
+        return res.data;
+    },
 };

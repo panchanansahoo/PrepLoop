@@ -342,8 +342,9 @@ export class LearningPathService {
     return {
       ...aiLearningPath,
       modules: aiLearningPath.modules.map((module: any) => {
-        const solved = (module.topics || []).filter((t: any) => completedTopics[t.id]).length;
-        const total = (module.topics || []).length;
+        const problems = module.problems || [];
+        const solved = problems.filter((p: any) => completedTopics[p.id]).length;
+        const total = problems.length;
         const percentage = total > 0 ? Math.round((solved / total) * 100) : 0;
         return {
           ...module,

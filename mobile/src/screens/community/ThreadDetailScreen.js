@@ -31,13 +31,30 @@ export default function ThreadDetailScreen({ route, navigation }) {
     }, [id]);
 
     const handlePostComment = async () => {
-        if (!comment.trim()) return;
+        const text = comment.trim();
+        if (!text) return;
+        const tempComment = {
+            id: `temp-${Date.now()}`,
+            content: text,
+            author: "You",
+            created_at: new Date().toISOString(),
+        };
+        // Optimistically append comment
+        setThread((prev) => ({
+            ...prev,
+            comments: [...(prev?.comments || []), tempComment],
+        }));
+        setComment("");
+
         try {
-            await communityApi.addComment(id, comment);
-            setComment("");
-            // In a real app, we would reload the thread or append the comment optimistically
+            await communityApi.addComment(id, text);
         } catch (error) {
             console.error("Failed to post comment:", error);
+            // Rollback optimistic comment on failure
+            setThread((prev) => ({
+                ...prev,
+                comments: (prev?.comments || []).filter((c) => c.id !== tempComment.id),
+            }));
         }
     };
 

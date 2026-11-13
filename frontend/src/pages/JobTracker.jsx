@@ -40,7 +40,7 @@ export default function JobTracker() {
     }
     setLoading(true);
     try {
-      const res = await authFetch(buildApiUrl('/api/job-applications'));
+      const res = await authFetch(buildApiUrl('/job-applications'));
       if (res.ok) {
         const data = await res.json();
         setApplications(Array.isArray(data.applications) ? data.applications : []);
@@ -76,7 +76,7 @@ export default function JobTracker() {
 
     setSubmitting(true);
     try {
-      const res = await authFetch(buildApiUrl('/api/job-applications'), {
+      const res = await authFetch(buildApiUrl('/job-applications'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed.data),
@@ -99,7 +99,7 @@ export default function JobTracker() {
     const prev = applications;
     setApplications((curr) => curr.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)));
     try {
-      const res = await authFetch(buildApiUrl(`/api/job-applications/${id}`), {
+      const res = await authFetch(buildApiUrl(`/job-applications/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
@@ -116,7 +116,7 @@ export default function JobTracker() {
     const prev = applications;
     setApplications((curr) => curr.filter((item) => item.id !== id));
     try {
-      const res = await authFetch(buildApiUrl(`/api/job-applications/${id}`), { method: 'DELETE' });
+      const res = await authFetch(buildApiUrl(`/job-applications/${id}`), { method: 'DELETE' });
       if (!res.ok) {
         setApplications(prev);
       }

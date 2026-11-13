@@ -94,7 +94,7 @@ export default function SkillMatchJobs() {
           <h3 className="smj-title">Jobs Matched to Your Skills</h3>
         </div>
         <div className="smj-actions">
-          <button className="smj-explore-btn" onClick={() => navigate('/jobs')} title="Explore all job openings">
+          <button className="smj-explore-btn" onClick={() => navigate('/job-updates')} title="Explore all job openings">
             Explore All Jobs <ArrowRight size={13} />
           </button>
           <button className="smj-refresh-btn" onClick={fetchMatchedJobs} disabled={loading} title="Refresh jobs">

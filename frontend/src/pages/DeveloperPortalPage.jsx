@@ -16,7 +16,14 @@ import {
   BookOpen
 } from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 import './Dashboard.css';
+
+function buildEmployerApiUrl(path) {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `/api${cleanPath}`;
+}
 
 export default function DeveloperPortalPage() {
   const [activeTab, setActiveTab] = useState('keys'); // 'keys' | 'webhooks' | 'questionSets' | 'docs'
@@ -57,9 +64,11 @@ export default function DeveloperPortalPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const keysUrl = buildEmployerApiUrl('/employer/api-keys');
+      const hooksUrl = buildEmployerApiUrl('/employer/webhooks');
       const [keysRes, hooksRes] = await Promise.all([
-        authFetch('/api/employer/api-keys').catch(() => ({ ok: false })),
-        authFetch('/api/employer/webhooks').catch(() => ({ ok: false })),
+        authFetch(keysUrl).catch(() => ({ ok: false })),
+        authFetch(hooksUrl).catch(() => ({ ok: false })),
       ]);
 
       if (keysRes?.ok) {
@@ -68,10 +77,11 @@ export default function DeveloperPortalPage() {
       }
       if (hooksRes?.ok) {
         const data = await hooksRes.json();
-        setWebhooks(data.webhooks || []);
+        setWebhooks(data.subscriptions || data.webhooks || []);
       }
       try {
-        const qRes = await authFetch('/api/employer/question-banks');
+        const qUrl = buildEmployerApiUrl('/employer/question-banks');
+        const qRes = await authFetch(qUrl);
         if (qRes?.ok) {
           const data = await qRes.json();
           setQuestionSets(data.questionSets || []);
@@ -94,7 +104,8 @@ export default function DeveloperPortalPage() {
     if (!newKeyName.trim()) return;
 
     try {
-      const res = await authFetch('/api/employer/api-keys', {
+      const url = buildEmployerApiUrl('/employer/api-keys');
+      const res = await authFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +115,7 @@ export default function DeveloperPortalPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to create API key');
       }
 
@@ -123,7 +134,8 @@ export default function DeveloperPortalPage() {
     }
 
     try {
-      const res = await authFetch(`/api/employer/api-keys/${keyId}`, {
+      const url = buildEmployerApiUrl(`/employer/api-keys/${encodeURIComponent(keyId)}`);
+      const res = await authFetch(url, {
         method: 'DELETE',
       });
 
@@ -141,23 +153,29 @@ export default function DeveloperPortalPage() {
     if (!webhookUrl.trim()) return;
 
     try {
-      const res = await authFetch('/api/employer/webhooks', {
+      const trimmedUrl = webhookUrl.trim();
+      const url = buildEmployerApiUrl('/employer/webhooks');
+      const res = await authFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          targetUrl: webhookUrl.trim(),
+          url: trimmedUrl,
+          targetUrl: trimmedUrl,
           secret: webhookSecret.trim() || undefined,
           events: webhookEvents,
         }),
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to register webhook');
       }
 
       const data = await res.json();
-      setWebhooks((prev) => [data.webhook, ...prev]);
+      const newWebhook = data.subscription || data.webhook;
+      if (newWebhook) {
+        setWebhooks((prev) => [newWebhook, ...prev]);
+      }
       setShowWebhookModal(false);
       setWebhookUrl('');
       setWebhookSecret('');
@@ -173,7 +191,8 @@ export default function DeveloperPortalPage() {
     }
 
     try {
-      const res = await authFetch(`/api/employer/webhooks/${webhookId}`, {
+      const url = buildEmployerApiUrl(`/employer/webhooks/${encodeURIComponent(webhookId)}`);
+      const res = await authFetch(url, {
         method: 'DELETE',
       });
 
@@ -189,14 +208,16 @@ export default function DeveloperPortalPage() {
   const handleTestWebhook = async (webhookId) => {
     setTestingWebhookId(webhookId);
     try {
-      const res = await authFetch(`/api/employer/webhooks/${webhookId}/test`, {
+      const url = buildEmployerApiUrl(`/employer/webhooks/${encodeURIComponent(webhookId)}/test`);
+      const res = await authFetch(url, {
         method: 'POST',
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to trigger test webhook');
 
-      notify('success', `Test event dispatched! Delivery ID: ${data.deliveryId}`);
+      const deliveryRef = data.delivery?.id || data.deliveryId || data.delivery?.deliveryId || 'dispatched';
+      notify('success', `Test event dispatched! Delivery ID: ${deliveryRef}`);
     } catch (err) {
       notify('error', `Test delivery failed: ${err.message}`);
     } finally {
@@ -217,7 +238,8 @@ export default function DeveloperPortalPage() {
     }
     setSubmittingQSet(true);
     try {
-      const res = await authFetch('/api/employer/question-banks', {
+      const url = buildEmployerApiUrl('/employer/question-banks');
+      const res = await authFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,7 +249,7 @@ export default function DeveloperPortalPage() {
           questions: validQuestions,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         notify('success', 'Corporate question bank published successfully');
         setShowQuestionModal(false);
@@ -743,9 +765,9 @@ export default function DeveloperPortalPage() {
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '1rem' }}>
-              {webhooks.map((w) => (
+              {webhooks.filter(Boolean).map((w, idx) => (
                 <div
-                  key={w.id}
+                  key={w.id || `wh-${idx}`}
                   style={{
                     background: 'var(--bg-secondary, #1e293b)',
                     padding: '1.25rem',
@@ -758,7 +780,7 @@ export default function DeveloperPortalPage() {
                 >
                   <div style={{ maxWidth: '70%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                      <strong style={{ fontSize: '1rem', wordBreak: 'break-all' }}>{w.target_url || w.targetUrl}</strong>
+                      <strong style={{ fontSize: '1rem', wordBreak: 'break-all' }}>{w.url || w.target_url || w.targetUrl || 'Webhook Endpoint'}</strong>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                       {(w.events || []).map((e) => (

@@ -21,6 +21,9 @@ CREATE INDEX idx_payments_order ON payments(razorpay_order_id);
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Users can view own payments" ON payments;
 CREATE POLICY "Users can view own payments" ON payments FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Service can insert payments" ON payments FOR INSERT WITH CHECK (true);
-CREATE POLICY "Service can update payments" ON payments FOR UPDATE USING (true);
+-- Note: Inserts and updates are performed strictly server-side by backend using service_role key,
+-- which bypasses RLS. Never grant public write access on financial payment records.
+DROP POLICY IF EXISTS "Service can insert payments" ON payments;
+DROP POLICY IF EXISTS "Service can update payments" ON payments;

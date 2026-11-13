@@ -34,7 +34,8 @@ const paymentLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-router.use(paymentLimiter);
+// Applied selectively to sensitive payment initiation/verification routes rather than router-level
+// to avoid blocking Razorpay webhooks and operational health check monitors.
 
 function isValidEnvValue(value) {
     if (!value || typeof value !== 'string') return false;
@@ -211,7 +212,7 @@ router.get('/health', authenticateToken, async (req, res) => {
 // POST /api/payment/create-order
 // Creates a Razorpay order for the given plan
 // ─────────────────────────────────────────────
-router.post('/create-order', authenticateToken, async (req, res) => {
+router.post('/create-order', paymentLimiter, authenticateToken, async (req, res) => {
     try {
         const user = req.user;
         const razorpayConfig = getRazorpayConfig();
@@ -328,7 +329,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
 // POST /api/payment/verify
 // Verifies Razorpay payment signature and upgrades user
 // ─────────────────────────────────────────────
-router.post('/verify', authenticateToken, async (req, res) => {
+router.post('/verify', paymentLimiter, authenticateToken, async (req, res) => {
     try {
         const user = req.user;
 
@@ -363,8 +364,12 @@ router.post('/verify', authenticateToken, async (req, res) => {
         }
 
         // SECURITY: HMAC SHA256 signature verification
+        const { keySecret, configured } = getRazorpayConfig();
+        if (!configured || !keySecret) {
+            return res.status(503).json({ error: 'Payment gateway not configured' });
+        }
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .createHmac('sha256', keySecret)
             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
             .digest('hex');
 

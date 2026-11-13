@@ -34,6 +34,21 @@ export function useRealtimeInterview({
   useEffect(() => { onTranscriptUpdateRef.current = onTranscriptUpdate; }, [onTranscriptUpdate]);
   const submitAnswerRef = useRef(null);
 
+  // Reset silence timer — hoisted above useWebSpeech to avoid TDZ / stale closure
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    
+    silenceTimerRef.current = setTimeout(() => {
+      // User stopped speaking for SILENCE_THRESHOLD_MS
+      const answer = answerBufferRef.current.trim();
+      if (answer.length >= ANSWER_MIN_LENGTH) {
+        if (submitAnswerRef.current) submitAnswerRef.current(answer);
+      }
+    }, SILENCE_THRESHOLD_MS);
+  }, []);
+
   // Voice pipeline (Deepgram STT + Kokoro TTS)
   const voice = useWebSpeech({
     onAnswer: useCallback((text) => {
@@ -54,7 +69,7 @@ export function useRealtimeInterview({
       if (partial && partial.trim().length > 0) {
         resetSilenceTimer();
       }
-    }, []),
+    }, [resetSilenceTimer]),
     interviewType,
     personaGender,
     question: currentQuestion,
@@ -67,21 +82,6 @@ export function useRealtimeInterview({
     quality: 'sd',
     autoStart: false,
   });
-
-  // Reset silence timer
-  const resetSilenceTimer = useCallback(() => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-    }
-    
-    silenceTimerRef.current = setTimeout(() => {
-      // User stopped speaking for SILENCE_THRESHOLD_MS
-      const answer = answerBufferRef.current.trim();
-      if (answer.length >= ANSWER_MIN_LENGTH) {
-        if (submitAnswerRef.current) submitAnswerRef.current(answer);
-      }
-    }, SILENCE_THRESHOLD_MS);
-  }, []);
 
   // Submit answer
   const submitAnswer = useCallback((answerText) => {

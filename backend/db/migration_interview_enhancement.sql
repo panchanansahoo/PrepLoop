@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS interview_sessions (
 CREATE TABLE IF NOT EXISTS interview_notes (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  interview_id SERIAL REFERENCES mock_interviews(id) ON DELETE CASCADE,
+  interview_id INTEGER REFERENCES mock_interviews(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   question_index INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -55,12 +55,33 @@ CREATE TABLE IF NOT EXISTS interview_analytics (
 CREATE TABLE IF NOT EXISTS feedback_history (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  interview_id SERIAL REFERENCES mock_interviews(id) ON DELETE CASCADE,
+  interview_id INTEGER REFERENCES mock_interviews(id) ON DELETE CASCADE,
   question_index INTEGER,
   feedback JSONB NOT NULL,
   feedback_version VARCHAR(50), -- for tracking feedback model improvements
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE interview_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE learning_recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interview_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feedback_history ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'interview_notes' AND policyname = 'Users can manage own interview notes') THEN
+    CREATE POLICY "Users can manage own interview notes" ON interview_notes FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'learning_recommendations' AND policyname = 'Users can view own learning recommendations') THEN
+    CREATE POLICY "Users can view own learning recommendations" ON learning_recommendations FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'interview_analytics' AND policyname = 'Users can view own interview analytics') THEN
+    CREATE POLICY "Users can view own interview analytics" ON interview_analytics FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feedback_history' AND policyname = 'Users can view own feedback history') THEN
+    CREATE POLICY "Users can view own feedback history" ON feedback_history FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_interview_sessions_user_id ON interview_sessions(user_id);

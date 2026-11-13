@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, BadgeCheck, Briefcase, Github, Globe, Loader2, Mail, MapPin, Star, ExternalLink, Code, Sparkles, GitFork, Calendar, GraduationCap, Award, Phone, Twitter, Linkedin } from 'lucide-react';
+import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 import './PublicPortfolioPage.css';
 
 function normalizePortfolioData(data) {
@@ -92,13 +95,22 @@ function EducationItem({ item }) {
   );
 }
 
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+    return trimmed;
+  }
+  return null;
+}
+
 function ProjectCard({ project, index }) {
   const isObj = typeof project === 'object' && project !== null;
   const name = isObj ? (project.name || `Project ${index + 1}`) : `Project ${index + 1}`;
   const description = isObj ? (project.description || '') : String(project);
   const stack = isObj && Array.isArray(project.stack) ? project.stack : [];
-  const repoUrl = isObj ? project.repoUrl : null;
-  const liveUrl = isObj ? project.liveUrl : null;
+  const repoUrl = isObj ? sanitizeUrl(project.repoUrl) : null;
+  const liveUrl = isObj ? sanitizeUrl(project.liveUrl) : null;
   const stars = isObj ? (project.metrics?.stars || 0) : 0;
   const forks = isObj ? (project.metrics?.forks || 0) : 0;
   const language = isObj ? (project.stack?.[0] || '') : '';
@@ -154,10 +166,16 @@ export default function PublicPortfolioPage() {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
         // 1. Try user portfolio public endpoint first
-        let res = await fetch(`/api/user/portfolio/public/${encodeURIComponent(slug)}`, { headers });
+        let res = await authFetch(
+          buildApiUrl(`/user/portfolio/public/${encodeURIComponent(slug)}`, { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+          { headers }
+        );
         if (res.status === 404) {
           // 2. Fallback to portfolio service public endpoint
-          res = await fetch(`/api/portfolio/public/${encodeURIComponent(slug)}`, { headers });
+          res = await authFetch(
+            buildApiUrl(`/portfolio/public/${encodeURIComponent(slug)}`, { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+            { headers }
+          );
         }
         if (res.status === 404) { if (!cancelled) setError('not-found'); return; }
         if (res.status === 403) { if (!cancelled) setError('private'); return; }

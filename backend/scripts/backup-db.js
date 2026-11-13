@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import '../config/env.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, mkdir, readdir, unlink, stat } from 'fs/promises';
@@ -6,8 +7,18 @@ import { join } from 'path';
 
 const execFileAsync = promisify(execFile);
 
+function resolveFallbackDbUrl() {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_DB_PASSWORD) {
+    const projectRef = process.env.SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+    if (projectRef) {
+      return `postgresql://postgres:${encodeURIComponent(process.env.SUPABASE_DB_PASSWORD)}@db.${projectRef}.supabase.co:5432/postgres`;
+    }
+  }
+  return null;
+}
+
 export const BACKUP_DIR = process.env.BACKUP_DIR || './backups';
-export const DB_URL = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+export const DB_URL = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || resolveFallbackDbUrl();
 export const MAX_BACKUPS = parseInt(process.env.MAX_BACKUPS || '7', 10);
 
 export async function cleanOldBackups(backupDir = BACKUP_DIR, maxBackups = MAX_BACKUPS) {

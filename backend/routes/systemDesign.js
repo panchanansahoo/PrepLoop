@@ -165,7 +165,7 @@ router.post('/diagram-explain', authenticateToken, async (req, res) => {
     });
 
     res.json({
-      explanation: completion.choices[0].message.content
+      explanation: completion.choices?.[0]?.message?.content || 'Unable to generate diagram explanation.'
     });
   } catch (error) {
     console.error('Diagram explanation error:', error);

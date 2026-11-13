@@ -74,7 +74,7 @@ function loadRazorpayScript() {
 export default function Payment() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, refreshSession } = useAuth();
     const plan = searchParams.get('plan') || 'pro';
 
     const [isProcessing, setIsProcessing] = useState(false);
@@ -221,6 +221,7 @@ export default function Payment() {
 
                         const verifyData = await parseJsonSafely(verifyRes);
                         if (verifyRes.ok && verifyData.success) {
+                            try { await refreshSession?.(); } catch (e) { console.error('Failed to refresh session post-payment:', e); }
                             setPaymentData({
                                 paymentId: verifyData.paymentId,
                                 plan: verifyData.plan,

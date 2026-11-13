@@ -186,7 +186,8 @@ export const usageQuota = (category: string, options: UsageQuotaOptions = {}) =>
               window_started_at_input: windowStartedAt,
               limit_input: limit,
             });
-            if (!error && data?.[0] && !data[0].allowed) {
+            const rpcResult = Array.isArray(data) ? data[0] : data;
+            if (!error && rpcResult && rpcResult.allowed === false) {
               return res.status(429).json({
                 error: `${category} usage limit reached. Please try again later.`,
                 code: 'USAGE_LIMIT_EXCEEDED',
@@ -253,7 +254,8 @@ export const usageQuota = (category: string, options: UsageQuotaOptions = {}) =>
           window_started_at_input: windowStartedAt,
           limit_input: limit,
         });
-        if (!error && data?.[0] && !data[0].allowed) {
+        const rpcResult = Array.isArray(data) ? data[0] : data;
+        if (!error && rpcResult && rpcResult.allowed === false) {
           return res.status(429).json({
             error: `${category} usage limit reached. Please try again later.`,
             code: 'USAGE_LIMIT_EXCEEDED',

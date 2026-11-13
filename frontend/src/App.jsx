@@ -26,7 +26,7 @@ const Login = lazyWithRecovery(() => import('./pages/Login'));
 const Signup = lazyWithRecovery(() => import('./pages/Signup'));
 const Overview = lazyWithRecovery(() => import('./pages/Overview'));
 const Dashboard = lazyWithRecovery(() => import('./pages/Dashboard'));
-const _DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
+const DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
 const PatternDetail = lazyWithRecovery(() => import('./pages/PatternDetail'));
 const ProblemSolver = lazyWithRecovery(() => import('./pages/ProblemSolver'));
 const CareerRoadmapPage = lazyWithRecovery(() => import('./pages/CareerRoadmapPage'));
@@ -80,6 +80,8 @@ const HRLearningPath = lazyWithRecovery(() => import('./pages/HRLearningPath'));
 const HRTopicLearning = lazyWithRecovery(() => import('./pages/HRTopicLearning'));
 const SystemDesignPath = lazyWithRecovery(() => import('./pages/SystemDesignPath'));
 const SystemDesignTopicLearning = lazyWithRecovery(() => import('./pages/SystemDesignTopicLearning'));
+const SQLLearningPath = lazyWithRecovery(() => import('./pages/SQLLearningPath'));
+const SQLTopicLearning = lazyWithRecovery(() => import('./pages/SQLTopicLearning'));
 const SystemDesignSimulator = lazyWithRecovery(() => import('./pages/SystemDesignSimulator'));
 const CompanyPrep = lazyWithRecovery(() => import('./pages/CompanyPrep'));
 
@@ -129,7 +131,7 @@ function AdminRoute({ children }) {
 function HRRoute({ children }) {
   const hrToken = localStorage.getItem('hr_token');
   const hrUser = localStorage.getItem('hr_user');
-  if (!hrToken && !hrUser) {
+  if (!hrToken || !hrUser) {
     return <Navigate to="/hr/login" replace />;
   }
   return children;
@@ -287,6 +289,8 @@ function AppContent() {
                 <Route path="/developer" element={<PrivateRoute><DeveloperPortalPage /></PrivateRoute>} />
                 <Route path="/dashboard/developer" element={<PrivateRoute><DeveloperPortalPage /></PrivateRoute>} />
                 <Route path="/roadmap" element={<CareerRoadmapPage />} />
+                <Route path="/roadmap/dsa" element={<DSAPatterns />} />
+                <Route path="/dsa-patterns" element={<Navigate to="/roadmap/dsa" replace />} />
                 <Route path="/roadmap/language" element={<LanguageRoadmap />} />
                 <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
                 <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
@@ -328,6 +332,8 @@ function AppContent() {
                 <Route path="/hr-path/:topicId" element={<HRTopicLearning />} />
                 <Route path="/system-design" element={<SystemDesignPath />} />
                 <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
+                <Route path="/sql-path" element={<SQLLearningPath />} />
+                <Route path="/sql-path/:topicId" element={<SQLTopicLearning />} />
                 <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
                 <Route path="/company-prep" element={<CompanyPrep />} />
                 <Route path="/company-interview" element={<AIInterviewPage />} />

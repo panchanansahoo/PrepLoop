@@ -191,37 +191,69 @@ export async function getInterviewPlayback(
     turns = memoryTranscriptStore.get(key) || [];
   }
 
-  // Fallback: reconstruct from mock_interviews.conversation if no rows in interview_transcripts
+  // Fallback: reconstruct from mock_interviews.questions / responses if no rows in interview_transcripts
   if (turns.length === 0) {
     try {
       const { data: interview } = await supabaseAdmin
         .from('mock_interviews')
-        .select('id, conversation, scores, duration, created_at')
+        .select('id, questions, responses, duration, started_at, completed_at')
         .eq('id', cleanSessionId)
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (interview && Array.isArray(interview.conversation)) {
-        const scores = Array.isArray(interview.scores) ? interview.scores : [];
-        let candidateIdx = 0;
-        turns = interview.conversation.map((msg: any, idx: number) => {
-          const isCandidate = msg.role === 'candidate' || msg.role === 'user';
-          const score = isCandidate && scores[candidateIdx] !== undefined ? Number(scores[candidateIdx++]) : null;
-          return {
-            id: `${cleanSessionId}-turn-${idx}`,
-            sessionId: cleanSessionId,
-            turnIndex: idx,
-            speaker: msg.role === 'interviewer' || msg.role === 'assistant' ? 'interviewer' : 'candidate',
-            whatYouSaid: String(msg.content || msg.text || ''),
-            idealAnswer: String(msg.idealAnswer || ''),
-            turnScore: Number.isFinite(score) ? score : null,
-            feedbackNotes: String(msg.feedback || ''),
-            timestampMs: idx * 20000,
-            audioUrl: null,
-            audioConsent: false,
-            createdAt: interview.created_at || new Date().toISOString(),
-          };
-        });
+      if (interview) {
+        const questions = Array.isArray(interview.questions) ? interview.questions : [];
+        const responses = Array.isArray(interview.responses) ? interview.responses : [];
+        const maxLen = Math.max(questions.length, responses.length);
+        const createdAt = interview.completed_at || interview.started_at || new Date().toISOString();
+        let turnIdx = 0;
+
+        for (let i = 0; i < maxLen; i += 1) {
+          const q = questions[i];
+          if (q !== undefined && q !== null) {
+            const qText = typeof q === 'string' ? q : String(q.question || q.text || q.content || '');
+            if (qText) {
+              turns.push({
+                id: `${cleanSessionId}-turn-${turnIdx}`,
+                sessionId: cleanSessionId,
+                turnIndex: turnIdx,
+                speaker: 'interviewer',
+                whatYouSaid: qText,
+                idealAnswer: '',
+                turnScore: null,
+                feedbackNotes: '',
+                timestampMs: turnIdx * 20000,
+                audioUrl: null,
+                audioConsent: false,
+                createdAt,
+              });
+              turnIdx += 1;
+            }
+          }
+
+          const r = responses[i];
+          if (r !== undefined && r !== null) {
+            const rText = typeof r === 'string' ? r : String(r.content || r.text || r.answer || '');
+            const rScore = typeof r === 'object' && r !== null && r.score !== undefined ? Number(r.score) : null;
+            if (rText) {
+              turns.push({
+                id: `${cleanSessionId}-turn-${turnIdx}`,
+                sessionId: cleanSessionId,
+                turnIndex: turnIdx,
+                speaker: 'candidate',
+                whatYouSaid: rText,
+                idealAnswer: typeof r === 'object' && r !== null ? String(r.idealAnswer || '') : '',
+                turnScore: rScore !== null && Number.isFinite(rScore) ? rScore : null,
+                feedbackNotes: typeof r === 'object' && r !== null ? String(r.feedback || '') : '',
+                timestampMs: turnIdx * 20000,
+                audioUrl: null,
+                audioConsent: false,
+                createdAt,
+              });
+              turnIdx += 1;
+            }
+          }
+        }
       }
     } catch {
       // Ignore if mock_interviews lookup fails

@@ -21,7 +21,34 @@ router.use(authenticateToken, requireEmployerOrAdmin);
  */
 router.get('/candidates', authenticateToken, async (req, res) => {
   try {
-    let { data: candidates, error } = await supabaseAdmin
+    const isAdmin = req.user?.role === 'admin';
+    let allowedCandidateUserIds = null;
+
+    if (!isAdmin) {
+      // Find candidate IDs who applied to employer's jobs
+      const { data: employerJobs } = await supabaseAdmin
+        .from('job_listings')
+        .select('id')
+        .or(`posted_by.eq.${req.user.id},created_by.eq.${req.user.id}`);
+
+      const jobIds = (employerJobs || []).map((j) => j.id);
+
+      let applicantIds = [];
+      if (jobIds.length > 0) {
+        const { data: applications } = await supabaseAdmin
+          .from('job_applications')
+          .select('user_id')
+          .in('job_id', jobIds);
+        applicantIds = (applications || []).map((a) => a.user_id).filter(Boolean);
+      }
+
+      allowedCandidateUserIds = Array.from(new Set(applicantIds));
+      if (allowedCandidateUserIds.length === 0) {
+        return res.json({ success: true, count: 0, candidates: [] });
+      }
+    }
+
+    let candidateQuery = supabaseAdmin
       .from('mock_interviews')
       .select(`
         id,
@@ -35,9 +62,15 @@ router.get('/candidates', authenticateToken, async (req, res) => {
       .order('completed_at', { ascending: false, nullsFirst: false })
       .limit(50);
 
+    if (allowedCandidateUserIds && allowedCandidateUserIds.length > 0) {
+      candidateQuery = candidateQuery.in('user_id', allowedCandidateUserIds);
+    }
+
+    let { data: candidates, error } = await candidateQuery;
+
     // Fallback if the foreign key relation constraint name is not explicitly defined in some environments
     if (error && error.message && error.message.includes('mock_interviews_user_id_fkey')) {
-      const fallback = await supabaseAdmin
+      let fallback = supabaseAdmin
         .from('mock_interviews')
         .select(`
           id,
@@ -50,8 +83,12 @@ router.get('/candidates', authenticateToken, async (req, res) => {
         `)
         .order('completed_at', { ascending: false, nullsFirst: false })
         .limit(50);
-      if (!fallback.error) {
-        candidates = fallback.data;
+      if (allowedCandidateUserIds && allowedCandidateUserIds.length > 0) {
+        fallback = fallback.in('user_id', allowedCandidateUserIds);
+      }
+      const fallbackResult = await fallback;
+      if (!fallbackResult.error) {
+        candidates = fallbackResult.data;
         error = null;
       }
     }

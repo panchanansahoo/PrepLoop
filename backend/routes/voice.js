@@ -17,6 +17,7 @@ import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { voiceTtsLimiter, voiceSttLimiter } from '../middleware/apiRateLimiter.js';
 import { usageQuota } from '../middleware/usageQuota.ts';
+import { requireValidFileSignature } from '../middleware/uploadProtection.js';
 import nvidiaVoiceService from '../services/nvidiaVoiceService.js';
 import { getRedisClient } from '../config/redis.ts';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
@@ -278,7 +279,7 @@ router.post('/tts-stream', voiceTtsLimiter, optionalAuth, usageQuota('voice'), a
     const language = sanitizeLanguage(req.body.language);
     const gender   = sanitizeGender(req.body.gender);
 
-    if (!text || text.trim().length === 0) {
+    if (typeof text !== 'string' || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
     }
 
@@ -332,7 +333,7 @@ router.post('/analyze-answer', authenticateToken, async (req, res) => {
     const rawType = String(req.body.interviewType || '').toLowerCase().trim();
     const interviewType = VALID_INTERVIEW_TYPES.includes(rawType) ? rawType : 'technical';
 
-    if (!answer || answer.trim().length < 10) {
+    if (typeof answer !== 'string' || answer.trim().length < 10) {
         return res.json({ needsFollowUp: false, followUpQuestion: null, clarityScore: 5, specificityScore: 5, starUsed: false });
     }
 
@@ -485,7 +486,7 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 // STT FILE — File-based STT (powered by Groq Whisper)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
+router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
     const filePath = req.file?.path;
 
     try {
@@ -522,7 +523,7 @@ router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.s
 // STT CHUNK — Realtime chunk/blob STT (used by voice tests and non-Chromium fallback)
 // POST /api/voice/stt-chunk
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt-chunk', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
+router.post('/stt-chunk', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
     const filePath = req.file?.path;
 
     try {

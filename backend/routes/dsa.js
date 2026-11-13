@@ -1,6 +1,8 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.ts';
+import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 import { all425Problems } from '../data/allProblems.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import cacheManager from '../utils/cacheManager.js';
@@ -346,7 +348,11 @@ router.get('/progress', authenticateToken, async (req, res) => {
     const solved = items.filter(i => i.status === 'solved');
     const attempted = items.filter(i => i.status === 'attempted');
 
-    const solveDates = solved.map(i => i.solved_at ? new Date(i.solved_at).toISOString().slice(0, 10) : null).filter(Boolean);
+    const solveDates = solved.map(i => {
+      if (!i.solved_at) return null;
+      const d = new Date(i.solved_at);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }).filter(Boolean);
     const uniqueSortedDates = [...new Set(solveDates)].sort().reverse();
     let currentStreak = 0;
     if (uniqueSortedDates.length > 0) {
@@ -371,7 +377,11 @@ router.get('/progress', authenticateToken, async (req, res) => {
 
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const weekSolvedCount = solved.filter(i => i.solved_at && new Date(i.solved_at) >= weekAgo).length;
+    const weekSolvedCount = solved.filter(i => {
+      if (!i.solved_at) return false;
+      const d = new Date(i.solved_at);
+      return !Number.isNaN(d.getTime()) && d >= weekAgo;
+    }).length;
 
     const stats = {
       total_solved: solved.length,
@@ -384,8 +394,12 @@ router.get('/progress', authenticateToken, async (req, res) => {
     };
 
     // Recent activity (last 10)
-    const recentActivity = items
-      .sort((a, b) => new Date(b.last_attempt) - new Date(a.last_attempt))
+    const recentActivity = [...items]
+      .sort((a, b) => {
+        const timeB = b.last_attempt ? new Date(b.last_attempt).getTime() : 0;
+        const timeA = a.last_attempt ? new Date(a.last_attempt).getTime() : 0;
+        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+      })
       .slice(0, 10)
       .map(i => ({
         title: i.problems?.title,
@@ -407,11 +421,11 @@ router.get('/progress', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/ai', optionalAuth, async (req, res) => {
+router.post('/ai', aiEndpointsLimiter, optionalAuth, usageQuota('ai'), async (req, res) => {
   try {
     const { prompt, code: _code, language: _language, problemId: _problemId } = req.body;
 
-    if (!prompt || !prompt.trim()) {
+    if (typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 

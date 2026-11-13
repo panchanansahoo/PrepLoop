@@ -142,7 +142,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
                                 const Icon = item.icon;
                                 const isActive = location.pathname === item.path ||
-                                    (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                                    (item.path !== '/dashboard' && location.pathname.startsWith(`${item.path}/`));
 
                                 return (
                                     <Link

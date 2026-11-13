@@ -77,6 +77,18 @@ export function parseGroqDurationMs(durationStr) {
 
 // Model-specific limits matching real dashboard tiers
 export const MODEL_BUDGETS = {
+  'llama-3.1-8b-instant': {
+    provider: 'groq',
+    label: 'Groq Llama 3.1 8b Instant (Fast Reply & Turn Scoring)',
+    maxTokensPerDay: Number(process.env.GROQ_20B_DAILY_TOKEN_LIMIT) || 120_000,
+    maxRequestsPerMinute: 30, // Real Groq dashboard limit is 30 RPM
+  },
+  'llama-3.3-70b-versatile': {
+    provider: 'groq',
+    label: 'Groq Llama 3.3 70b Versatile (Final Reports & Complex Queries)',
+    maxTokensPerDay: Number(process.env.GROQ_120B_DAILY_TOKEN_LIMIT) || 50_000,
+    maxRequestsPerMinute: 15,
+  },
   'openai/gpt-oss-20b': {
     provider: 'groq',
     label: 'Groq 20b (Fast Reply & Turn Scoring)',

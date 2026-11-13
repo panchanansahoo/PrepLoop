@@ -15,5 +15,7 @@ if (!allowedNodeEnvs.has(currentNodeEnv)) {
 	const fallbackNodeEnv = (loadedEnv.parsed?.NODE_ENV || '').trim().toLowerCase();
 	if (allowedNodeEnvs.has(fallbackNodeEnv)) {
 		process.env.NODE_ENV = fallbackNodeEnv;
+	} else {
+		process.env.NODE_ENV = 'development';
 	}
 }

@@ -16,7 +16,7 @@ import {
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 const logger = createLogger('ImprovementPlanService');
-const redis = getRedisClient();
+const getRedis = () => getRedisClient();
 
 const SKILL_AREAS = [
   'communication',
@@ -42,6 +42,7 @@ export class ImprovementPlanService {
       const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({sessionIds, focusAreas, timeframe})}`;
       
       // Try to get from cache first
+      const redis = getRedis();
       if (redis) {
         try {
           const cachedPlan = await redis.get(cacheKey);
@@ -73,7 +74,11 @@ export class ImprovementPlanService {
       // Cache the result if Redis is available
       if (redis) {
         try {
-          await redis.setex(cacheKey, 60 * 60, JSON.stringify(savedPlan)); // Cache for 1 hour
+          if (typeof redis.setEx === 'function') {
+            await redis.setEx(cacheKey, 60 * 60, JSON.stringify(savedPlan));
+          } else if (typeof redis.set === 'function') {
+            await redis.set(cacheKey, JSON.stringify(savedPlan), { EX: 60 * 60 });
+          }
         } catch (cacheErr) {
           logger.warn('Cache storage failed, plan still generated successfully', { error: cacheErr.message });
         }
@@ -175,9 +180,19 @@ export class ImprovementPlanService {
       ? weaknesses.filter(w => focusAreas.includes(w.area))
       : weaknesses;
 
+    const resolvedWeaknesses = filteredWeaknesses.length > 0
+      ? filteredWeaknesses
+      : [{
+          area: (Array.isArray(focusAreas) && focusAreas[0]) || 'problem_solving',
+          averageScore: 60,
+          weaknessLevel: 40,
+          intensity: 'medium',
+          sampleSize: sessions.length,
+        }];
+
     return {
-      weaknesses: filteredWeaknesses,
-      topWeaknesses: filteredWeaknesses.slice(0, 3),
+      weaknesses: resolvedWeaknesses,
+      topWeaknesses: resolvedWeaknesses.slice(0, 3),
       sessionsAnalyzed: sessions.length,
       overallTrend: this._calculateTrend(sessions)
     };
@@ -549,6 +564,7 @@ Provide recommendations in JSON format with keys:
     if (updateError) throw updateError;
 
     // Invalidate cache if Redis is available
+    const redis = getRedis();
     if (redis) {
       try {
         const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({planId})}`;

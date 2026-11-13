@@ -25,6 +25,16 @@ export interface ContestSubmissionRecord {
 }
 
 const memoryLeaderboard = new Map<string, ContestSubmissionRecord[]>();
+const contestStartTimes = new Map<string, number>();
+
+export function recordContestStart(contestId: string, userId: string): number {
+  const key = `${contestId}:${userId}`;
+  const now = Date.now();
+  if (!contestStartTimes.has(key)) {
+    contestStartTimes.set(key, now);
+  }
+  return contestStartTimes.get(key)!;
+}
 
 function getIsoWeekKey(date = new Date()): string {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -35,13 +45,13 @@ function getIsoWeekKey(date = new Date()): string {
   return `weekly-${d.getUTCFullYear()}-w${String(weekNo).padStart(2, '0')}`;
 }
 
-export function getActiveWeeklyContest(now = new Date()) {
+export function getActiveWeeklyContest(now = new Date(), stripKeywords = false) {
   const contestId = getIsoWeekKey(now);
   const start = new Date(now);
   start.setUTCHours(0, 0, 0, 0);
   const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const problems: ContestProblem[] = [
+  const rawProblems: ContestProblem[] = [
     {
       id: 'p1-two-sum-window',
       title: 'Subarray Target Window',
@@ -70,6 +80,10 @@ export function getActiveWeeklyContest(now = new Date()) {
       starterCode: 'function minCompletionTime(durations, edges) {\n  // Topological DP\n}',
     },
   ];
+
+  const problems = stripKeywords
+    ? rawProblems.map(({ expectedKeywords: _kw, ...rest }) => rest as ContestProblem)
+    : rawProblems;
 
   return {
     id: contestId,
@@ -162,7 +176,18 @@ export async function submitWeeklyContest({
   const contest = getActiveWeeklyContest();
   const targetId = contestId || contest.id;
   const { score, problemsSolved } = gradeContestAnswers(contest.problems, answers);
-  const clampedTime = Math.max(1, Math.min(contest.durationMinutes * 60, Math.round(Number(timeTakenSeconds) || 1800)));
+
+  const startKey = `${targetId}:${userId}`;
+  const startedAtMs = contestStartTimes.get(startKey);
+  let computedTime: number;
+  if (startedAtMs) {
+    const elapsed = Math.max(1, Math.round((Date.now() - startedAtMs) / 1000));
+    computedTime = Math.min(contest.durationMinutes * 60, elapsed);
+    contestStartTimes.delete(startKey);
+  } else {
+    computedTime = Math.max(1, Math.min(contest.durationMinutes * 60, Math.round(Number(timeTakenSeconds) || 1800)));
+  }
+
   const finishedAt = new Date().toISOString();
 
   const record: ContestSubmissionRecord = {
@@ -171,7 +196,7 @@ export async function submitWeeklyContest({
     username: String(username || 'Candidate').slice(0, 60),
     score,
     problemsSolved,
-    timeTakenSeconds: clampedTime,
+    timeTakenSeconds: computedTime,
     finishedAt,
   };
 

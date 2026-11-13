@@ -183,21 +183,21 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await adminApi.get('/api/admin/stats');
+      const res = await adminApi.get(buildAdminApiUrl('/admin/stats'));
       setStats(res.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load stats');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildAdminApiUrl]);
 
   // ─── Fetch Users ───
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     clearMessages();
     try {
-      const res = await adminApi.get('/api/admin/users', {
+      const res = await adminApi.get(buildAdminApiUrl('/admin/users'), {
         params: {
           page: userPage,
           limit: LIMIT,
@@ -212,14 +212,14 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [userPage, userSearch, userRoleFilter]);
+  }, [buildAdminApiUrl, userPage, userSearch, userRoleFilter]);
 
   // ─── Fetch Content ───
   const fetchContent = useCallback(async () => {
     setLoading(true);
     clearMessages();
     try {
-      const res = await adminApi.get('/api/admin/content', {
+      const res = await adminApi.get(buildAdminApiUrl('/admin/content'), {
         params: { type: contentType, page: contentPage, limit: LIMIT }
       });
       setContent(res.data.items);
@@ -229,14 +229,14 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [contentType, contentPage]);
+  }, [buildAdminApiUrl, contentType, contentPage]);
 
   // ─── Fetch Jobs ───
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     clearMessages();
     try {
-      const res = await adminApi.get('/api/jobs', {
+      const res = await adminApi.get(buildAdminApiUrl('/jobs'), {
         params: { page: jobPage, limit: LIMIT, search: jobSearch || undefined, include_inactive: true, source: 'admin' }
       });
       setJobs(res.data.jobs || []);
@@ -246,14 +246,14 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [jobPage, jobSearch]);
+  }, [buildAdminApiUrl, jobPage, jobSearch]);
 
   // ─── Fetch Question Sets ───
   const fetchQuestionSets = useCallback(async () => {
     setLoading(true);
     clearMessages();
     try {
-      const res = await adminApi.get('/api/admin/question-sets', {
+      const res = await adminApi.get(buildAdminApiUrl('/admin/question-sets'), {
         params: {
           page: questionSetPage,
           limit: LIMIT,
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [questionSetPage, questionSetSearch]);
+  }, [buildAdminApiUrl, questionSetPage, questionSetSearch]);
 
   useEffect(() => {
     if (activeTab === 'stats') fetchStats();
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete user ${email}? This cannot be undone.`)) return;
     clearMessages();
     try {
-      await adminApi.delete(`/api/admin/users/${userId}`);
+      await adminApi.delete(buildAdminApiUrl(`/admin/users/${userId}`));
       setSuccess('User deleted');
       fetchUsers();
     } catch (err) {
@@ -305,7 +305,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete this ${type.slice(0, -1)}?`)) return;
     clearMessages();
     try {
-      await adminApi.delete(`/api/admin/content/${type}/${id}`);
+      await adminApi.delete(buildAdminApiUrl(`/admin/content/${type}/${id}`));
       setSuccess('Content deleted');
       fetchContent();
     } catch (err) {
@@ -351,10 +351,10 @@ export default function AdminDashboard() {
     };
     try {
       if (editingJob) {
-        await adminApi.put(`/api/jobs/${editingJob.id}`, payload);
+        await adminApi.put(buildAdminApiUrl(`/jobs/${editingJob.id}`), payload);
         setSuccess('Job updated successfully');
       } else {
-        await adminApi.post('/api/jobs', payload);
+        await adminApi.post(buildAdminApiUrl('/jobs'), payload);
         setSuccess('Job created successfully');
       }
       setShowJobModal(false);
@@ -368,7 +368,7 @@ export default function AdminDashboard() {
   const handleToggleJob = async (jobId) => {
     clearMessages();
     try {
-      await adminApi.patch(`/api/jobs/${jobId}/toggle`);
+      await adminApi.patch(buildAdminApiUrl(`/jobs/${jobId}/toggle`));
       setSuccess('Job status toggled');
       fetchJobs();
     } catch (err) {
@@ -380,7 +380,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete job "${title}"? This cannot be undone.`)) return;
     clearMessages();
     try {
-      await adminApi.delete(`/api/jobs/${jobId}`);
+      await adminApi.delete(buildAdminApiUrl(`/jobs/${jobId}`));
       setSuccess('Job deleted');
       fetchJobs();
     } catch (err) {
@@ -612,10 +612,10 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       if (editingSet) {
-        await adminApi.put(`/api/admin/question-sets/${editingSet.id}`, payload);
+        await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${editingSet.id}`), payload);
         setSuccess('Question set updated successfully');
       } else {
-        const res = await adminApi.post('/api/admin/question-sets', payload);
+        const res = await adminApi.post(buildAdminApiUrl('/admin/question-sets'), payload);
         const token = res.data.token || res.data.questionSet.share_code;
         setSuccess(`Question set created! Candidate link: ${window.location.origin}/app?token=${token}`);
       }
@@ -630,7 +630,7 @@ export default function AdminDashboard() {
 
   const handleToggleSetActive = async (qs) => {
     try {
-      await adminApi.put(`/api/admin/question-sets/${qs.id}`, { isActive: !qs.is_active });
+      await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${qs.id}`), { isActive: !qs.is_active });
       setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, is_active: !s.is_active } : s));
       setSuccess(`Question set ${qs.is_active ? 'deactivated' : 'activated'}`);
     } catch (err) {
@@ -640,7 +640,7 @@ export default function AdminDashboard() {
 
   const handleToggleRequiresLogin = async (qs) => {
     try {
-      await adminApi.put(`/api/admin/question-sets/${qs.id}`, { requiresLogin: !qs.requires_login });
+      await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${qs.id}`), { requiresLogin: !qs.requires_login });
       setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, requires_login: !s.requires_login } : s));
       setSuccess(`Updated "${qs.title}": ${qs.requires_login ? 'Now accessible via direct link without login' : 'Now requires candidate login'}`);
     } catch (err) {
@@ -651,7 +651,7 @@ export default function AdminDashboard() {
   const handleDeleteQuestionSet = async (id) => {
     if (!window.confirm('Are you sure you want to delete this question set? This will also remove associated submissions.')) return;
     try {
-      await adminApi.delete(`/api/admin/question-sets/${id}`);
+      await adminApi.delete(buildAdminApiUrl(`/admin/question-sets/${id}`));
       setSuccess('Question set deleted successfully');
       fetchQuestionSets();
     } catch (err) {
@@ -673,7 +673,7 @@ export default function AdminDashboard() {
     setSubmissionsLoading(true);
     setExpandedSubmissionId(null);
     try {
-      const res = await adminApi.get(`/api/admin/question-sets/${qs.id}/submissions`);
+      const res = await adminApi.get(buildAdminApiUrl(`/admin/question-sets/${qs.id}/submissions`));
       setSubmissionsList(res.data.submissions || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load submissions');

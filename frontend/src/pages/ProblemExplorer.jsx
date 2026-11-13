@@ -83,30 +83,36 @@ function useProblemExplorerState() {
             try {
                 // Fetch progress
                 const progressRes = await authFetch('/api/dsa/progress');
-                if (progressRes?.solvedProblemIds) {
-                    setSolvedSet(new Set(progressRes.solvedProblemIds.map(String)));
-                }
-                if (progressRes?.stats) {
-                    setStreak(progressRes.stats.streak || 0);
-                    setWeekSolved(progressRes.stats.week_solved || 0);
+                if (progressRes.ok) {
+                    const progressData = await progressRes.json();
+                    if (progressData?.solvedProblemIds) {
+                        setSolvedSet(new Set(progressData.solvedProblemIds.map(String)));
+                    }
+                    if (progressData?.stats) {
+                        setStreak(progressData.stats.streak || 0);
+                        setWeekSolved(progressData.stats.week_solved || 0);
+                    }
                 }
 
                 // Fetch bookmarks & notes
                 const bookmarksRes = await authFetch('/api/notes/bookmarks?type=dsa');
-                if (bookmarksRes?.bookmarks) {
-                    const bms = new Set();
-                    const nts = {};
-                    bookmarksRes.bookmarks.forEach(b => {
-                        if (b.question_id) {
-                            const qid = String(b.question_id);
-                            bms.add(qid);
-                            if (b.note) {
-                                nts[qid] = b.note;
+                if (bookmarksRes.ok) {
+                    const bookmarksData = await bookmarksRes.json();
+                    if (bookmarksData?.bookmarks) {
+                        const bms = new Set();
+                        const nts = {};
+                        bookmarksData.bookmarks.forEach(b => {
+                            if (b.question_id) {
+                                const qid = String(b.question_id);
+                                bms.add(qid);
+                                if (b.note) {
+                                    nts[qid] = b.note;
+                                }
                             }
-                        }
-                    });
-                    setBookmarks(bms);
-                    setNotes(nts);
+                        });
+                        setBookmarks(bms);
+                        setNotes(nts);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch user data for explorer", error);

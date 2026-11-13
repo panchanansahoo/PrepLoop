@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Mail, CheckCircle, RefreshCw, ArrowRight } from 'lucide-react';
+import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 
 export default function VerifyEmail() {
     const [searchParams] = useSearchParams();
@@ -23,11 +26,14 @@ export default function VerifyEmail() {
         setErrorMessage('');
         setResending(true);
         try {
-            const res = await fetch('/api/auth/resend-verification', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
+            const res = await authFetch(
+                buildApiUrl('/auth/resend-verification', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                }
+            );
             const data = await res.json();
             if (res.ok) {
                 setResent(true);
@@ -49,11 +55,14 @@ export default function VerifyEmail() {
         setErrorMessage('');
         setActivating(true);
         try {
-            const res = await fetch('/api/auth/activate-account', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
+            const res = await authFetch(
+                buildApiUrl('/auth/activate-account', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                }
+            );
             const data = await res.json();
             if (res.ok) {
                 setActivated(true);

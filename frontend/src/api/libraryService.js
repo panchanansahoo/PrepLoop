@@ -1,20 +1,10 @@
 import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
-
-function resolveApiBaseUrl() {
-	const rawBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').trim();
-	if (!rawBaseUrl) return 'http://localhost:5000/api';
-
-	// Support both forms: http://host:port and http://host:port/api
-	if (rawBaseUrl.endsWith('/api')) return rawBaseUrl;
-	if (rawBaseUrl.endsWith('/api/')) return rawBaseUrl.slice(0, -1);
-	return `${rawBaseUrl.replace(/\/$/, '')}/api`;
-}
-
-const API_BASE_URL = resolveApiBaseUrl();
+import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
 
 function buildLibraryApiUrl(endpoint) {
 	const safeEndpoint = normalizeRelativePath(endpoint);
-	return buildApiUrl(`/library${safeEndpoint}`, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+	return buildApiUrl(`/library${safeEndpoint}`, { rawBaseUrl: API_URL, apiPrefix: '/api' });
 }
 
 function resolveToken(explicitToken) {
@@ -44,7 +34,7 @@ async function request(endpoint, { method = 'GET', body, token } = {}) {
 		headers.Authorization = `Bearer ${authToken}`;
 	}
 
-	const response = await fetch(buildLibraryApiUrl(endpoint), {
+	const response = await authFetch(buildLibraryApiUrl(endpoint), {
 		method,
 		headers,
 		body: body ? JSON.stringify(body) : undefined

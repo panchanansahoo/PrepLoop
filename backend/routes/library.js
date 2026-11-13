@@ -262,7 +262,8 @@ router.get('/books/:id', async (req, res) => {
     const { data: reviewData, error: reviewError } = await supabaseAdmin
       .from('library_book_reviews')
       .select('*')
-      .eq('book_id', id);
+      .eq('book_id', id)
+      .limit(100);
 
     if (!reviewError && reviewData) {
       reviews = reviewData;

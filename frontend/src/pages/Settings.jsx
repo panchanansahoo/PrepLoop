@@ -41,7 +41,13 @@ export default function Settings() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.settings) {
-                        setSettings(prev => ({ ...prev, ...data.settings }));
+                        const level = data.settings.experience_level;
+                        const difficulty = level === 'beginner' ? 'easy' : (level === 'advanced' || level === 'expert') ? 'hard' : 'medium';
+                        setSettings(prev => ({
+                            ...prev,
+                            ...data.settings,
+                            ...(level ? { difficulty } : {})
+                        }));
                     }
                 }
             } catch (err) {
@@ -62,9 +68,14 @@ export default function Settings() {
         setStatus('idle');
         try {
             syncLocalPreferences(settings);
+            const experienceLevel = settings.difficulty === 'easy' ? 'beginner' : (settings.difficulty === 'hard' ? 'advanced' : 'intermediate');
             const res = await authFetch('/api/user/settings', {
                 method: 'PUT',
-                body: JSON.stringify(settings)
+                body: JSON.stringify({
+                    ...settings,
+                    fullName: user?.fullName || user?.name || undefined,
+                    experienceLevel
+                })
             });
             if (!res.ok) {
                 throw new Error('Failed to save settings');
@@ -167,7 +178,7 @@ export default function Settings() {
                 </article>
                 <article className="account-stat-card">
                     <span className="account-stat-label">Practice focus</span>
-                    <strong className="account-stat-value">{settings.difficulty.charAt(0).toUpperCase() + settings.difficulty.slice(1)}</strong>
+                    <strong className="account-stat-value">{((settings.difficulty || 'medium').charAt(0)).toUpperCase() + (settings.difficulty || 'medium').slice(1)}</strong>
                     <span className="account-stat-meta">Default difficulty for future problem sets</span>
                 </article>
             </div>

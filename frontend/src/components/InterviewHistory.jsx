@@ -187,7 +187,7 @@ export default function InterviewHistory({ _userId, onSelectInterview }) {
             <div
               key={idx}
               className="bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg p-5 transition-all cursor-pointer hover:bg-slate-700"
-              onClick={() => { if (onSelectInterview) onSelectInterview(interview); else window.open(`/interview/${interview.id}`, '_blank'); }}
+              onClick={() => { if (onSelectInterview) onSelectInterview(interview); else window.open(`/interview/playback/${encodeURIComponent(interview.id)}`, '_blank'); }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">

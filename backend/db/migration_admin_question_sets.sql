@@ -236,3 +236,42 @@ BEGIN
       );
   END IF;
 END $$;
+
+-- ─── admin_interview_attempts policies ────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'admin_interview_attempts'
+      AND policyname = 'Participants manage own interview attempts'
+  ) THEN
+    CREATE POLICY "Participants manage own interview attempts"
+      ON admin_interview_attempts
+      FOR ALL
+      USING (auth.uid() = user_id OR user_id IS NULL)
+      WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'admin_interview_attempts'
+      AND policyname = 'Admins view attempts for their question sets'
+  ) THEN
+    CREATE POLICY "Admins view attempts for their question sets"
+      ON admin_interview_attempts
+      FOR SELECT
+      TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1 FROM admin_question_sets qs
+          WHERE qs.id = question_set_id
+            AND qs.admin_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;

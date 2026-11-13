@@ -153,7 +153,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
         profiles!study_groups_creator_id_fkey(full_name)
       `)
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Study group not found' });

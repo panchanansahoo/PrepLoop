@@ -73,8 +73,14 @@ async function deployImprovementPlan() {
 
     // Step 4: Test API endpoint
     console.log('📋 Step 4: Testing API endpoint...');
-    const response = await fetch('http://localhost:5000/health');
-    if (response.ok) {
+    let serverRunning = false;
+    try {
+      const response = await fetch('http://localhost:5000/health');
+      serverRunning = response.ok;
+    } catch {
+      serverRunning = false;
+    }
+    if (serverRunning) {
       console.log('✅ Backend server is running\n');
     } else {
       console.log('⚠️  Backend server may not be running\n');

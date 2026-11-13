@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { buildAuthHeaders } from './authHeaders';
+import { API_URL } from '../config/api';
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 const CSRF_TIMEOUT_MS = 5_000;
@@ -72,34 +73,66 @@ export async function authFetch(url, options = {}) {
     return response;
   }
 
-  // No Supabase client configured — cannot refresh.
-  if (!supabase) {
-    return response;
-  }
-
   // Attempt silent token refresh.
   try {
-    const { data, error } = await supabase.auth.refreshSession();
-    if (error || !data?.session) {
-      return response; // Refresh failed — return original 401.
+    if (supabase) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data?.session?.access_token) {
+        // Keep the access token for legacy header-based callers. The refresh token
+        // remains in the HttpOnly cookie issued by the backend.
+        const newToken = data.session.access_token;
+        localStorage.setItem('token', newToken);
+
+        // Retry the original request with the fresh token.
+        const retryHeaders = {
+          ...headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+
+        return fetchWithTimeout(
+          url,
+          { ...fetchOptions, credentials: 'include', headers: retryHeaders },
+          timeoutMs,
+        );
+      }
     }
 
-    // Keep the access token for legacy header-based callers. The refresh token
-    // remains in the HttpOnly cookie issued by the backend.
-    const newToken = data.session.access_token;
-    localStorage.setItem('token', newToken);
-
-    // Retry the original request with the fresh token.
-    const retryHeaders = {
-      ...headers,
-      Authorization: `Bearer ${newToken}`,
+    // Fallback silent refresh via /api/auth/refresh for custom JWT backend
+    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshHeaders = {
+      'Content-Type': 'application/json',
     };
+    if (csrfToken) refreshHeaders['X-CSRF-Token'] = csrfToken;
 
-    return fetchWithTimeout(
-      url,
-      { ...fetchOptions, credentials: 'include', headers: retryHeaders },
-      timeoutMs,
+    const refreshRes = await fetchWithTimeout(
+      `${API_URL}/api/auth/refresh`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: refreshHeaders,
+        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+      },
+      Math.min(CSRF_TIMEOUT_MS, timeoutMs || CSRF_TIMEOUT_MS),
     );
+
+    if (refreshRes.ok) {
+      const refreshData = await refreshRes.json();
+      const newToken = refreshData?.token;
+      if (newToken) {
+        localStorage.setItem('token', newToken);
+        const retryHeaders = {
+          ...headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        return fetchWithTimeout(
+          url,
+          { ...fetchOptions, credentials: 'include', headers: retryHeaders },
+          timeoutMs,
+        );
+      }
+    }
+
+    return response;
   } catch {
     // Refresh threw — return the original 401 response.
     return response;

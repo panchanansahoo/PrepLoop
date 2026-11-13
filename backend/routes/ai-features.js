@@ -83,6 +83,53 @@ router.post(
 );
 
 /**
+ * GET /api/ai/code-review/history
+ * Get user's code review history with pagination
+ * (Registered before /code-review/:reviewId to avoid route shadowing)
+ */
+router.get(
+  '/code-review/history',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(50, parseInt(req.query.limit) || 10);
+      const offset = (page - 1) * limit;
+
+      const { data: reviews, error, count } = await supabaseAdmin
+        .from('code_review_sessions')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: reviews,
+        pagination: {
+          page,
+          limit,
+          total: count,
+          pages: Math.ceil(count / limit)
+        }
+      });
+
+    } catch (error) {
+      logger.error('Fetch review history error', { error: error.message });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch review history'
+      });
+    }
+  }
+);
+
+/**
  * GET /api/ai/code-review/:reviewId
  * Get specific code review
  */
@@ -167,52 +214,6 @@ router.get(
       });
     }
   })
-);
-
-/**
- * GET /api/ai/code-review/history
- * Get user's code review history with pagination
- */
-router.get(
-  '/code-review/history',
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const page = Math.max(1, parseInt(req.query.page) || 1);
-      const limit = Math.min(50, parseInt(req.query.limit) || 10);
-      const offset = (page - 1) * limit;
-
-      const { data: reviews, error, count } = await supabaseAdmin
-        .from('code_review_sessions')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) {
-        throw error;
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: reviews,
-        pagination: {
-          page,
-          limit,
-          total: count,
-          pages: Math.ceil(count / limit)
-        }
-      });
-
-    } catch (error) {
-      logger.error('Fetch review history error', { error: error.message });
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch review history'
-      });
-    }
-  }
 );
 
 // ============ INTERVIEW SIMULATION ENDPOINTS ============

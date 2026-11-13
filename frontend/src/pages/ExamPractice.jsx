@@ -33,7 +33,7 @@ function CalcWidget({ onClose, isLight }) {
     if (fresh) { setDisplay(val === '.' ? '0.' : val); setFresh(false); }
     else { setDisplay(d => d === '0' && val !== '.' ? val : d + val); }
   };
-  const btns = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '=', '='];
+  const btns = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '='];
   return (
     <div style={{
       position: 'absolute', top: 50, right: 0, width: 260, background: isLight ? '#fff' : '#111',
@@ -54,6 +54,7 @@ function CalcWidget({ onClose, isLight }) {
         {btns.map((b, i) => (
           <button key={`${b}-${i}`} onClick={() => press(b)} style={{
             padding: '10px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+            gridColumn: b === '0' ? 'span 2' : undefined,
             background: b === '=' ? '#818cf8' : ['÷', '×', '-', '+'].includes(b) ? (isLight ? '#e5e7eb' : '#333') : (isLight ? '#fff' : '#1a1a1a'),
             color: b === '=' ? '#fff' : ['÷', '×', '-', '+'].includes(b) ? '#818cf8' : (isLight ? '#1a1a2e' : '#fff'),
           }}>{b}</button>

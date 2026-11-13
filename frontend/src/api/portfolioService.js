@@ -8,9 +8,7 @@ export async function importPortfolioProfile(payload) {
 export async function uploadResumeForPortfolio(file) {
   const form = new FormData();
   form.append('resume', file);
-  const response = await apiClient.post('/api/portfolio/profiles/import-resume', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post('/api/portfolio/profiles/import-resume', form);
   return response.data;
 }
 

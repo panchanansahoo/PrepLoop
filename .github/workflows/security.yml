@@ -116,6 +116,10 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install and build contracts
+        run: |
+          cd packages/contracts && npm ci && npm run build
+
       - name: Install all dependencies
         run: |
           cd backend && npm ci --ignore-scripts

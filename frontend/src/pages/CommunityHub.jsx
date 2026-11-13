@@ -8,6 +8,9 @@ import {
   Mic, TrendingUp, Heart
 } from 'lucide-react';
 import { API_URL } from '../config/api.js';
+import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { useAuth } from '../context/AuthContext';
 
 // ── Discord SVG Icon ──
 function DiscordIcon({ size = 20, color = 'currentColor' }) {
@@ -141,6 +144,7 @@ function GradientDivider() {
 
 // ── Main Component ──
 export default function CommunityHub() {
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('overview');
   const [memberCount, setMemberCount] = useState(null);
   const [discussions, setDiscussions] = useState([]);
@@ -148,10 +152,12 @@ export default function CommunityHub() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [events, setEvents] = useState([]);
   const [joinedGroups, setJoinedGroups] = useState(new Set());
-  const [loading, setLoading] = useState(false);
+  const [discussionsLoading, setDiscussionsLoading] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [discussionsError, setDiscussionsError] = useState(null);
+  const [groupsError, setGroupsError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -192,35 +198,35 @@ export default function CommunityHub() {
   };
 
   const fetchDiscussions = async (signal) => {
-    setLoading(true);
-    setError(null);
+    setDiscussionsLoading(true);
+    setDiscussionsError(null);
     try {
       const response = await axios.get(`${API_URL}/api/community/posts?filter=trending`, { signal });
       setDiscussions(response.data.posts || []);
     } catch (err) {
       if (!axios.isCancel(err)) {
         console.error('Error fetching discussions:', err);
-        setError('Failed to load discussions');
+        setDiscussionsError('Failed to load discussions');
       }
     } finally {
-      setLoading(false);
+      setDiscussionsLoading(false);
     }
   };
 
   const fetchStudyGroups = async (signal) => {
-    setLoading(true);
-    setError(null);
+    setGroupsLoading(true);
+    setGroupsError(null);
     try {
       const response = await axios.get(`${API_URL}/api/study-groups`, { signal });
       setStudyGroups(response.data.groups || []);
     } catch (err) {
       if (!axios.isCancel(err)) {
         console.error('Error fetching study groups:', err);
-        setError('Failed to load study groups. Please try again later.');
+        setGroupsError('Failed to load study groups. Please try again later.');
         setStudyGroups([]); // Safe fallback: empty array instead of mock data
       }
     } finally {
-      setLoading(false);
+      setGroupsLoading(false);
     }
   };
 
@@ -286,23 +292,30 @@ export default function CommunityHub() {
 
   const handleJoinGroup = async (groupId) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!user) {
         alert('Please login to join a study group');
         return;
       }
 
-      await axios.post(
-        `${API_URL}/api/study-groups/${groupId}/join`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const url = buildApiUrl(`/study-groups/${encodeURIComponent(groupId)}/join`, {
+        rawBaseUrl: API_URL,
+        apiPrefix: '/api',
+      });
+      const res = await authFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to join group');
+      }
 
       setJoinedGroups(prev => new Set([...prev, groupId]));
       fetchStudyGroups(); // Refresh to update member count
     } catch (err) {
       console.error('Error joining group:', err);
-      alert(err.response?.data?.error || 'Failed to join group');
+      alert(err.message || 'Failed to join group');
     }
   };
 
@@ -339,24 +352,31 @@ export default function CommunityHub() {
     };
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!user) {
         alert('Please login to create a study group');
         return;
       }
 
-      await axios.post(
-        `${API_URL}/api/study-groups`,
-        groupData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const url = buildApiUrl('/study-groups', {
+        rawBaseUrl: API_URL,
+        apiPrefix: '/api',
+      });
+      const res = await authFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(groupData),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to create group');
+      }
 
       setShowCreateModal(false);
       fetchStudyGroups();
       e.target.reset();
     } catch (err) {
       console.error('Error creating group:', err);
-      alert(err.response?.data?.error || 'Failed to create group');
+      alert(err.message || 'Failed to create group');
     }
   };
 
@@ -591,10 +611,10 @@ export default function CommunityHub() {
                 View All <ChevronRight size={14} />
               </button>
             </div>
-            {loading ? (
+            {discussionsLoading ? (
               <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>Loading...</div>
-            ) : error ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'var(--error-main)' }}>{error}</div>
+            ) : discussionsError ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--error-main)' }}>{discussionsError}</div>
             ) : discussions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>No discussions yet. Be the first to start one!</div>
             ) : (
@@ -678,8 +698,10 @@ export default function CommunityHub() {
               <Users size={14} /> Create Group
             </button>
           </div>
-          {loading ? (
+          {groupsLoading ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading groups...</div>
+          ) : groupsError ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--error-main)' }}>{groupsError}</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
               {studyGroups.map((group, i) => (
@@ -811,10 +833,10 @@ export default function CommunityHub() {
           <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
             <MessageCircle size={18} color="#60a5fa" /> Community Discussions
           </h3>
-          {loading ? (
+          {discussionsLoading ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading discussions...</div>
-          ) : error ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--error-main)' }}>{error}</div>
+          ) : discussionsError ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--error-main)' }}>{discussionsError}</div>
           ) : discussions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No discussions yet. Be the first to start one!</div>
           ) : (

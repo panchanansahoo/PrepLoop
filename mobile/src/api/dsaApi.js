@@ -48,6 +48,13 @@ export const dsaApi = {
     },
 
     /**
+     * Alias for getProblemById used by CodeEditor and SQLEditor screens.
+     */
+    async getProblemDetails(id) {
+        return this.getProblemById(id);
+    },
+
+    /**
      * Get the daily challenge.
      * No dedicated endpoint — silently returns null (dashboard handles gracefully).
      */
@@ -60,13 +67,23 @@ export const dsaApi = {
     /**
      * Submit a solution via the practice endpoint.
      * POST /api/practice/submit — requires { problemId, code, language }
+     * Accepts either (problemId, code, language) or (problemId, { code, language }).
      */
-    async submitSolution(problemId, code, language) {
-        const res = await apiClient.post("/api/practice/submit", {
-            problemId,
-            code,
-            language,
-        });
+    async submitSolution(problemId, codeOrPayload, maybeLanguage) {
+        const payload =
+            typeof codeOrPayload === "object" && codeOrPayload !== null
+                ? {
+                      problemId,
+                      code: codeOrPayload.code,
+                      language: codeOrPayload.language,
+                  }
+                : {
+                      problemId,
+                      code: codeOrPayload,
+                      language: maybeLanguage,
+                  };
+
+        const res = await apiClient.post("/api/practice/submit", payload);
         return res.data;
     },
 

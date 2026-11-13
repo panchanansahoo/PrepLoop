@@ -4,6 +4,7 @@
  */
 import { WebSocketServer } from 'ws';
 import crypto from 'crypto';
+import { verifySupabaseToken } from '../middleware/auth.ts';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { InterviewScoringService } from './interviewScoringService.ts';
 import { computeNextMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
@@ -32,10 +33,19 @@ class RealtimeInterviewService {
     this.disconnectedSessions = new Map(); // sessionId -> { context, state, disconnectedAt, timeoutTimer }
   }
 
-  initialize(server) {
-    this.wss = new WebSocketServer({ server, path: '/ws/interview' });
+  initialize(server, { noServer = false } = {}) {
+    this.wss = noServer
+      ? new WebSocketServer({ noServer: true })
+      : new WebSocketServer({ server, path: '/ws/interview' });
 
-    this.wss.on('connection', (ws, req) => {
+    this.wss.on('connection', async (ws, req) => {
+      const userId = await this.extractUserId(req);
+      if (!userId) {
+        ws.close(1008, 'Unauthorized: Valid Supabase auth token required');
+        return;
+      }
+      ws._userId = userId;
+
       let requestedSessionId = null;
       try {
         if (req?.url) {
@@ -51,11 +61,16 @@ class RealtimeInterviewService {
 
       if (sessionId && this.disconnectedSessions.has(sessionId)) {
         const saved = this.disconnectedSessions.get(sessionId);
+        if (saved.userId && saved.userId !== userId) {
+          ws.close(1008, 'Unauthorized: Cannot resume session belonging to another user');
+          return;
+        }
         if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
         this.disconnectedSessions.delete(sessionId);
 
         this.sessions.set(sessionId, {
           ws,
+          userId,
           context: saved.context,
           state: saved.state || 'idle',
         });
@@ -68,6 +83,7 @@ class RealtimeInterviewService {
         // Initialize session
         this.sessions.set(sessionId, {
           ws,
+          userId,
           context: {
             conversation: [],
             questionIndex: 0,
@@ -80,6 +96,7 @@ class RealtimeInterviewService {
       }
 
       const activeSession = this.sessions.get(sessionId);
+      ws._sessionId = sessionId;
 
       // Send connected / resumed message
       ws.send(JSON.stringify({
@@ -93,7 +110,8 @@ class RealtimeInterviewService {
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data.toString());
-          await this.handleMessage(sessionId, message);
+          const activeId = ws._sessionId || sessionId;
+          await this.handleMessage(activeId, message);
         } catch (err) {
           console.error('[RealtimeInterview] Message error:', err);
           ws.send(JSON.stringify({
@@ -105,23 +123,25 @@ class RealtimeInterviewService {
 
       // Handle disconnect with 60s grace period
       ws.on('close', () => {
-        console.log(`[RealtimeInterview] Disconnected: ${sessionId}`);
-        const currentSession = this.sessions.get(sessionId);
+        const activeId = ws._sessionId || sessionId;
+        console.log(`[RealtimeInterview] Disconnected: ${activeId}`);
+        const currentSession = this.sessions.get(activeId);
         if (currentSession) {
           const timeoutTimer = setTimeout(() => {
-            if (this.disconnectedSessions.has(sessionId)) {
-              console.log(`[RealtimeInterview] Session grace window expired, purging: ${sessionId}`);
-              this.disconnectedSessions.delete(sessionId);
+            if (this.disconnectedSessions.has(activeId)) {
+              console.log(`[RealtimeInterview] Session grace window expired, purging: ${activeId}`);
+              this.disconnectedSessions.delete(activeId);
             }
           }, 60_000);
 
-          this.disconnectedSessions.set(sessionId, {
+          this.disconnectedSessions.set(activeId, {
+            userId: currentSession.userId || ws._userId,
             context: currentSession.context,
             state: currentSession.state,
             disconnectedAt: Date.now(),
             timeoutTimer,
           });
-          this.sessions.delete(sessionId);
+          this.sessions.delete(activeId);
         }
       });
 
@@ -131,6 +151,16 @@ class RealtimeInterviewService {
     });
 
     console.log('[RealtimeInterview] WebSocket server initialized');
+  }
+
+  handleUpgrade(request, socket, head) {
+    if (!this.wss) {
+      socket.destroy();
+      return;
+    }
+    this.wss.handleUpgrade(request, socket, head, (ws) => {
+      this.wss?.emit('connection', ws, request);
+    });
   }
 
   async handleMessage(sessionId, message) {
@@ -175,12 +205,22 @@ class RealtimeInterviewService {
 
     if (this.disconnectedSessions.has(resumeId)) {
       const saved = this.disconnectedSessions.get(resumeId);
+      if (saved.userId && session.userId && saved.userId !== session.userId) {
+        session.ws.send(JSON.stringify({
+          type: 'resume_failed',
+          reason: 'Unauthorized: Session belongs to another user',
+          sessionId: resumeId,
+        }));
+        return;
+      }
       if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
       this.disconnectedSessions.delete(resumeId);
 
       this.sessions.delete(currentSessionId);
+      session.ws._sessionId = resumeId;
       this.sessions.set(resumeId, {
         ws: session.ws,
+        userId: session.userId || saved.userId,
         context: saved.context,
         state: saved.state || 'idle',
       });
@@ -530,8 +570,54 @@ Provide feedback in JSON format:
       ],
     };
 
-    const questions = fallbacks[context.stage] || fallbacks['Technical'];
+    const stageKey = String(context.stage || '').toLowerCase();
+    const typeKey = String(context.interviewType || '').toLowerCase();
+    const poolKey = fallbacks[context.stage]
+      ? context.stage
+      : typeKey === 'hr' || stageKey === 'hr'
+        ? 'HR'
+        : typeKey === 'behavioral' || stageKey === 'behavioral'
+          ? 'Behavioral'
+          : typeKey === 'system_design' || typeKey === 'system-design' || stageKey === 'system design'
+            ? 'System Design'
+            : typeKey === 'dsa' || stageKey === 'dsa / coding'
+              ? 'DSA / Coding'
+              : 'Technical';
+
+    const questions = fallbacks[poolKey] || fallbacks['Technical'];
     return questions[context.questionIndex % questions.length];
+  }
+
+  async extractUserId(req) {
+    try {
+      const url = new URL(req.url || '', 'http://localhost');
+      const queryToken = url.searchParams.get('token')?.trim();
+      const authHeader = req.headers?.authorization;
+      const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+      let cookieToken = null;
+      const cookieHeader = req.headers?.cookie || '';
+      for (const part of cookieHeader.split(';')) {
+        const sep = part.indexOf('=');
+        if (sep < 1) continue;
+        if (part.slice(0, sep).trim() === 'preploop_access') {
+          try {
+            cookieToken = decodeURIComponent(part.slice(sep + 1).trim());
+          } catch {
+            cookieToken = part.slice(sep + 1).trim();
+          }
+          break;
+        }
+      }
+
+      const token = bearerToken || queryToken || cookieToken;
+      if (!token) return null;
+
+      const verifiedUser = await verifySupabaseToken(token);
+      return verifiedUser?.id || null;
+    } catch {
+      return null;
+    }
   }
 
   generateSessionId() {

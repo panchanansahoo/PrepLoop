@@ -193,13 +193,28 @@ export async function detectEmergingSkillsFromJobs(jobs = []) {
     if (jobs.length === 0) {
       // Fetch recent jobs if not provided
       const { data, error } = await supabase
-        .from('jobs')
+        .from('job_listings')
         .select('id, title, description, company')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(500);
       
       if (error) throw error;
       jobs = data || [];
+    }
+
+    if (jobs.length === 0) {
+      return {
+        timestamp: new Date().toISOString(),
+        totalJobsAnalyzed: 0,
+        allSkills: [],
+        popularSkills: [],
+        emergingSkills: [],
+        statistics: {
+          uniqueSkills: 0,
+          averageSkillsPerJob: 0,
+        },
+      };
     }
     
     const frequency = await trackSkillFrequency(jobs);

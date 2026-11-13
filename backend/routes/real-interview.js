@@ -86,7 +86,7 @@ router.post('/book', authenticateToken, async (req, res) => {
     // Conditionally book slot to reduce race-condition double booking.
     const { data: updatedSlot, error: bookError } = await supabaseAdmin
       .from('interview_slots')
-      .update({ is_booked: true, booked_by: req.user.id })
+      .update({ is_booked: true, booked_by: req.user.id, status: 'booked' })
       .eq('id', slotId)
       .eq('is_booked', false)
       .select('id')
@@ -96,7 +96,7 @@ router.post('/book', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Slot is no longer available' });
     }
 
-    // Create real interview record
+    // Create real interview record (roll back slot booking if insert fails)
     const scheduledAt = `${slot.slot_date}T${slot.start_time}`;
     const { data: interview, error: interviewError } = await supabaseAdmin
       .from('real_interviews')
@@ -110,7 +110,29 @@ router.post('/book', authenticateToken, async (req, res) => {
       .select()
       .single();
 
-    if (interviewError) throw interviewError;
+    if (interviewError) {
+      await supabaseAdmin
+        .from('interview_slots')
+        .update({ is_booked: false, booked_by: null, status: 'available' })
+        .eq('id', slotId)
+        .eq('booked_by', req.user.id);
+      throw interviewError;
+    }
+
+    // Synchronize booking with interview_bookings for HR portal view
+    try {
+      await supabaseAdmin
+        .from('interview_bookings')
+        .insert({
+          user_id: req.user.id,
+          slot_id: slotId,
+          hr_id: slot.hr_id,
+          status: 'scheduled',
+          scheduled_at: scheduledAt,
+        });
+    } catch {
+      // Non-fatal if table not migrated
+    }
 
     res.json({ success: true, interview });
   } catch (error) {
@@ -191,12 +213,22 @@ router.put('/cancel/:id', authenticateToken, async (req, res) => {
 
     if (updateError) throw updateError;
 
-    // Free up the slot
+    // Free up the slot and sync interview_bookings
     if (interview.slot_id) {
       await supabaseAdmin
         .from('interview_slots')
-        .update({ is_booked: false, booked_by: null })
+        .update({ is_booked: false, booked_by: null, status: 'available' })
         .eq('id', interview.slot_id);
+
+      try {
+        await supabaseAdmin
+          .from('interview_bookings')
+          .update({ status: 'cancelled' })
+          .eq('slot_id', interview.slot_id)
+          .eq('user_id', req.user.id);
+      } catch {
+        // Non-fatal if table not present
+      }
     }
 
     res.json({ success: true });

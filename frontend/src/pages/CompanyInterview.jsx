@@ -74,6 +74,12 @@ export default function CompanyInterview() {
     const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
     const [resumeContext, setResumeContext] = useState(null);
     const [resumeFileName, setResumeFileName] = useState('');
+
+    // Timer
+    const [elapsed, setElapsed] = useState(0);
+    const timerRef = useRef(null);
+    const timeLimitTriggeredRef = useRef(false);
+
     const totalQuestions = advancedOptions.questionCount;
     const isFresherHrTechMode = advancedOptions.resumeInterviewMode === 'fresher-hr-tech';
     const sessionDurationSeconds = isFresherHrTechMode ? 20 * 60 : 30 * 60;
@@ -129,11 +135,6 @@ export default function CompanyInterview() {
     const autoSendTimerRef = useRef(null);
     const autoSendCountdownRef = useRef(null);
     const interviewerPauseRef = useRef(null);
-
-    // Timer
-    const [elapsed, setElapsed] = useState(0);
-    const timerRef = useRef(null);
-    const timeLimitTriggeredRef = useRef(false);
 
     // Refs
     const videoRef = useRef(null);
@@ -416,7 +417,7 @@ export default function CompanyInterview() {
             const headers = getAuthHeaders();
             delete headers['Content-Type'];
 
-            const res = await fetch(`${API_URL}/api/resume/analyze`, {
+            const res = await authFetch(`${API_URL}/api/resume/analyze`, {
                 method: 'POST',
                 headers,
                 body: formData,
@@ -1266,7 +1267,7 @@ export default function CompanyInterview() {
                 const headers = getAuthHeaders();
                 delete headers['Content-Type']; // Let browser set boundary automatically
 
-                const res = await fetch(`${API_URL}/api/company-interview/stt`, {
+                const res = await authFetch(`${API_URL}/api/company-interview/stt`, {
                     method: 'POST',
                     headers,
                     body: formData

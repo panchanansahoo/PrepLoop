@@ -34,7 +34,7 @@ const files = [
   'backend/utils/apiDocGenerator.js',
   'backend/utils/errorTracker.js',
   'backend/services/spacedRepetitionService.js',
-  'backend/services/collaborationService.js',
+  'backend/services/collaborationService.ts',
   'backend/middleware/advancedSecurity.js',
   'frontend/src/utils/lazyLoading.js',
   'frontend/src/utils/performanceMonitor.js',

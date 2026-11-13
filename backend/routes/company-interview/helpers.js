@@ -23,8 +23,10 @@ import {
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export const GROQ_CHAT_MODELS = [
-  process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-  process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+  process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+  process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
 ].filter(Boolean);
@@ -38,8 +40,8 @@ export async function verifyGroqModelsOnStartup() {
     const listRes = await groq.models.list();
     const available = (listRes.data || []).map((m) => m.id);
     const configuredModels = [
-      process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-      process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+      process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
     ];
     const missing = configuredModels.filter((m) => !available.includes(m));
     if (missing.length > 0) {
@@ -640,7 +642,7 @@ export async function generateFresherHRQuestion(qNum, _resumeContext = null) {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -679,7 +681,7 @@ export async function generateFresherTechnicalQuestion(qNum, _resumeContext = nu
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -723,7 +725,7 @@ export async function generateInterviewerName(company = '') {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -924,7 +926,7 @@ ${styleHints.join('\n')}
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',

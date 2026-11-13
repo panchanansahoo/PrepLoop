@@ -2337,13 +2337,17 @@ export class InterviewSimulatorService {
   }
 
   static async _updatePerformanceTrend(userId, interviewType, companyFocus, scores) {
-    const selectResult = await supabaseAdmin
+    let trendQuery = supabaseAdmin
       .from('interview_performance_trends')
       .select('*')
       .eq('user_id', userId)
-      .eq('interview_type', interviewType)
-      .eq('company_focus', companyFocus || null)
-      .single();
+      .eq('interview_type', interviewType);
+
+    trendQuery = companyFocus
+      ? trendQuery.eq('company_focus', companyFocus)
+      : trendQuery.is('company_focus', null);
+
+    const selectResult = await trendQuery.maybeSingle();
     let existing = selectResult.data;
     const selectError = selectResult.error;
 

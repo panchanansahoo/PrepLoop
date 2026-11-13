@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Award, Clock, Share2, Trophy } from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
@@ -10,7 +10,13 @@ export default function WeeklyContestPanel() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [copiedShare, setCopiedShare] = useState(false);
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +45,7 @@ export default function WeeklyContestPanel() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError('');
     try {
       const url = buildApiUrl(`/contests/weekly/${encodeURIComponent(contest.id)}/submit`, {
         rawBaseUrl: API_URL,
@@ -49,19 +56,23 @@ export default function WeeklyContestPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers, timeTakenSeconds: 1200 }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setResult(data);
-        const lbUrl = buildApiUrl(`/contests/weekly/${encodeURIComponent(contest.id)}/leaderboard`, {
-          rawBaseUrl: API_URL,
-          apiPrefix: '/api',
-        });
-        const lbRes = await authFetch(lbUrl);
-        if (lbRes.ok) {
-          const lbData = await lbRes.json();
-          setLeaderboard(Array.isArray(lbData.leaderboard) ? lbData.leaderboard : []);
-        }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSubmitError(data?.error || 'Failed to submit weekly contest');
+        return;
       }
+      setResult(data);
+      const lbUrl = buildApiUrl(`/contests/weekly/${encodeURIComponent(contest.id)}/leaderboard`, {
+        rawBaseUrl: API_URL,
+        apiPrefix: '/api',
+      });
+      const lbRes = await authFetch(lbUrl);
+      if (lbRes.ok) {
+        const lbData = await lbRes.json();
+        setLeaderboard(Array.isArray(lbData.leaderboard) ? lbData.leaderboard : []);
+      }
+    } catch (err) {
+      setSubmitError(err?.message || 'Unable to submit weekly contest');
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +133,8 @@ export default function WeeklyContestPanel() {
                 onClick={() => {
                   navigator.clipboard?.writeText(result.shareCard?.text || '').catch(() => {});
                   setCopiedShare(true);
-                  setTimeout(() => setCopiedShare(false), 2000);
+                  if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+                  copyTimerRef.current = setTimeout(() => setCopiedShare(false), 2000);
                 }}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200"
               >
@@ -132,6 +144,9 @@ export default function WeeklyContestPanel() {
             </div>
           )}
         </div>
+        {submitError && (
+          <p className="text-xs text-rose-300">{submitError}</p>
+        )}
       </form>
 
       {leaderboard.length > 0 && (

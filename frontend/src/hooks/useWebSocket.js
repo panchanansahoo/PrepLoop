@@ -19,6 +19,7 @@ export const useWebSocket = (url, options = {}) => {
   const wsRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
+  const isExplicitlyClosedRef = useRef(false);
 
   const onMessageRef = useRef(onMessage);
   const onConnectRef = useRef(onConnect);
@@ -39,7 +40,8 @@ export const useWebSocket = (url, options = {}) => {
   });
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) return;
+    isExplicitlyClosedRef.current = false;
 
     try {
       const ws = new WebSocket(url);
@@ -67,7 +69,7 @@ export const useWebSocket = (url, options = {}) => {
         wsRef.current = null;
         onDisconnectRef.current?.();
 
-        if (reconnectRef.current && reconnectAttemptsRef.current < maxReconnectAttemptsRef.current) {
+        if (!isExplicitlyClosedRef.current && reconnectRef.current && reconnectAttemptsRef.current < maxReconnectAttemptsRef.current) {
           reconnectAttemptsRef.current++;
           logger.info('Reconnecting...', { attempt: reconnectAttemptsRef.current });
           
@@ -90,8 +92,10 @@ export const useWebSocket = (url, options = {}) => {
   }, [url]);
 
   const disconnect = useCallback(() => {
+    isExplicitlyClosedRef.current = true;
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
     
     if (wsRef.current) {

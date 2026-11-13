@@ -6,7 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 import { addBook, updateBook, deleteBook, getBooks } from '../api/libraryService';
 
 export default function AdminLibraryPanel() {
-    const { user, token } = useAuth();
+    const { user } = useAuth();
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const location = useLocation();
     const { theme } = useTheme();
     const isLight = theme === 'light';

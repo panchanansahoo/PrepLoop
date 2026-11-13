@@ -131,6 +131,11 @@ const LANGUAGE_ALIASES = {
     ts: 'typescript',
     cxx: 'cpp',
     'c++': 'cpp',
+    golang: 'go',
+    rs: 'rust',
+    sqlite: 'sql',
+    postgres: 'sql',
+    postgresql: 'sql',
 };
 
 const normalizeLanguage = (language = '') => {
@@ -181,16 +186,32 @@ const LANG_CONFIG = {
             };
         },
     },
+    go: {
+        ext: '.go',
+        commands: ['go'],
+        run: (file, cmd) => ({ command: cmd, args: ['run', file] }),
+    },
+    rust: {
+        ext: '.rs',
+        commands: ['rustc'],
+        compile: (file, out, cmd) => ({ command: cmd, args: ['-o', out, file] }),
+        run: (file, cmd, out) => ({ command: out, args: [] }),
+    },
+    sql: {
+        ext: '.sql',
+        commands: ['sqlite3'],
+        run: (file, cmd) => ({ command: cmd, args: [':memory:', '-init', file, ''] }),
+    },
 };
 
 /**
  * Execute code in the given language and return the result.
  * @param {string} code - The source code to execute
- * @param {string} language - The programming language (python, javascript, c, cpp, java)
+ * @param {string} language - The programming language (python, javascript, c, cpp, java, go, rust, sql)
  * @param {string} input - Optional stdin input
  * @returns {Promise<{ success: boolean, output: string, error?: string, executionTime: number }>}
  */
-const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
+const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java', 'typescript', 'go', 'rust', 'sql']);
 
 export async function executeCode(code, language, input = '') {
     const startTime = Date.now();
@@ -217,7 +238,7 @@ export async function executeCode(code, language, input = '') {
     if (!ALLOWED_LANGUAGES.has(normalizedLanguage)) {
         return {
             success: false, output: '',
-            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java.`,
+            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java, go, rust, sql.`,
             executionTime: 0, compileTime: 0, runTime: 0,
         };
     }
@@ -264,7 +285,7 @@ export async function executeCode(code, language, input = '') {
         return {
             success: false,
             output: '',
-            error: `Language "${language}" is not supported. Supported: python, javascript, c, cpp, java.`,
+            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java, go, rust, sql.`,
             executionTime: Date.now() - startTime,
             compileTime: 0,
             runTime: 0,
@@ -468,7 +489,31 @@ function __resolveCallable(targetName) {
     return null;
 }
 
-const __fn = __resolveCallable('${fnName}');
+const __isValidIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(${JSON.stringify(fnName)});
+const __fn = (() => {
+    if (__isValidIdentifier) {
+        try {
+            if (typeof ${/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(fnName) ? fnName : '__missing_fn__'} === 'function') {
+                return ${/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(fnName) ? fnName : 'null'};
+            }
+        } catch {}
+    }
+    try {
+        if (typeof Solution === 'function') {
+            const instance = new Solution();
+            if (instance && typeof instance[${JSON.stringify(fnName)}] === 'function') {
+                return (...args) => instance[${JSON.stringify(fnName)}](...args);
+            }
+            const proto = Object.getPrototypeOf(instance) || {};
+            const methodNames = Object.getOwnPropertyNames(proto)
+                .filter((name) => name !== 'constructor' && typeof instance[name] === 'function');
+            if (methodNames.length > 0) {
+                return (...args) => instance[methodNames[0]](...args);
+            }
+        }
+    } catch {}
+    return __resolveCallable(${JSON.stringify(fnName)});
+})();
 
 for (const tc of __tests) {
   try {

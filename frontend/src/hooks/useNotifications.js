@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAllContests } from '../utils/contestUtils';
+import { API_URL } from '../config/api.js';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 const NOTIF_CACHE_KEY = 'user_notifications_read';
 const LAST_DAILY_CHALLENGE_DATE_KEY = 'last_daily_challenge_date';
@@ -20,8 +22,8 @@ export function useNotifications(user) {
     const markAsRead = (id) => {
         const readIds = getReadIds();
         if (!readIds.includes(id)) {
-            readIds.push(id);
-            localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(readIds));
+            const updated = [...readIds, id].slice(-100);
+            localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(updated));
             setNotifications(prev =>
                 prev.map(n => n.id === id ? { ...n, isRead: true } : n)
             );
@@ -38,7 +40,7 @@ export function useNotifications(user) {
             }
         });
 
-        localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(newReadIds));
+        localStorage.setItem(NOTIF_CACHE_KEY, JSON.stringify(newReadIds.slice(-100)));
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     };
 
@@ -95,7 +97,7 @@ export function useNotifications(user) {
 
         // 3. New Blogs (posted in last 7 days)
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
+            const res = await fetch(buildApiUrl('/blog', { rawBaseUrl: API_URL, apiPrefix: '/api' }));
             if (res.ok) {
                 const data = await res.json();
                 const blogs = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.blogs) ? data.blogs : []));

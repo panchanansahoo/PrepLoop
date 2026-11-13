@@ -29,7 +29,11 @@ export class InterviewConversationService {
   static parseFollowUpContent(content = '{}') {
     const normalized = String(content || '{}');
     const jsonMatch = normalized.match(/\{[\s\S]*\}/);
-    return JSON.parse(jsonMatch?.[0] || '{}');
+    try {
+      return JSON.parse(jsonMatch?.[0] || '{}');
+    } catch {
+      return {};
+    }
   }
 
   static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa') {
@@ -94,13 +98,35 @@ export class InterviewConversationService {
     const modelStart = Date.now();
 
     try {
-      const response = await groqClient.chat.completions.create({
-        ...modelConfig,
-        messages: [{ role: 'user', content: prompt }],
-      });
+      let content = '{}';
+      if (typeof groqClient?.models?.generateContent === 'function') {
+        const response = await groqClient.models.generateContent({
+          model: modelConfig?.model || 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            temperature: modelConfig?.temperature ?? 0.8,
+            maxOutputTokens: modelConfig?.max_tokens ?? 1500,
+            responseMimeType: 'application/json',
+          },
+        });
+        content = response?.text || '{}';
+      } else if (typeof groqClient?.chat?.completions?.create === 'function') {
+        const response = await groqClient.chat.completions.create({
+          ...modelConfig,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        content = response?.choices?.[0]?.message?.content || '{}';
+      } else {
+        return {
+          content: '{}',
+          modelName: String(modelConfig?.model || 'fallback-model'),
+          modelLatencyMs: 0,
+          fallbackTriggered: true,
+        };
+      }
 
       return {
-        content: response?.choices?.[0]?.message?.content || '{}',
+        content,
         modelName: String(modelConfig?.model || 'unknown-model'),
         modelLatencyMs: Math.max(0, Date.now() - modelStart),
         fallbackTriggered: false,

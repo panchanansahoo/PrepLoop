@@ -147,22 +147,7 @@ router.post('/message', authenticateToken, async (req, res) => {
       }
     }
 
-    // Save user message
-    try {
-      await supabaseAdmin.from('chat_messages').insert({
-        user_id: req.user.id,
-        role: 'user',
-        content: message.trim(),
-      });
-    } catch (error) {
-      if (isSchemaMissingError(error)) {
-        degraded = true;
-      } else {
-        throw error;
-      }
-    }
-
-    // Fetch recent history for context (last 10 messages)
+    // Fetch recent history for context (last 10 messages) before saving current message
     let history = [];
     try {
       const historyResult = await supabaseAdmin
@@ -178,6 +163,21 @@ router.post('/message', authenticateToken, async (req, res) => {
       if (isSchemaMissingError(error)) {
         degraded = true;
         history = [];
+      } else {
+        throw error;
+      }
+    }
+
+    // Save user message
+    try {
+      await supabaseAdmin.from('chat_messages').insert({
+        user_id: req.user.id,
+        role: 'user',
+        content: message.trim(),
+      });
+    } catch (error) {
+      if (isSchemaMissingError(error)) {
+        degraded = true;
       } else {
         throw error;
       }

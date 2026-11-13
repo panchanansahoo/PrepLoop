@@ -81,6 +81,7 @@ router.post('/', optionalAuth, feedbackLimiter, async (req, res) => {
             .eq('user_id', userId)
             .eq('description', 'Feedback submitted')
             .gte('created_at', `${today}T00:00:00.000Z`)
+            .limit(1)
             .maybeSingle();
 
           if (!existingTx) {

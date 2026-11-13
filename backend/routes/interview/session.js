@@ -28,7 +28,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       });
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard'];
+    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive'];
     if (!difficulty || !validDifficulties.includes(difficulty)) {
       return res.status(400).json({
         error: 'Invalid difficulty level',
@@ -110,7 +110,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       });
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard'];
+    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive'];
     if (!validDifficulties.includes(difficulty)) {
       return res.status(400).json({
         error: 'Invalid difficulty level',
@@ -171,7 +171,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
       });
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard'];
+    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive'];
     if (!difficulty || !validDifficulties.includes(difficulty)) {
       return res.status(400).json({
         error: 'Invalid difficulty level',
@@ -458,19 +458,60 @@ router.get('/sessions', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const rawId = String(id || '');
+    const cleanId = rawId.replace(/^(interview_session_|mock_interview_)/, '');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+    const isNumeric = /^\d+$/.test(cleanId);
 
-    const { data, error } = await supabaseAdmin
-      .from('mock_interviews')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', req.user.id)
-      .single();
+    let interviewData = null;
 
-    if (error || !data) {
+    // 1. If cleanId is UUID or alphanumeric session string, query interview_sessions first
+    if (isUuid || !isNumeric) {
+      let query = supabaseAdmin.from('interview_sessions').select('*').eq('user_id', req.user.id);
+      if (isUuid) {
+        query = query.eq('id', cleanId);
+      } else {
+        query = query.or(`session_id.eq.${cleanId},session_id.eq.${rawId}`);
+      }
+      const { data: sessionData, error: sessionError } = await query.maybeSingle();
+      if (!sessionError && sessionData) {
+        const pm = sessionData.performance_metrics || {};
+        interviewData = {
+          id: sessionData.id,
+          session_id: sessionData.session_id,
+          company: sessionData.company_focus || pm.company || 'General',
+          role: pm.role || 'Software Engineer',
+          stage: pm.stage || sessionData.interview_type || 'Technical',
+          difficulty: sessionData.difficulty_level || pm.difficulty || 'medium',
+          score: sessionData.interview_score ?? pm.overallScore ?? 0,
+          overall_score: sessionData.interview_score ?? pm.overallScore ?? 0,
+          feedback: sessionData.recommendations || pm.summaryData?.summary || pm.summaryData?.feedback || '',
+          transcript: sessionData.transcript || [],
+          created_at: sessionData.created_at,
+          ...sessionData,
+        };
+      }
+    }
+
+    // 2. Fall back to mock_interviews if numeric or not found in interview_sessions
+    if (!interviewData && isNumeric) {
+      const { data, error } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('*')
+        .eq('id', Number(cleanId))
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (!error && data) {
+        interviewData = data;
+      }
+    }
+
+    if (!interviewData) {
       return res.status(404).json({ error: 'Interview not found' });
     }
 
-    res.json({ interview: data });
+    res.json({ interview: interviewData, data: interviewData });
   } catch (error) {
     console.error('Error fetching interview:', error);
     res.status(500).json({

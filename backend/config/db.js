@@ -10,7 +10,7 @@ const toPositiveInt = (value, fallback) => {
 };
 
 const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_POOLER_URL || process.env.DATABASE_URL,
   max: toPositiveInt(process.env.DB_POOL_MAX || process.env.PG_POOL_MAX, 20),
   min: toPositiveInt(process.env.DB_POOL_MIN || process.env.PG_POOL_MIN, 2),
   idleTimeoutMillis: toPositiveInt(process.env.DB_IDLE_TIMEOUT || process.env.PG_POOL_IDLE_TIMEOUT_MS, 30000),

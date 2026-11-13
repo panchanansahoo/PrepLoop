@@ -26,6 +26,11 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+      - name: Install and build contracts
+        run: |
+          npm ci --prefix packages/contracts
+          npm run build --prefix packages/contracts
+
       - name: Install backend dependencies
         run: npm ci --prefix backend
 

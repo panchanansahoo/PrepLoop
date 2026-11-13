@@ -20,7 +20,7 @@ export function isStreakAtRisk(lastActiveDate, now = new Date()) {
 }
 
 export async function sendExpoPushNotification({ to, title, body, data = {} }, fetchImpl = fetch) {
-  if (!to || !String(to).startsWith('ExponentPushToken')) {
+  if (!to || (!String(to).startsWith('ExponentPushToken') && !String(to).startsWith('ExpoPushToken'))) {
     return { skipped: true, reason: 'invalid_token' };
   }
 
@@ -92,16 +92,36 @@ export async function runStreakReminderJob({
 
   for (const row of streaks || []) {
     try {
-      const { data: profile } = await supabase
+      let { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('email, full_name')
+        .select('full_name, email')
         .eq('id', row.user_id)
         .maybeSingle();
 
-      const { data: tokens } = await supabase
+      if (profileErr && (profileErr.code === '42703' || String(profileErr.message || '').includes('email'))) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', row.user_id)
+          .maybeSingle();
+        profile = fallback.data;
+        profileErr = fallback.error;
+      }
+
+      if (profileErr) {
+        results.errors++;
+        continue;
+      }
+
+      const { data: tokens, error: tokensErr } = await supabase
         .from('user_push_tokens')
         .select('expo_push_token, email_reminders_enabled, push_reminders_enabled, last_reminded_date')
         .eq('user_id', row.user_id);
+
+      if (tokensErr) {
+        results.errors++;
+        continue;
+      }
 
       const alreadyReminded =
         row.last_reminded_date === today ||
@@ -111,43 +131,76 @@ export async function runStreakReminderJob({
         continue;
       }
 
+      let reminded = false;
       const emailAllowed = !tokens?.length || tokens.some((t) => t.email_reminders_enabled !== false);
-      if (emailAllowed && profile?.email && transporter) {
-        await sendStreakReminderEmail({
-          transporter,
-          to: profile.email,
-          streak: row.current_streak,
-          name: profile.full_name || 'there',
-        });
-        results.emailsSent++;
+      if (emailAllowed && transporter) {
+        let recipientEmail = profile?.email;
+        if (!recipientEmail && supabase.auth?.admin?.getUserById) {
+          try {
+            const { data: authData } = await supabase.auth.admin.getUserById(row.user_id);
+            recipientEmail = authData?.user?.email;
+          } catch {
+            recipientEmail = undefined;
+          }
+        }
+
+        if (recipientEmail) {
+          try {
+            await sendStreakReminderEmail({
+              transporter,
+              to: recipientEmail,
+              streak: row.current_streak,
+              name: profile?.full_name || 'there',
+            });
+            results.emailsSent++;
+            reminded = true;
+          } catch {
+            results.errors++;
+          }
+        }
       }
 
       for (const tokenRow of tokens || []) {
         if (tokenRow.push_reminders_enabled !== false && tokenRow.expo_push_token) {
-          const pushRes = await sendPush({
-            to: tokenRow.expo_push_token,
-            title: `🔥 ${row.current_streak}-day streak at risk!`,
-            body: 'Practice 1 question today to keep your PrepLoop streak going.',
-            data: { screen: 'Dashboard', streak: row.current_streak },
-          });
-          if (!pushRes?.skipped) results.pushesSent++;
+          try {
+            const pushRes = await sendPush({
+              to: tokenRow.expo_push_token,
+              title: `🔥 ${row.current_streak}-day streak at risk!`,
+              body: 'Practice 1 question today to keep your PrepLoop streak going.',
+              data: { screen: 'Dashboard', streak: row.current_streak },
+            });
+            if (!pushRes?.skipped) {
+              results.pushesSent++;
+              reminded = true;
+            }
+          } catch {
+            results.errors++;
+          }
         }
       }
 
-      if (tokens?.length) {
-        await supabase
-          .from('user_push_tokens')
-          .update({ last_reminded_date: today })
-          .eq('user_id', row.user_id);
-      }
+      if (reminded) {
+        if (tokens?.length) {
+          const { error: tokenUpdateErr } = await supabase
+            .from('user_push_tokens')
+            .update({ last_reminded_date: today })
+            .eq('user_id', row.user_id);
+          if (tokenUpdateErr) {
+            results.errors++;
+          }
+        }
 
-      try {
-        await supabase
+        const { error: streakUpdateErr } = await supabase
           .from('user_streaks')
           .update({ last_reminded_date: today })
           .eq('user_id', row.user_id);
-      } catch {
-        // Ignore if last_reminded_date column hasn't been added yet
+        if (
+          streakUpdateErr &&
+          streakUpdateErr.code !== '42703' &&
+          !String(streakUpdateErr.message || '').includes('last_reminded_date')
+        ) {
+          results.errors++;
+        }
       }
     } catch {
       results.errors++;

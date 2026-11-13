@@ -409,9 +409,10 @@ describe('aiInterviewTiming', () => {
     });
 
     describe('Pacing Modes Configuration', () => {
-        it('configures realistic mode with ~20s nudge hint and ~45s auto-advance', () => {
-            expect(PACING_MODES.realistic.nudgeMs).toBe(20000);
-            expect(PACING_MODES.realistic.autoAdvanceMs).toBe(45000);
+        it('configures realistic mode with ~12s nudge hint, ~25s check-in, and ~40s auto-advance', () => {
+            expect(PACING_MODES.realistic.nudgeMs).toBe(12000);
+            expect(PACING_MODES.realistic.checkInMs).toBe(25000);
+            expect(PACING_MODES.realistic.autoAdvanceMs).toBe(40000);
         });
     });
 });

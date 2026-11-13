@@ -19,3 +19,28 @@ CREATE INDEX IF NOT EXISTS idx_quiz_attempts_topic_attempted
 
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_attempted_at
   ON quiz_attempts(attempted_at DESC);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'quiz_attempts' AND policyname = 'Users can view own quiz attempts'
+  ) THEN
+    CREATE POLICY "Users can view own quiz attempts"
+      ON quiz_attempts
+      FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'quiz_attempts' AND policyname = 'Users can insert own quiz attempts'
+  ) THEN
+    CREATE POLICY "Users can insert own quiz attempts"
+      ON quiz_attempts
+      FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;

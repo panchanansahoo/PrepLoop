@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from "react-native";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
@@ -70,7 +70,14 @@ export default function FAQScreen({ navigation }) {
 
                 <View style={styles.contactSection}>
                     <Text style={styles.contactTitle}>Still need help?</Text>
-                    <TouchableOpacity style={styles.contactBtn}>
+                    <TouchableOpacity
+                        style={styles.contactBtn}
+                        onPress={() =>
+                            Linking.openURL("mailto:support@preploop.com").catch(() =>
+                                Alert.alert("Error", "Could not open email app.")
+                            )
+                        }
+                    >
                         <Text style={styles.contactBtnText}>Contact Support</Text>
                     </TouchableOpacity>
                 </View>

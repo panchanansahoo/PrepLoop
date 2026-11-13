@@ -24,13 +24,16 @@ export default function CompanyIntelligencePanel({
   const [candidateAnswer, setCandidateAnswer] = useState('');
   const [followUps, setFollowUps] = useState([]);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
+  const [followUpError, setFollowUpError] = useState('');
+
+  const safeQuestions = Array.isArray(questions) ? questions : [];
 
   const stats = useMemo(() => {
     const tracks = { SWE: 0, PM: 0, Data: 0, Design: 0 };
     const diff = { easy: 0, medium: 0, hard: 0 };
     let seenRecently = 0;
 
-    for (const q of questions) {
+    for (const q of safeQuestions) {
       const t = inferTrack(q);
       tracks[t] = (tracks[t] || 0) + 1;
 
@@ -44,7 +47,7 @@ export default function CompanyIntelligencePanel({
       }
     }
 
-    const total = questions.length || 1;
+    const total = safeQuestions.length || 1;
     return {
       tracks,
       seenRecently,
@@ -55,12 +58,13 @@ export default function CompanyIntelligencePanel({
         ...diff,
       },
     };
-  }, [questions]);
+  }, [safeQuestions]);
 
   async function handleGenerateFollowUps(e) {
     e.preventDefault();
     if (!sampleQuestion.trim() || !candidateAnswer.trim()) return;
     setLoadingFollowUps(true);
+    setFollowUpError('');
     try {
       const url = buildApiUrl('/company-interview/follow-ups', {
         rawBaseUrl: API_URL,
@@ -75,10 +79,14 @@ export default function CompanyIntelligencePanel({
           company: selectedCompany || 'Top Tech',
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to generate follow-up questions');
+      }
       setFollowUps(Array.isArray(data?.followUps) ? data.followUps : []);
-    } catch {
+    } catch (err) {
       setFollowUps([]);
+      setFollowUpError(err.message || 'Unable to generate follow-up questions');
     } finally {
       setLoadingFollowUps(false);
     }
@@ -112,7 +120,7 @@ export default function CompanyIntelligencePanel({
             }`}
           >
             {track}
-            {track !== 'All' ? ` (${stats.tracks[track] || 0})` : ` (${questions.length})`}
+            {track !== 'All' ? ` (${stats.tracks[track] || 0})` : ` (${safeQuestions.length})`}
           </button>
         ))}
       </div>
@@ -160,6 +168,9 @@ export default function CompanyIntelligencePanel({
         >
           {loadingFollowUps ? 'Generating...' : 'Generate 3 Follow-Up Questions'}
         </button>
+        {followUpError && (
+          <p className="text-xs text-rose-300">{followUpError}</p>
+        )}
         {followUps.length > 0 && (
           <ul className="mt-2 space-y-1 text-xs text-slate-200 list-disc pl-5">
             {followUps.map((q, i) => (

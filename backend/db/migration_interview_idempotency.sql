@@ -10,3 +10,15 @@ CREATE INDEX IF NOT EXISTS idx_interview_submission_keys_created
   ON public.interview_submission_keys(created_at);
 
 ALTER TABLE public.interview_submission_keys ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'interview_submission_keys' AND policyname = 'Users can manage own interview submission keys'
+  ) THEN
+    CREATE POLICY "Users can manage own interview submission keys"
+      ON public.interview_submission_keys
+      FOR ALL
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;

@@ -14,6 +14,7 @@ const MODES = [
         desc: '5 problems in 10 minutes — warm up fast',
         icon: Zap,
         time: 10,
+        count: 5,
         color: '#f59e0b',
         bg: 'rgba(245, 158, 11, 0.08)',
     },
@@ -23,6 +24,7 @@ const MODES = [
         desc: '15 problems in 30 minutes — real test feel',
         icon: Target,
         time: 30,
+        count: 15,
         color: '#6366f1',
         bg: 'rgba(99, 102, 241, 0.08)',
     },
@@ -32,6 +34,7 @@ const MODES = [
         desc: '10 weak-area problems in 20 min — final polish',
         icon: Brain,
         time: 20,
+        count: 10,
         color: '#ec4899',
         bg: 'rgba(236, 72, 153, 0.08)',
     },
@@ -55,11 +58,24 @@ export default function TimedPractice() {
         try {
             const res = await authFetch('/api/practice/timed-session', {
                 method: 'POST',
-                body: JSON.stringify({ mode: mode.id }),
+                body: JSON.stringify({
+                    difficulty: 'all',
+                    duration: mode.time,
+                    count: mode.count || 5,
+                }),
             });
+            if (!res.ok) {
+                throw new Error('Failed to start timed session');
+            }
             const data = await res.json();
-            setSession(data);
-            setTimeLeft(data.timeMinutes * 60);
+            const questions = Array.isArray(data.questions)
+                ? data.questions
+                : Array.isArray(data.problems)
+                    ? data.problems
+                    : [];
+            const timeMinutes = Number(data.timeMinutes || data.duration || mode.time);
+            setSession({ ...data, questions, timeMinutes });
+            setTimeLeft(timeMinutes * 60);
             setSelectedMode(mode);
             setCurrentQ(0);
             setAnswers({});

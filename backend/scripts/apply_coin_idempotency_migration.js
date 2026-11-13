@@ -21,29 +21,32 @@ const { Pool } = pg;
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabasePassword = process.env.SUPABASE_DB_PASSWORD;
 
-if (!supabaseUrl || !supabasePassword) {
-  console.error('Missing SUPABASE_URL or SUPABASE_DB_PASSWORD in backend/.env');
-  process.exit(1);
+let connectionString = process.env.DATABASE_URL || null;
+
+if (!connectionString) {
+  if (!supabaseUrl || !supabasePassword) {
+    console.error('Missing DATABASE_URL or SUPABASE_DB_PASSWORD in backend/.env');
+    process.exit(1);
+  }
+
+  let ref = '';
+  try {
+    const parsedUrl = new URL(supabaseUrl);
+    ref = parsedUrl.hostname.split('.')[0];
+  } catch {
+    console.error('Invalid SUPABASE_URL format in backend/.env');
+    process.exit(1);
+  }
+
+  if (!ref) {
+    console.error('Unable to extract Supabase project ref from SUPABASE_URL');
+    process.exit(1);
+  }
+
+  const encodedPassword = encodeURIComponent(supabasePassword);
+  // Try connecting with IPv6 address directly
+  connectionString = `postgres://postgres:${encodedPassword}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
 }
-
-let ref = '';
-try {
-  const parsedUrl = new URL(supabaseUrl);
-  ref = parsedUrl.hostname.split('.')[0];
-} catch {
-  console.error('Invalid SUPABASE_URL format in backend/.env');
-  process.exit(1);
-}
-
-if (!ref) {
-  console.error('Unable to extract Supabase project ref from SUPABASE_URL');
-  process.exit(1);
-}
-
-
-const encodedPassword = encodeURIComponent(supabasePassword);
-// Try connecting with IPv6 address directly
-const connectionString = `postgres://postgres:${encodedPassword}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
 
 const migrationSql = readBackendFileUtf8('db/migration_coin_transaction_idempotency.sql');
 

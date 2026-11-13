@@ -32,12 +32,17 @@ function mapRow(row) {
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (page - 1) * limit;
+
     const { data, error } = await supabaseAdmin
       .from('job_applications')
       .select('*')
       .eq('user_id', req.user.id)
       .order('applied_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       if (isMissingTableError(error)) {

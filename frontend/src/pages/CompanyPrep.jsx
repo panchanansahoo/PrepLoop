@@ -113,7 +113,9 @@ export default function CompanyPrep() {
   }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile, progress, questions]);
 
   // Reset to page 1 when filters change
-  useMemo(() => setCurrentPage(1), [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile]);
 
   const totalPages = Math.ceil(filteredQuestions.length / QUESTIONS_PER_PAGE);
   const paginatedQuestions = useMemo(() => {

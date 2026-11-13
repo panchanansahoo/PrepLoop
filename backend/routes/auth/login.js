@@ -112,13 +112,17 @@ router.post('/login', authLoginLimiter, async (req, res) => {
       }
     }
 
-    await supabaseAdmin
-      .from('profiles')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', data.user.id)
-      .catch((updateErr) => {
+    try {
+      const { error: updateErr } = await supabaseAdmin
+        .from('profiles')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', data.user.id);
+      if (updateErr) {
         console.error('Failed to update last_login:', updateErr.message || updateErr);
-      });
+      }
+    } catch (updateErr) {
+      console.error('Failed to update last_login:', updateErr?.message || updateErr);
+    }
 
     setSessionCookies(res, data.session);
     res.json({

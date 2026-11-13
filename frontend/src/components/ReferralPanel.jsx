@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Gift, Users } from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
@@ -7,6 +7,11 @@ import { API_URL } from '../config/api.js';
 export default function ReferralPanel() {
   const [summary, setSummary] = useState(null);
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +37,8 @@ export default function ReferralPanel() {
   function handleCopy() {
     navigator.clipboard?.writeText(referralUrl).catch(() => {});
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   }
 
   return (

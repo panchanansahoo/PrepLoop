@@ -149,14 +149,14 @@ export default function ResumeAnalyzer() {
   }, [user]);
 
   const buildResumeApiUrl = useCallback(
-    (path) => buildApiUrl(import.meta.env.VITE_API_URL || '', path),
+    (path) => buildApiUrl(path, { rawBaseUrl: import.meta.env.VITE_API_URL || '', apiPrefix: '/api' }),
     []
   );
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const res = await authFetch(buildResumeApiUrl('/api/resume/history'));
+      const res = await authFetch(buildResumeApiUrl('/resume/history'));
       if (res.ok) {
         const data = await res.json();
         setHistory(data.analyses || []);
@@ -226,13 +226,13 @@ export default function ResumeAnalyzer() {
         }
         const headers = buildAuthHeaders(user);
         delete headers['Content-Type'];
-        res = await fetch(buildResumeApiUrl('/api/resume/parse-sections'), {
+        res = await authFetch(buildResumeApiUrl('/resume/parse-sections'), {
           method: 'POST',
           headers,
           body: formData,
         });
       } else {
-        res = await authFetch(buildResumeApiUrl('/api/resume/parse-sections'), {
+        res = await authFetch(buildResumeApiUrl('/resume/parse-sections'), {
           method: 'POST',
           body: JSON.stringify({
             resumeText,
@@ -319,13 +319,13 @@ export default function ResumeAnalyzer() {
         }
         const headers = buildAuthHeaders(user);
         delete headers['Content-Type'];
-        res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
+        res = await authFetch(buildResumeApiUrl('/resume/analyze'), {
           method: 'POST',
           headers,
           body: formData,
         });
       } else {
-        res = await authFetch(buildResumeApiUrl('/api/resume/analyze'), {
+        res = await authFetch(buildResumeApiUrl('/resume/analyze'), {
           method: 'POST',
           body: JSON.stringify({
             resumeText,
@@ -425,7 +425,7 @@ export default function ResumeAnalyzer() {
 
   const _loadAnalysis = async (id) => {
     try {
-      const res = await authFetch(buildResumeApiUrl(`/api/resume/${id}`));
+      const res = await authFetch(buildResumeApiUrl(`/resume/${id}`));
       if (res.ok) {
         const data = await res.json();
         setResult({
@@ -505,7 +505,7 @@ export default function ResumeAnalyzer() {
     setGenerating(true);
     setError('');
     try {
-      const res = await authFetch(buildResumeApiUrl('/api/resume/generate'), {
+      const res = await authFetch(buildResumeApiUrl('/resume/generate'), {
         method: 'POST',
         body: JSON.stringify({ ...createFormData, template: selectedTemplate }),
       });

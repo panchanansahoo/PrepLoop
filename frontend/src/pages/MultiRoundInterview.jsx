@@ -56,16 +56,26 @@ export default function MultiRoundInterview() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    // Read stored context if returning from an individual round
+    const initialCtx = useRef((() => {
+        try {
+            const raw = sessionStorage.getItem('multiRoundContext');
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    })());
+
     // Configuration
-    const [company, setCompany] = useState('google');
-    const [role, setRole] = useState('SDE');
-    const [difficulty, setDifficulty] = useState('Medium');
-    const [selectedRounds, setSelectedRounds] = useState(['dsa', 'system-design', 'behavioral']);
+    const [company, setCompany] = useState(() => initialCtx.current?.company || 'google');
+    const [role, setRole] = useState(() => initialCtx.current?.role || 'SDE');
+    const [difficulty, setDifficulty] = useState(() => initialCtx.current?.difficulty || 'Medium');
+    const [selectedRounds, setSelectedRounds] = useState(() => initialCtx.current?.selectedRounds || ['dsa', 'system-design', 'behavioral']);
 
     // Progress
     const [phase, setPhase] = useState('setup'); // setup | transition | active | report
-    const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
-    const [roundResults, setRoundResults] = useState([]); // {roundId, score, strengths, improvements, conversation}
+    const [currentRoundIdx, setCurrentRoundIdx] = useState(() => initialCtx.current?.currentRoundIdx || 0);
+    const [roundResults, setRoundResults] = useState(() => initialCtx.current?.previousRounds || []); // {roundId, score, strengths, improvements, conversation}
     const saveIdempotencyKeyRef = useRef(
         `multi-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
@@ -110,6 +120,7 @@ export default function MultiRoundInterview() {
             company,
             role,
             difficulty,
+            selectedRounds,
             currentRoundIdx,
             totalRounds: activeRounds.length,
             roundId: round.id,
@@ -121,21 +132,8 @@ export default function MultiRoundInterview() {
         navigate(`/company-interview?multiRound=true&stage=${encodeURIComponent(round.stage)}&company=${company}&role=${role}&difficulty=${difficulty}`);
     };
 
-    // Record round result (called when returning from interview)
-    const recordRoundResult = useCallback((result) => {
-        setRoundResults(prev => [...prev, result]);
-        if (currentRoundIdx + 1 < activeRounds.length) {
-            setCurrentRoundIdx(prev => prev + 1);
-            setPhase('transition');
-        } else {
-            setPhase('report');
-            // Save full session
-            saveMultiRoundSession([...roundResults, result]);
-        }
-    }, [currentRoundIdx, activeRounds.length, roundResults]);
-
     // Save session to backend and local history
-    const saveMultiRoundSession = async (results) => {
+    const saveMultiRoundSession = async (results, sessionCompany = company, sessionRole = role, sessionDiff = difficulty) => {
         const overallScore = Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / (results.length || 1));
         const localSessionId = saveIdempotencyKeyRef.current || `multi-${Date.now()}`;
         try {
@@ -145,10 +143,10 @@ export default function MultiRoundInterview() {
                 id: localSessionId,
                 session_id: localSessionId,
                 session_type: "multi-round",
-                company: company || "General",
-                role: role || "Software Engineer",
+                company: sessionCompany || "General",
+                role: sessionRole || "Software Engineer",
                 stage: "Multi-Round",
-                difficulty: difficulty || "medium",
+                difficulty: sessionDiff || "medium",
                 overall_score: overallScore,
                 score: overallScore,
                 rounds: results,
@@ -166,9 +164,9 @@ export default function MultiRoundInterview() {
                 body: JSON.stringify({
                     sessionId: localSessionId,
                     type: "multi-round",
-                    company,
-                    role,
-                    difficulty,
+                    company: sessionCompany,
+                    role: sessionRole,
+                    difficulty: sessionDiff,
                     rounds: results,
                     overallScore,
                     completedAt: new Date().toISOString()
@@ -182,12 +180,40 @@ export default function MultiRoundInterview() {
     // Check for returning from a round
     React.useEffect(() => {
         const returnData = sessionStorage.getItem('multiRoundResult');
+        const ctx = initialCtx.current;
         if (returnData) {
             sessionStorage.removeItem('multiRoundResult');
-            const result = JSON.parse(returnData);
-            recordRoundResult(result);
+            let result = null;
+            try {
+                result = JSON.parse(returnData);
+            } catch (e) {
+                console.error("Failed to parse multiRoundResult:", e);
+            }
+            if (result) {
+                const prevRounds = ctx?.previousRounds || [];
+                const updatedResults = [...prevRounds, result];
+                setRoundResults(updatedResults);
+
+                const restoredIdx = ctx ? (ctx.currentRoundIdx ?? 0) : 0;
+                const nextIdx = restoredIdx + 1;
+                setCurrentRoundIdx(nextIdx);
+
+                const total = ctx?.totalRounds ?? (ctx?.selectedRounds ? ctx.selectedRounds.length : activeRounds.length);
+                if (nextIdx < total) {
+                    setPhase('transition');
+                } else {
+                    setPhase('report');
+                    sessionStorage.removeItem('multiRoundContext');
+                    saveMultiRoundSession(
+                        updatedResults,
+                        ctx?.company || company,
+                        ctx?.role || role,
+                        ctx?.difficulty || difficulty
+                    );
+                }
+            }
         }
-    }, [recordRoundResult]);
+    }, []);
 
     // ═══════════════════════════════════════════
     //  SETUP PHASE — Select company, rounds
@@ -666,7 +692,13 @@ export default function MultiRoundInterview() {
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
                         <button
-                            onClick={() => { setPhase('setup'); setCurrentRoundIdx(0); setRoundResults([]); }}
+                            onClick={() => {
+                                sessionStorage.removeItem('multiRoundContext');
+                                sessionStorage.removeItem('multiRoundResult');
+                                setPhase('setup');
+                                setCurrentRoundIdx(0);
+                                setRoundResults([]);
+                            }}
                             style={{
                                 padding: '12px 24px',
                                 background: 'rgba(255, 255, 255, 0.06)',

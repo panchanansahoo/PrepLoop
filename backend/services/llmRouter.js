@@ -37,8 +37,8 @@ const logger = createLogger('llm-router');
 
 // ── Models ──
 export const ROUTER_MODELS = {
-  GROQ_20B: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
-  GROQ_120B: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+  GROQ_20B: process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
+  GROQ_120B: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
   GEMINI_FLASH: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   OPENROUTER_8B: OPENROUTER_MODELS.LLAMA_8B_FREE,
   OPENROUTER_70B: OPENROUTER_MODELS.LLAMA_70B_FREE,
@@ -224,7 +224,10 @@ export function selectInitialScorer(sessionId) {
   if (!groqOk && !geminiOk) return 'openrouter';
 
   // If load spreading is enabled via env var, route a calibrated portion of sessions to Gemini
-  const geminiRatio = Number(process.env.GEMINI_SCORING_RATIO) || (process.env.LOAD_SPREAD_GEMINI === 'true' ? 0.3 : 0.25);
+  const rawGeminiRatio = process.env.GEMINI_SCORING_RATIO;
+  const geminiRatio = (rawGeminiRatio !== undefined && rawGeminiRatio !== '' && Number.isFinite(Number(rawGeminiRatio)))
+    ? Number(rawGeminiRatio)
+    : (process.env.LOAD_SPREAD_GEMINI === 'true' ? 0.3 : 0.25);
   if (geminiRatio > 0 && geminiOk && sessionId) {
     let hash = 0;
     for (let i = 0; i < sessionId.length; i++) {
@@ -1021,7 +1024,9 @@ Respond as compact JSON:
 
   const candidateProviders = preferredProvider === 'gemini'
     ? ['gemini', 'groq', 'openrouter']
-    : ['groq', 'gemini', 'openrouter'];
+    : preferredProvider === 'openrouter'
+      ? ['openrouter', 'groq', 'gemini']
+      : ['groq', 'gemini', 'openrouter'];
 
   for (const candidate of candidateProviders) {
     if (parsed) break;

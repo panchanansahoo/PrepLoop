@@ -64,8 +64,8 @@ router.post('/slots', authenticateToken, requireHR, async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO interview_slots (hr_id, slot_date, start_time, end_time, max_bookings, status)
-       VALUES ($1, $2, $3, $4, $5, 'available')
+      `INSERT INTO interview_slots (hr_id, slot_date, start_time, end_time, max_bookings, status, is_booked)
+       VALUES ($1, $2, $3, $4, $5, 'available', false)
        RETURNING *`,
       [req.user.id, slotDate, startTime, endTime, maxBookings || 1]
     );
@@ -82,7 +82,14 @@ router.get('/my-slots', authenticateToken, requireHR, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT s.*, 
-        (SELECT COUNT(*) FROM interview_bookings WHERE slot_id = s.id AND status = 'scheduled') as booked_count
+        (
+          SELECT COUNT(*) FROM (
+            SELECT slot_id, status FROM interview_bookings WHERE status = 'scheduled'
+            UNION ALL
+            SELECT slot_id, status FROM real_interviews WHERE status = 'scheduled'
+            AND (slot_id NOT IN (SELECT slot_id FROM interview_bookings WHERE slot_id IS NOT NULL))
+          ) combined WHERE combined.slot_id = s.id
+        ) as booked_count
        FROM interview_slots s
        WHERE s.hr_id = $1
        ORDER BY s.slot_date DESC, s.start_time ASC`,
@@ -113,12 +120,17 @@ router.delete('/slots/:id', authenticateToken, requireHR, async (req, res) => {
 router.get('/my-bookings', authenticateToken, requireHR, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT b.*, 
+      `SELECT b.id, b.user_id, b.slot_id, b.status, b.rating, b.feedback, b.created_at,
         s.slot_date, s.start_time, s.end_time,
-        u.full_name as student_name, u.email as student_email
-       FROM interview_bookings b
+        p.full_name as student_name, NULL::text as student_email
+       FROM (
+         SELECT id::text, user_id, slot_id, status, rating, feedback, created_at FROM interview_bookings
+         UNION ALL
+         SELECT id::text, user_id, slot_id, status, NULL as rating, NULL as feedback, created_at FROM real_interviews
+         WHERE slot_id NOT IN (SELECT slot_id FROM interview_bookings WHERE slot_id IS NOT NULL)
+       ) b
        JOIN interview_slots s ON b.slot_id = s.id
-       JOIN users u ON b.user_id = u.id
+       JOIN profiles p ON b.user_id = p.id
        WHERE s.hr_id = $1
        ORDER BY s.slot_date DESC, s.start_time ASC`,
       [req.user.id]
@@ -135,16 +147,29 @@ router.put('/complete/:bookingId', authenticateToken, requireHR, async (req, res
   try {
     const { rating, feedback } = req.body;
 
-    const result = await pool.query(
+    let result = await pool.query(
       `UPDATE interview_bookings AS b
        SET status = 'completed', rating = $1, feedback = $2
        FROM interview_slots AS s
-       WHERE b.id = $3
+       WHERE b.id::text = $3
          AND b.slot_id = s.id
          AND s.hr_id = $4
        RETURNING b.id`,
       [rating || null, feedback || null, req.params.bookingId, req.user.id]
     );
+
+    if (result.rowCount === 0) {
+      result = await pool.query(
+        `UPDATE real_interviews AS r
+         SET status = 'completed'
+         FROM interview_slots AS s
+         WHERE r.id::text = $1
+           AND r.slot_id = s.id
+           AND s.hr_id = $2
+         RETURNING r.id`,
+        [req.params.bookingId, req.user.id]
+      );
+    }
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Booking not found for this HR user' });
@@ -166,11 +191,17 @@ router.post('/jobs', authenticateToken, requireHR, async (req, res) => {
       return res.status(400).json({ error: 'Title, company, and description are required' });
     }
 
+    const normalizedRequirements = Array.isArray(requirements)
+      ? requirements.map((r) => String(r).trim()).filter(Boolean)
+      : typeof requirements === 'string' && requirements.trim()
+        ? requirements.split(',').map((r) => r.trim()).filter(Boolean)
+        : [];
+
     const result = await pool.query(
       `INSERT INTO job_listings (posted_by, title, company, location, type, salary_range, description, requirements, apply_link, source, is_active, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'hr', true, NOW())
        RETURNING *`,
-      [req.user.id, title, company, location || null, type || 'full-time', salary || null, description, requirements ? JSON.stringify(requirements.split(',').map(r => r.trim())) : '[]', applyUrl || null]
+      [req.user.id, title, company, location || null, type || 'full-time', salary || null, description, JSON.stringify(normalizedRequirements), applyUrl || null]
     );
 
     res.status(201).json(result.rows[0]);

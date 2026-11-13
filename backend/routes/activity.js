@@ -48,7 +48,7 @@ router.post('/update', authenticateToken, async (req, res) => {
                 seconds_active: safeSeconds,
                 last_updated: new Date().toISOString()
             }, {
-                onConflict: 'user_id, date'
+                onConflict: 'user_id,date'
             })
             .select();
 

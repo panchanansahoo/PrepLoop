@@ -24,17 +24,6 @@ export default function AptitudeResults() {
         negativeMarking = false,
         _bookmarks = []
     } = state || {};
-    const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-    const _score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
-    const totalPoints = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + q.xp, 0);
-    const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
-    const skipped = total - attempted;
-
-    const formatTime = (s) => {
-        const m = Math.floor(s / 60);
-        const sec = s % 60;
-        return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-    };
 
     const byDifficulty = useMemo(() => {
         const result = { easy: { total: 0, correct: 0 }, medium: { total: 0, correct: 0 }, hard: { total: 0, correct: 0 } };
@@ -57,6 +46,18 @@ export default function AptitudeResults() {
             </div>
         );
     }
+
+    const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+    const _score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
+    const totalPoints = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + (q.xp || 10), 0);
+    const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
+    const skipped = total - attempted;
+
+    const formatTime = (s) => {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+    };
 
     const grade = accuracy >= 90 ? { label: 'Excellent!', emoji: '🏆', color: '#34d399' }
         : accuracy >= 70 ? { label: 'Great Job!', emoji: '⭐', color: '#818cf8' }

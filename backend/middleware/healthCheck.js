@@ -19,7 +19,12 @@ export const healthCheck = async (req, res) => {
     // Database check
     try {
       const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
-      checks.checks.database = error ? { status: 'unhealthy', error: error.message } : { status: 'healthy' };
+      if (error) {
+        checks.checks.database = { status: 'unhealthy', error: error.message };
+        checks.status = 'degraded';
+      } else {
+        checks.checks.database = { status: 'healthy' };
+      }
     } catch (err) {
       checks.checks.database = { status: 'unhealthy', error: err.message };
       checks.status = 'degraded';
@@ -124,8 +129,8 @@ export const detailedHealthCheck = async (req, res) => {
     
     // Check database connectivity
     try {
-      const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
       const dbStartTime = Date.now();
+      const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
       checks.database = error 
         ? { status: 'error', error: error.message, response_time: `${Date.now() - dbStartTime}ms` } 
         : { status: 'ok', response_time: `${Date.now() - dbStartTime}ms` };

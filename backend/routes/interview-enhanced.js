@@ -172,7 +172,7 @@ router.post('/feedback/realtime', authenticateToken, async (req, res) => {
     } catch {
       feedback = { strengths: ['Good effort'], improvements: ['Add more detail'], score: 70, suggestion: 'Try elaborating on your answer', category: 'general' };
     }
-    res.json(feedback);
+    res.json({ feedback });
   } catch (error) {
     console.error('Real-time feedback error:', error);
     res.status(500).json({ error: 'Failed to generate feedback' });

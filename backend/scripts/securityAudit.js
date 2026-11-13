@@ -10,6 +10,7 @@
  * - Advanced security middleware status
  */
 
+import '../config/env.js';
 import advancedSecurity from '../middleware/advancedSecurity.js';
 import { createLogger } from '../utils/structuredLogger.js';
 

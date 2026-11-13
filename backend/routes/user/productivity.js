@@ -54,7 +54,7 @@ router.put("/todos/:id", authenticateToken, async (req, res) => {
     res.json({ todo });
   } catch (error) {
     console.error("Error updating todo:", error);
-    res.status(500).json({ error: "Failed to update todo" });
+    res.status(error.status || 500).json({ error: error.message || "Failed to update todo" });
   }
 });
 
@@ -91,7 +91,7 @@ router.get("/calendar-events", authenticateToken, async (req, res) => {
 router.post("/calendar-events", authenticateToken, async (req, res) => {
   try {
     const { title, date, time, tag } = req.body;
-    if (!title || !title.trim()) {
+    if (typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ error: "Event title is required" });
     }
     if (!date) {
@@ -117,7 +117,7 @@ router.put("/calendar-events/:id", authenticateToken, async (req, res) => {
     res.json({ event });
   } catch (error) {
     console.error("Error updating calendar event:", error);
-    res.status(500).json({ error: "Failed to update calendar event" });
+    res.status(error.status || 500).json({ error: error.message || "Failed to update calendar event" });
   }
 });
 

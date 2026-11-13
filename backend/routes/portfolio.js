@@ -419,7 +419,7 @@ router.get('/public/:slug', async (req, res) => {
       .from('normalized_profiles')
       .select('basic_info, socials, skills, experience, education, projects, achievements')
       .eq('id', site.profile_id)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       return res.status(404).json({ error: 'Portfolio profile not found' });

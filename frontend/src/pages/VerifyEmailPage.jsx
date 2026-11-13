@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, CheckCircle2, XCircle, MailCheck, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
+import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 
 /**
  * Email Verification Page Component
@@ -35,11 +38,14 @@ export default function VerifyEmailPage() {
       setEmail(emailParam);
 
       try {
-        const response = await fetch('/api/auth/verify-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, email: emailParam })
-        });
+        const response = await authFetch(
+          buildApiUrl('/auth/verify-email', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, email: emailParam })
+          }
+        );
 
         const data = await response.json();
 
@@ -69,11 +75,14 @@ export default function VerifyEmailPage() {
 
     setResendLoading(true);
     try {
-      const response = await fetch('/api/auth/resend-verification-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const response = await authFetch(
+        buildApiUrl('/auth/resend-verification-email', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        }
+      );
 
       const data = await response.json();
 
@@ -98,11 +107,14 @@ export default function VerifyEmailPage() {
     if (!email || activateLoading) return;
     setActivateLoading(true);
     try {
-      const res = await fetch('/api/auth/activate-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const res = await authFetch(
+        buildApiUrl('/auth/activate-account', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        }
+      );
       const data = await res.json();
       if (res.ok) {
         setStatus('success');
@@ -269,7 +281,7 @@ export default function VerifyEmailPage() {
         <div className="mt-8 text-center text-zinc-500 text-sm">
           <p className="flex items-center justify-center">
             <span className="mr-2">Having trouble?</span>
-            <Link to="/help" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium hover:underline underline-offset-4">
+            <Link to="/contact" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium hover:underline underline-offset-4">
               Contact support
             </Link>
           </p>

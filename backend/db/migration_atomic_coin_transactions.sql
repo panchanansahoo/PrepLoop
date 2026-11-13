@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION coin_apply_transaction(
 RETURNS TABLE(success BOOLEAN, new_balance INTEGER, error TEXT)
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   current_balance INTEGER;
@@ -62,3 +63,8 @@ BEGIN
   RETURN QUERY SELECT TRUE, current_balance, NULL::TEXT;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT)
+  TO service_role;

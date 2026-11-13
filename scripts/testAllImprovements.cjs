@@ -65,7 +65,7 @@ class ImprovementTester {
       
       // Backend Services
       'backend/services/spacedRepetitionService.js',
-      'backend/services/collaborationService.js',
+      'backend/services/collaborationService.ts',
       
       // Backend Middleware
       'backend/middleware/advancedSecurity.js',
@@ -211,7 +211,7 @@ class ImprovementTester {
 
     // Test Collaboration Service
     await this.testModule('collaborationService', async () => {
-      const { default: collab } = await import('../backend/services/collaborationService.js');
+      const { default: collab } = await import('../backend/services/collaborationService.ts');
       
       if (typeof collab.createSession !== 'function') {
         throw new Error('createSession method not found');

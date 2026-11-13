@@ -127,7 +127,15 @@ export default function SQLCodeEditor() {
         return;
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResults({
+          columns: ['Error'],
+          rows: [[data.error || `Execution failed with status ${res.status}`]],
+        });
+        setStatus('error');
+        return;
+      }
       const execTimeMs = data.executionTime || Math.floor(Math.random() * 50) + 10;
       setResults({
         columns: ['Output'],

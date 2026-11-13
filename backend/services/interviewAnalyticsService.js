@@ -502,8 +502,12 @@ export class InterviewAnalyticsService {
     // Calculate streak - number of consecutive days with interviews
     const dates = [...new Set(
       interviews
-        .filter(i => i.status === 'completed')
-        .map(i => new Date(i.completed_at).toDateString())
+        .filter(i => i.status === 'completed' && i.completed_at)
+        .map(i => {
+          const d = new Date(i.completed_at);
+          return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+        })
+        .filter(Boolean)
     )].sort();
 
     let streak = 0;
@@ -514,7 +518,7 @@ export class InterviewAnalyticsService {
       let currentStreak = 0;
 
       for (let i = dates.length - 1; i >= 0; i--) {
-        const interviewDate = new Date(dates[i]);
+        const interviewDate = new Date(`${dates[i]}T00:00:00`);
         if (
           currentDate.getDate() === interviewDate.getDate() &&
           currentDate.getMonth() === interviewDate.getMonth() &&

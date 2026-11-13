@@ -5,6 +5,7 @@ import {
   getActiveWeeklyContest,
   getWeeklyContestLeaderboard,
   submitWeeklyContest,
+  recordContestStart,
 } from '../services/weeklyContestService.ts';
 
 const router = express.Router();
@@ -82,14 +83,32 @@ router.get('/contests/codeforces', async (req, res, next) => {
 
 // ─── G3-3: PrepLoop Weekly Contest System with Leaderboard ───────────────────
 router.get('/contests/weekly', async (_req, res) => {
-  const contest = getActiveWeeklyContest();
-  const leaderboard = await getWeeklyContestLeaderboard(contest.id);
-  res.json({ contest, leaderboard });
+  try {
+    const contest = getActiveWeeklyContest(new Date(), true);
+    const leaderboard = await getWeeklyContestLeaderboard(contest.id);
+    return res.json({ contest, leaderboard });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to load weekly contest' });
+  }
+});
+
+router.post('/contests/weekly/:contestId/start', authenticateToken, (req, res) => {
+  try {
+    const contestId = req.params.contestId;
+    const startedAt = recordContestStart(contestId, req.user.id);
+    return res.json({ contestId, startedAt: new Date(startedAt).toISOString() });
+  } catch (_err) {
+    return res.status(500).json({ error: 'Failed to record contest start' });
+  }
 });
 
 router.get('/contests/weekly/:contestId/leaderboard', async (req, res) => {
-  const leaderboard = await getWeeklyContestLeaderboard(req.params.contestId);
-  res.json({ contestId: req.params.contestId, leaderboard });
+  try {
+    const leaderboard = await getWeeklyContestLeaderboard(req.params.contestId);
+    return res.json({ contestId: req.params.contestId, leaderboard });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to load contest leaderboard' });
+  }
 });
 
 router.post('/contests/weekly/:contestId/submit', authenticateToken, async (req, res) => {

@@ -121,8 +121,15 @@ export class GamificationService {
         // Continuous streak
         newStreak += 1;
       } else {
-        // Missed one or more days: check if streak freeze can protect it
-        if (freezes > 0) {
+        // Missed one or more days: streak freeze only protects a gap of exactly 1 missed day (diffDays === 2)
+        let diffDays = 0;
+        if (existing.last_active_date) {
+          const lastDate = new Date(existing.last_active_date).getTime();
+          const todayDate = new Date(today).getTime();
+          diffDays = Math.round((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+        }
+
+        if (diffDays === 2 && freezes > 0) {
           freezes -= 1;
           newStreak += 1; // preserved
           logger.info('Streak freeze consumed for user', { userId, remainingFreezes: freezes });
@@ -189,11 +196,11 @@ export class GamificationService {
       });
 
       if (badgeDef.rewardCoins > 0) {
-        await (applyCoinTransaction as any)({
+        await applyCoinTransaction({
           userId,
           amount: badgeDef.rewardCoins,
-          type: 'credit',
-          reason: `Badge Unlocked: ${badgeDef.name}`,
+          type: 'earn',
+          description: `Badge Unlocked: ${badgeDef.name}`,
           referenceKey: `badge_${badgeCode}_${userId}`,
         });
       }
@@ -209,8 +216,8 @@ export class GamificationService {
   /**
    * Purchase a streak freeze with user coins
    */
-  static async purchaseStreakFreeze(userId: string): Promise<{ success: boolean; remainingFreezes: number; error?: string }> {
-    const FREEZE_COST = 50;
+  static async purchaseStreakFreeze(userId: string, cost = 50): Promise<{ success: boolean; remainingFreezes: number; error?: string }> {
+    const FREEZE_COST = Number.isFinite(Number(cost)) && Number(cost) > 0 ? Math.round(Number(cost)) : 50;
 
     try {
       const { data: streak } = await supabaseAdmin
@@ -225,11 +232,11 @@ export class GamificationService {
       }
 
       // Debit coins atomically
-      const tx = await (applyCoinTransaction as any)({
+      const tx = await applyCoinTransaction({
         userId,
-        amount: -FREEZE_COST,
-        type: 'debit',
-        reason: 'Purchased Streak Freeze',
+        amount: FREEZE_COST,
+        type: 'spend',
+        description: 'Purchased Streak Freeze',
         referenceKey: `freeze_purchase_${Date.now()}_${userId}`,
       });
 
@@ -237,17 +244,35 @@ export class GamificationService {
         return { success: false, remainingFreezes: currentFreezes, error: 'Insufficient coins balance' };
       }
 
-      const { data: updated } = await supabaseAdmin
-        .from('user_streaks')
-        .upsert({
-          user_id: userId,
-          streak_freeze_count: currentFreezes + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      let updatedFreezes = currentFreezes + 1;
+      if (streak) {
+        const { data: updated } = await supabaseAdmin
+          .from('user_streaks')
+          .update({
+            streak_freeze_count: updatedFreezes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+        if (updated) updatedFreezes = updated.streak_freeze_count;
+      } else {
+        const { data: created } = await supabaseAdmin
+          .from('user_streaks')
+          .insert({
+            user_id: userId,
+            current_streak: 0,
+            longest_streak: 0,
+            last_active_date: null,
+            streak_freeze_count: updatedFreezes,
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+        if (created) updatedFreezes = created.streak_freeze_count;
+      }
 
-      return { success: true, remainingFreezes: updated?.streak_freeze_count || currentFreezes + 1 };
+      return { success: true, remainingFreezes: updatedFreezes };
     } catch (err: any) {
       logger.error('Failed to purchase streak freeze', { userId, error: err.message });
       return { success: false, remainingFreezes: 0, error: err.message };

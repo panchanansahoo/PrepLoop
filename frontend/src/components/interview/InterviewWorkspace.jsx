@@ -40,18 +40,18 @@ const LANGUAGES = [
  * re-renders. The workspace only needs to re-render when its own props change.
  */
 function InterviewWorkspace({
-    activeTab, setActiveTab,
-    workspaceDropdownOpen, setWorkspaceDropdownOpen,
-    language, onLanguageChange,
-    code, setCode,
+    activeTab = 'code', setActiveTab,
+    workspaceDropdownOpen = false, setWorkspaceDropdownOpen,
+    language = 'javascript', onLanguageChange,
+    code = '', setCode,
     onReset,
-    notes, setNotes,
-    isListening, transcript, interimText,
-    silenceCountdown,
+    notes = '', setNotes,
+    isListening = false, transcript = '', interimText = '',
+    silenceCountdown = 0,
     onVoiceInput,
-    userInput, setUserInput, setTranscript,
+    userInput = '', setUserInput, setTranscript,
     onSendAnswer,
-    loading,
+    loading = false,
     voiceOnly = false,
     pacingMode = 'realistic',
     needAMomentCount = 0,
@@ -420,17 +420,17 @@ function InterviewWorkspace({
                     </div>
                 ) : <input
                     type="text"
-                    value={userInput || transcript}
-                    onChange={(e) => { setUserInput(e.target.value); setTranscript(''); }}
+                    value={userInput || transcript || ''}
+                    onChange={(e) => { setUserInput?.(e.target.value); setTranscript?.(''); }}
                     placeholder={isListening
                         ? (silenceCountdown > 0 ? `Auto-sending in ${silenceCountdown}s...` : "Listening... speak now")
                         : "Type or speak your response..."}
-                    onKeyDown={(e) => { if (e.key === 'Enter') onSendAnswer(); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') onSendAnswer?.(); }}
                 />}
                 {!voiceOnly && <button
                     className="ai-vc-ws-send"
                     onClick={onSendAnswer}
-                    disabled={(!userInput.trim() && !transcript.trim() && !code.trim()) || loading}
+                    disabled={(!userInput?.trim() && !transcript?.trim() && !code?.trim()) || loading}
                 >
                     <Send size={14} />
                 </button>}

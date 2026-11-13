@@ -50,6 +50,12 @@ export class LeaderboardService {
       if (redis?.isOpen) {
         // Redis Sorted Set: ZINCRBY key scorePoints userId
         const newScore = await (redis as any).zIncrBy(key, scorePoints, userId);
+        // Ensure 60-day TTL (60 * 86400 seconds) is set so historical weekly keys expire cleanly
+        try {
+          await (redis as any).expire(key, 60 * 86400);
+        } catch {
+          // Non-fatal if expire fails
+        }
         logger.info('Recorded score in Redis leaderboard', { key, userId, scorePoints, newScore });
         return Number(newScore);
       }

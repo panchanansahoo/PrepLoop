@@ -52,9 +52,9 @@ export default function ChatAssistant() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
+  const sendMessage = async (overrideMsg = null) => {
+    const userMsg = (typeof overrideMsg === 'string' ? overrideMsg : input).trim();
+    if (!userMsg || loading) return;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
@@ -171,31 +171,7 @@ export default function ChatAssistant() {
                     <SuggestionPills
                       suggestions={msg.suggestions}
                       onSelectSuggestion={(sug) => {
-                        setInput('');
-                        setMessages(prev => [...prev, { role: 'user', content: sug }]);
-                        setLoading(true);
-                        authFetch(`${API_URL}/api/chat/message`, {
-                          method: 'POST',
-                          body: JSON.stringify({ message: sug }),
-                        })
-                          .then(res => res.json())
-                          .then(data => {
-                            setMessages(prev => [
-                              ...prev,
-                              {
-                                role: 'assistant',
-                                content: data.response,
-                                thoughtProcess: data.thoughtProcess || [],
-                                actions: data.actions || [],
-                                suggestions: data.suggestions || [],
-                              }
-                            ]);
-                            refreshBalance();
-                          })
-                          .catch(() => {
-                            setMessages(prev => [...prev, { role: 'assistant', content: 'Network error.' }]);
-                          })
-                          .finally(() => setLoading(false));
+                        sendMessage(sug);
                       }}
                     />
                   )}

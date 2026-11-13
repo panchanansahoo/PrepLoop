@@ -68,3 +68,24 @@ CREATE TABLE IF NOT EXISTS career_market_signals (
 CREATE INDEX IF NOT EXISTS idx_career_market_signals_role_id ON career_market_signals(role_id);
 CREATE INDEX IF NOT EXISTS idx_career_market_signals_location ON career_market_signals(location);
 CREATE INDEX IF NOT EXISTS idx_career_market_signals_trend_score ON career_market_signals(trend_score DESC);
+
+-- Enable Row Level Security (RLS) for public reference and catalog tables
+ALTER TABLE career_courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE career_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE career_pathways ENABLE ROW LEVEL SECURITY;
+ALTER TABLE career_market_signals ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'career_courses' AND policyname = 'Public can view career courses') THEN
+    CREATE POLICY "Public can view career courses" ON career_courses FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'career_roles' AND policyname = 'Public can view career roles') THEN
+    CREATE POLICY "Public can view career roles" ON career_roles FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'career_pathways' AND policyname = 'Public can view career pathways') THEN
+    CREATE POLICY "Public can view career pathways" ON career_pathways FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'career_market_signals' AND policyname = 'Public can view career market signals') THEN
+    CREATE POLICY "Public can view career market signals" ON career_market_signals FOR SELECT USING (true);
+  END IF;
+END $$;

@@ -206,10 +206,37 @@ class CacheManager {
     if (!this.isConnected || !this.client) return keys;
     
     try {
-      const [nextCursor, foundKeys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
-      keys.push(...foundKeys);
+      let nextCursor = '0';
+      let foundKeys = [];
+
+      // Upstash Redis: scan(cursor, { match: pattern, count: 100 })
+      // Node-redis v4+: scan(cursor, { MATCH: pattern, COUNT: 100 })
+      // Legacy redis: scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+      if (typeof this.client.scan === 'function') {
+        let result;
+        try {
+          result = await this.client.scan(cursor, { match: pattern, count: 100 });
+        } catch {
+          try {
+            result = await this.client.scan(cursor, { MATCH: pattern, COUNT: 100 });
+          } catch {
+            result = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+          }
+        }
+        if (Array.isArray(result)) {
+          nextCursor = String(result[0]);
+          foundKeys = Array.isArray(result[1]) ? result[1] : [];
+        } else if (result && typeof result === 'object' && 'cursor' in result && 'keys' in result) {
+          nextCursor = String(result.cursor);
+          foundKeys = Array.isArray(result.keys) ? result.keys : [];
+        }
+      }
+
+      if (foundKeys && foundKeys.length > 0) {
+        keys.push(...foundKeys);
+      }
       
-      if (nextCursor !== '0') {
+      if (nextCursor && nextCursor !== '0') {
         return this.scanKeys(pattern, nextCursor, keys);
       }
     } catch (error) {

@@ -20,12 +20,13 @@ export interface FormattedCalendarEvent {
 }
 
 export class ProductivityService {
-  static async getTodos(userId: string): Promise<FormattedTodo[]> {
+  static async getTodos(userId: string, limit = 100): Promise<FormattedTodo[]> {
     const { data, error } = await supabaseAdmin
       .from("user_todos")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(Math.min(limit, 100));
 
     if (error) throw error;
 
@@ -92,9 +93,14 @@ export class ProductivityService {
       .eq("id", id)
       .eq("user_id", userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      const err: any = new Error('Todo not found');
+      err.status = 404;
+      throw err;
+    }
 
     return {
       id: data.id,
@@ -130,12 +136,13 @@ export class ProductivityService {
     return true;
   }
 
-  static async getCalendarEvents(userId: string): Promise<Record<string, FormattedCalendarEvent[]>> {
+  static async getCalendarEvents(userId: string, limit = 100): Promise<Record<string, FormattedCalendarEvent[]>> {
     const { data, error } = await supabaseAdmin
       .from("user_calendar_events")
       .select("*")
       .eq("user_id", userId)
-      .order("event_date", { ascending: true });
+      .order("event_date", { ascending: true })
+      .limit(Math.min(limit, 100));
 
     if (error) throw error;
 
@@ -199,9 +206,14 @@ export class ProductivityService {
       .eq("id", id)
       .eq("user_id", userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      const err: any = new Error('Calendar event not found');
+      err.status = 404;
+      throw err;
+    }
 
     return {
       id: data.id,

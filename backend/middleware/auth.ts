@@ -71,6 +71,10 @@ const setRoleCache = (userId: string, role: UserRole): void => {
   });
 };
 
+export const invalidateUserRole = (userId: string): void => {
+  roleCache.delete(userId);
+};
+
 export const DEFAULT_ADMIN_EMAILS: string[] = process.env.ADMIN_EMAILS
   ? process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
   : [];
@@ -123,7 +127,6 @@ const isTokenExpired = (errorMessage?: string): boolean => {
   const lower = errorMessage.toLowerCase();
   return (
     lower.includes('token is expired') ||
-    lower.includes('exp') ||
     lower.includes('expired') ||
     lower.includes('token exp') ||
     lower.includes('exp claim')

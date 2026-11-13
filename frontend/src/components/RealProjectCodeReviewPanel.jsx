@@ -32,7 +32,7 @@ export default function RealProjectCodeReviewPanel() {
           language,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Code review failed');
       setReview(data);
     } catch (err) {

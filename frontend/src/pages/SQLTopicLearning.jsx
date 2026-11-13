@@ -290,7 +290,7 @@ export default function SQLTopicLearning() {
         return (
             <div className="lp-topic-not-found">
                 <h2 style={{ fontSize: 24, marginBottom: 16 }}>Topic not found</h2>
-                <button onClick={() => navigate('/sql-path')} className="lp-topic-btn lp-topic-btn--primary">
+                <button onClick={() => navigate('/sql-problems')} className="lp-topic-btn lp-topic-btn--primary">
                     Back to SQL Path
                 </button>
             </div>
@@ -312,7 +312,7 @@ export default function SQLTopicLearning() {
     return (
         <div className="lp-topic-page">
             <div className="lp-topic-container">
-                <button onClick={() => navigate('/sql-path')} className="lp-topic-back">
+                <button onClick={() => navigate('/sql-problems')} className="lp-topic-back">
                     <ArrowLeft size={16} /> Back to SQL Path
                 </button>
 

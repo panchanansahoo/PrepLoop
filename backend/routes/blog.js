@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
 import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
+import { sanitizeHTML, sanitizeString } from '../middleware/sanitization.js';
 
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
@@ -121,10 +122,13 @@ router.post('/admin/posts', authenticateToken, requireAdmin, async (req, res) =>
     const { data: existing } = await supabaseAdmin.from('blog_posts').select('id').eq('slug', slugStr).maybeSingle();
     if (existing) return res.status(409).json({ error: 'Slug already exists' });
 
+    const safeTitle = sanitizeString(title);
+    const safeContent = sanitizeHTML(content);
+    const safeExcerpt = excerpt ? sanitizeString(excerpt) : null;
     const published_at = status === 'published' ? new Date().toISOString() : null;
     const { data, error } = await supabaseAdmin
       .from('blog_posts')
-      .insert({ admin_id, title, slug: slugStr, content, excerpt: excerpt || null, featured_image_url: featured_image_url || null, status, published_at })
+      .insert({ admin_id, title: safeTitle, slug: slugStr, content: safeContent, excerpt: safeExcerpt, featured_image_url: featured_image_url || null, status, published_at })
       .select().single();
 
     if (error) throw error;
@@ -144,9 +148,9 @@ router.put('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res)
     if (fetchError || !currentPost) return res.status(404).json({ error: 'Blog post not found' });
 
     const updateData = { updated_at: new Date().toISOString() };
-    if (title) updateData.title = title;
-    if (content) updateData.content = content;
-    if (excerpt !== undefined) updateData.excerpt = excerpt || null;
+    if (title) updateData.title = sanitizeString(title);
+    if (content) updateData.content = sanitizeHTML(content);
+    if (excerpt !== undefined) updateData.excerpt = excerpt ? sanitizeString(excerpt) : null;
     if (featured_image_url !== undefined) updateData.featured_image_url = featured_image_url || null;
     if (status) updateData.status = status;
     if (status === 'published' && currentPost.status !== 'published') {
@@ -258,11 +262,17 @@ router.get('/public/posts/:slug', async (req, res) => {
     if (error || !data) return res.status(404).json({ error: 'Blog post not found' });
 
     // Fix: use atomic RPC increment instead of read-then-write race condition
-    await supabaseAdmin.rpc('increment_field', { table_name: 'blog_posts', field_name: 'view_count', row_id: data.id })
-      .catch(() => {
-        // If RPC is unavailable, skip increment rather than perform a stale read-modify-write.
-        console.warn('increment_field RPC unavailable; skipping non-atomic view counter update');
+    try {
+      const { error: rpcError } = await supabaseAdmin.rpc('increment_blog_post_view', {
+        post_id: data.id,
       });
+      if (rpcError) {
+        console.warn('increment_blog_post_view RPC unavailable; skipping non-atomic view counter update');
+      }
+    } catch {
+      // If RPC is unavailable, skip increment rather than perform a stale read-modify-write.
+      console.warn('increment_blog_post_view RPC unavailable; skipping non-atomic view counter update');
+    }
 
     res.json(data);
   } catch (error) {
@@ -355,9 +365,9 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Content is too long (maximum 500,000 characters)' });
     }
 
-    const safeTitle = title.trim().slice(0, 200);
-    const safeContent = content.slice(0, 500000);
-    const safeCategory = typeof category === 'string' ? category.trim().slice(0, 50) : 'General';
+    const safeTitle = sanitizeString(title.trim().slice(0, 200));
+    const safeContent = sanitizeHTML(content.slice(0, 500000));
+    const safeCategory = typeof category === 'string' ? sanitizeString(category.trim().slice(0, 50)) : 'General';
     const safeCoverImage = typeof cover_image === 'string' ? cover_image.trim().slice(0, 2000) : null;
 
     const slug = safeTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) + '-' + Date.now();

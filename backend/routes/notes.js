@@ -122,10 +122,14 @@ router.get("/bookmarks", authenticateToken, async (req, res) => {
 // Update bookmark note
 router.put("/bookmark/:id/note", authenticateToken, async (req, res) => {
     try {
-        const { note, tags } = req.body;
+        const { note, tags } = req.body || {};
         const updateData = {};
         if (note !== undefined) updateData.note = note;
         if (tags !== undefined) updateData.tags = tags;
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ error: "At least one of note or tags is required" });
+        }
 
         const { data, error } = await supabaseAdmin
             .from("bookmarks")
@@ -133,9 +137,12 @@ router.put("/bookmark/:id/note", authenticateToken, async (req, res) => {
             .eq("id", req.params.id)
             .eq("user_id", req.user.id)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ error: "Bookmark not found" });
+        }
         res.json({ bookmark: data });
     } catch (error) {
         console.error("Update bookmark error:", error);

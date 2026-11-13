@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import '../config/env.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
 const logger = createLogger('health-monitor');

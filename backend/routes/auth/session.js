@@ -37,8 +37,20 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', async (req, res) => {
   clearSessionCookies(res);
+
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.body?.token;
+
+  if (token) {
+    try {
+      await supabaseAdmin.auth.admin.signOut(token);
+    } catch {
+      // Non-fatal if token is already expired or invalid
+    }
+  }
+
   res.json({ success: true });
 });
 

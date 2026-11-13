@@ -38,6 +38,9 @@ const PAGE_TITLES = {
   '/history': 'History',
   '/wallet': 'Coin Wallet',
   '/copilot': 'AI Job Copilot',
+  '/settings': 'Settings',
+  '/dashboard/settings': 'Settings',
+  '/dashboard/analytics': 'Analytics',
 };
 
 function getPageTitle(pathname) {
@@ -192,10 +195,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   // Search filtering
   const searchResults = searchQuery.trim().length >= 2 && problemsList.length > 0
     ? problemsList.filter(p => {
+      if (!p) return false;
       const q = searchQuery.toLowerCase();
-      return p.title.toLowerCase().includes(q)
-        || p.topics.some(t => t.toLowerCase().includes(q))
-        || p.difficulty.toLowerCase().includes(q);
+      const matchTitle = typeof p.title === 'string' && p.title.toLowerCase().includes(q);
+      const matchTopics = Array.isArray(p.topics) && p.topics.some(t => typeof t === 'string' && t.toLowerCase().includes(q));
+      const matchDiff = typeof p.difficulty === 'string' && p.difficulty.toLowerCase().includes(q);
+      return matchTitle || matchTopics || matchDiff;
     }).slice(0, 8)
     : [];
 

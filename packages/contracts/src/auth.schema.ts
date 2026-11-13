@@ -23,12 +23,25 @@ export const ForgotPasswordRequestSchema = z.object({
 });
 
 export const ResetPasswordRequestSchema = z.object({
+  accessToken: z.string().min(1, 'Access token is required').optional(),
   token: z.string().min(1, 'Reset token is required').optional(),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .max(128, 'Password is too long'),
-});
+    .max(128, 'Password is too long')
+    .optional(),
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password is too long')
+    .optional(),
+}).refine(
+  (data) => Boolean(data.accessToken || data.token),
+  { message: 'Access token or reset token is required', path: ['accessToken'] }
+).refine(
+  (data) => Boolean(data.newPassword || data.password),
+  { message: 'New password is required', path: ['newPassword'] }
+);
 
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type SignupRequest = z.infer<typeof SignupRequestSchema>;

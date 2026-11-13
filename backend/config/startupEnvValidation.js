@@ -97,9 +97,14 @@ export function getProductionEnvValidationErrors() {
     }
   }
 
+  // Bridge PRODUCTION_FRONTEND_URL to FRONTEND_URL if needed
+  if (!process.env.FRONTEND_URL && process.env.PRODUCTION_FRONTEND_URL) {
+    process.env.FRONTEND_URL = process.env.PRODUCTION_FRONTEND_URL;
+  }
+
   // Check for other critical configurations
-  if (!process.env.FRONTEND_URL) {
-    errors.push('⚠️  FRONTEND_URL is not configured. CORS validation may be overly permissive.');
+  if (isProduction && !process.env.FRONTEND_URL) {
+    errors.push('🔒 SECURITY FAILURE: FRONTEND_URL is not configured in production.');
   }
 
   // Security check: reject placeholder / insecure default values in production

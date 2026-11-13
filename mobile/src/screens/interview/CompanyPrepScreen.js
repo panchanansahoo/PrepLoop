@@ -5,6 +5,15 @@ import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { companyApi } from "../../api/companyApi";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
+const DEFAULT_MOCK_COMPANIES = [
+    { name: "Google", questionCount: 45 },
+    { name: "Meta", questionCount: 38 },
+    { name: "Amazon", questionCount: 52 },
+    { name: "Apple", questionCount: 30 },
+    { name: "Netflix", questionCount: 24 },
+    { name: "Microsoft", questionCount: 40 },
+];
+
 export default function CompanyPrepScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -73,13 +82,13 @@ export default function CompanyPrepScreen({ navigation }) {
                     {/* Mock data if API is empty for UI demonstration */}
                     {companies.length === 0 && (
                         <>
-                            {["Google", "Meta", "Amazon", "Apple", "Netflix", "Microsoft"].map((name, i) => (
+                            {DEFAULT_MOCK_COMPANIES.map((c, i) => (
                                 <TouchableOpacity key={i} style={styles.card}>
                                     <View style={styles.iconContainer}>
-                                        <Text style={styles.iconText}>{name.charAt(0)}</Text>
+                                        <Text style={styles.iconText}>{c.name.charAt(0)}</Text>
                                     </View>
-                                    <Text style={styles.companyName}>{name}</Text>
-                                    <Text style={styles.questionCount}>{Math.floor(Math.random() * 50) + 10} questions</Text>
+                                    <Text style={styles.companyName}>{c.name}</Text>
+                                    <Text style={styles.questionCount}>{c.questionCount} questions</Text>
                                 </TouchableOpacity>
                             ))}
                         </>

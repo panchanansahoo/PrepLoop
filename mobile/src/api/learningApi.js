@@ -1,43 +1,51 @@
 import apiClient from "./apiClient";
 
 export const learningApi = {
-    /** GET /api/dsa/learning-path — DSA learning path topics */
+    /** GET /api/user/learning-path/dsa — DSA learning path topics */
     async getDSAPath() {
-        const res = await apiClient.get("/api/dsa/learning-path");
+        const res = await apiClient.get("/api/user/learning-path/dsa");
         return res.data;
     },
 
-    /** GET /api/dsa/learning-path/:topicId — single DSA topic content */
+    /** GET /api/user/learning-paths — all available learning paths */
+    async getAllLearningPaths() {
+        const res = await apiClient.get("/api/user/learning-paths");
+        return res.data;
+    },
+
+    /** GET /api/user/learning-path/dsa/module/:topicId — single DSA topic content */
     async getDSATopic(topicId) {
-        const res = await apiClient.get(`/api/dsa/learning-path/${topicId}`);
+        const res = await apiClient.get(
+            `/api/user/learning-path/dsa/module/${topicId}`,
+        );
         return res.data;
     },
 
-    /** GET /api/dsa/learning-path/:topicId/progress — topic progress */
+    /** GET /api/user/learning-paths/:topicId — topic progress */
     async getTopicProgress(topicId) {
         const res = await apiClient.get(
-            `/api/dsa/learning-path/${topicId}/progress`,
+            `/api/user/learning-paths/${topicId}`,
         );
         return res.data;
     },
 
-    /** POST /api/dsa/learning-path/:topicId/complete — mark complete */
+    /** POST /api/user/learning-paths/:topicId/complete — mark complete */
     async markTopicComplete(topicId) {
         const res = await apiClient.post(
-            `/api/dsa/learning-path/${topicId}/complete`,
+            `/api/user/learning-paths/${topicId}/complete`,
         );
         return res.data;
     },
 
-    /** GET /api/system-design — system design topics */
+    /** GET /api/system-design/topics — system design topics */
     async getSystemDesignPath() {
-        const res = await apiClient.get("/api/system-design");
+        const res = await apiClient.get("/api/system-design/topics");
         return res.data;
     },
 
-    /** GET /api/system-design/:topicId — single system design topic */
+    /** GET /api/system-design/topics/:topicId — single system design topic */
     async getSystemDesignTopic(topicId) {
-        const res = await apiClient.get(`/api/system-design/${topicId}`);
+        const res = await apiClient.get(`/api/system-design/topics/${topicId}`);
         return res.data;
     },
 };

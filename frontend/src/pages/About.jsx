@@ -91,7 +91,7 @@ export default function About() {
                 border: '1px solid var(--border)'
               }}>+82 more patterns</span>
             </div>
-            <Link to="/dsa-patterns" className="btn-hero-primary" style={{ display: 'inline-flex' }}>
+            <Link to="/dsa-path" className="btn-hero-primary" style={{ display: 'inline-flex' }}>
               Explore All Patterns <ArrowRight size={18} />
             </Link>
           </div>

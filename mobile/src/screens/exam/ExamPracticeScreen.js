@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -22,6 +22,24 @@ export default function ExamPracticeScreen({ route, navigation }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState({});
     const [timeLeft, setTimeLeft] = useState(120 * 60);
+
+    const handleSubmit = useCallback(() => {
+        const correctCount = Object.entries(answers).filter(([qId, ans]) => {
+            const q = examData?.questions?.find((q) => String(q.id) === String(qId));
+            return q && ans === q.correctAnswer;
+        }).length;
+        const totalAnswered = Object.keys(answers).length;
+        const totalQuestions = examData?.questions?.length ?? 0;
+
+        Alert.alert(
+            "Exam Submitted",
+            `Score: ${correctCount} / ${totalQuestions}\nAnswered: ${totalAnswered} of ${totalQuestions}`,
+            [{ text: "OK", onPress: () => navigation.goBack() }],
+        );
+    }, [answers, examData, navigation]);
+
+    const handleSubmitRef = useRef(handleSubmit);
+    handleSubmitRef.current = handleSubmit;
 
     useEffect(() => {
         const loadTimeout = setTimeout(() => {
@@ -66,7 +84,8 @@ export default function ExamPracticeScreen({ route, navigation }) {
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
-                    handleSubmit();
+                    clearInterval(timer);
+                    handleSubmitRef.current();
                     return 0;
                 }
                 return prev - 1;
@@ -153,21 +172,6 @@ export default function ExamPracticeScreen({ route, navigation }) {
                 setCurrentIndex(prevSecQs.length - 1);
             }
         }
-    };
-
-    const handleSubmit = () => {
-        const correctCount = Object.entries(answers).filter(([qId, ans]) => {
-            const q = examData?.questions?.find((q) => q.id === qId);
-            return q && ans === q.correctAnswer;
-        }).length;
-        const totalAnswered = Object.keys(answers).length;
-        const totalQuestions = examData?.questions?.length ?? 0;
-
-        Alert.alert(
-            "Exam Submitted",
-            `Score: ${correctCount} / ${totalQuestions}\nAnswered: ${totalAnswered} of ${totalQuestions}`,
-            [{ text: "OK", onPress: () => navigation.goBack() }],
-        );
     };
 
     const isLastQuestionOverall =

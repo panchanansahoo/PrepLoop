@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Loader, Send, Mic, MicOff, Lightbulb } from 'lucide-react';
 
 import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
-export default function InterviewSession({ _interview, config, onComplete }) {
+export default function InterviewSession({ _interview, config = {}, onComplete }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -15,15 +17,20 @@ export default function InterviewSession({ _interview, config, onComplete }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingIntervalRef = useRef(null);
+  const currentQuestionIndexRef = useRef(currentQuestionIndex);
+  currentQuestionIndexRef.current = currentQuestionIndex;
 
-  const questions = config.questions || [];
+  const questions = config?.questions || [];
   const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   // Initialize recording
   useEffect(() => {
     const initRecording = async () => {
       try {
+        if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+          return;
+        }
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         
@@ -40,7 +47,7 @@ export default function InterviewSession({ _interview, config, onComplete }) {
             // Store for potential transcription
             setAnswers(prev => ({
               ...prev,
-              [`audio_${currentQuestionIndex}`]: audioBase64
+              [`audio_${currentQuestionIndexRef.current}`]: audioBase64
             }));
           };
           reader.readAsDataURL(audioBlob);
@@ -110,7 +117,9 @@ export default function InterviewSession({ _interview, config, onComplete }) {
     setFeedback(null);
 
     try {
-      const response = await authFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/interview/0/feedback`, {
+      const response = await authFetch(
+        buildApiUrl('/interview/0/feedback', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+        {
         method: 'POST',
         body: JSON.stringify({
           questionIndex: currentQuestionIndex,
@@ -176,7 +185,9 @@ export default function InterviewSession({ _interview, config, onComplete }) {
         <div className="lg:col-span-2 space-y-6">
           {/* Question Card */}
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-4">
-            <h2 className="text-2xl font-bold text-white">{currentQuestion.question}</h2>
+            <h2 className="text-2xl font-bold text-white">
+              {typeof currentQuestion === 'string' ? currentQuestion : currentQuestion?.question || ''}
+            </h2>
             
             {currentQuestion.context && (
               <div className="bg-blue-900/20 border border-blue-500 rounded-lg p-4 flex gap-3">
@@ -259,7 +270,7 @@ export default function InterviewSession({ _interview, config, onComplete }) {
                   <p className="text-slate-300">{feedback.assessment}</p>
                 </div>
 
-                {feedback.strengths && (
+                {Array.isArray(feedback.strengths) && feedback.strengths.length > 0 && (
                   <div>
                     <h4 className="text-green-400 font-bold mb-2">✓ Strengths</h4>
                     <ul className="space-y-1">
@@ -270,7 +281,7 @@ export default function InterviewSession({ _interview, config, onComplete }) {
                   </div>
                 )}
 
-                {feedback.improvements && (
+                {Array.isArray(feedback.improvements) && feedback.improvements.length > 0 && (
                   <div>
                     <h4 className="text-yellow-400 font-bold mb-2">⚡ Areas to Improve</h4>
                     <ul className="space-y-1">

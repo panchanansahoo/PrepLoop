@@ -13,13 +13,13 @@ const MAX_FEEDBACK_QUESTION_LENGTH = 500;
 router.post('/:id/feedback', authenticateToken, aiEndpointsLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const { questionIndex, answerText, audioTranscript } = req.body;
+    const { questionIndex, answerText, audioTranscript, answer } = req.body;
 
     if (!groq) {
       return res.status(503).json({ error: 'AI feedback unavailable' });
     }
 
-    const rawResponse = answerText || audioTranscript || '';
+    const rawResponse = answer || answerText || audioTranscript || '';
     if (!rawResponse || (typeof rawResponse !== 'string' && typeof rawResponse !== 'number')) {
       return res.status(400).json({ error: 'Invalid question or response' });
     }
@@ -115,8 +115,8 @@ router.post('/:id/feedback', authenticateToken, aiEndpointsLimiter, async (req, 
 // SSE Streaming feedback endpoint for real-time AI responses
 // AI5: Rate limiter applied to prevent unlimited parallel stream consumption
 router.post('/:id/feedback/stream', authenticateToken, feedbackStreamLimiter, async (req, res) => {
-  const { questionIndex = 0, answerText, audioTranscript } = req.body;
-  const rawResponse = answerText || audioTranscript || '';
+  const { questionIndex = 0, answerText, audioTranscript, answer } = req.body;
+  const rawResponse = answer || answerText || audioTranscript || '';
 
   if (!rawResponse || (typeof rawResponse !== 'string' && typeof rawResponse !== 'number')) {
     return res.status(400).json({ error: 'Invalid question or response' });
@@ -256,14 +256,24 @@ router.get('/:id/study-notes', authenticateToken, async (req, res) => {
       markdownParts.push(`*No recorded feedback items found for this session yet.*`);
     } else {
       feedbacks.forEach((fb, idx) => {
-        const feedbackObj = typeof fb.feedback === 'object' ? fb.feedback : {};
+        const rawFeedback = fb.feedback_content ?? fb.feedback;
+        const feedbackObj = typeof rawFeedback === 'object' && rawFeedback !== null ? rawFeedback : {};
+        const questionItem = Array.isArray(interview?.questions) ? interview.questions[fb.question_index] : null;
+        const resolvedQuestion =
+          fb.question_text ||
+          (typeof questionItem === 'object' && questionItem !== null
+            ? (questionItem.question || questionItem.text)
+            : questionItem) ||
+          'Technical question';
+        const answerText = fb.answer_text || fb.response_text || '';
+
         markdownParts.push(`### Question ${idx + 1}`);
         markdownParts.push(`**Prompt / Context:**`);
-        markdownParts.push(`> ${fb.question_text || 'Technical question'}\n`);
+        markdownParts.push(`> ${resolvedQuestion}\n`);
         
-        if (fb.response_text) {
+        if (answerText) {
           markdownParts.push(`**Your Key Responses:**`);
-          markdownParts.push(`\`\`\`\n${fb.response_text.trim()}\n\`\`\`\n`);
+          markdownParts.push(`\`\`\`\n${String(answerText).trim()}\n\`\`\`\n`);
         }
 
         if (feedbackObj.strengths?.length) {

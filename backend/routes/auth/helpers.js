@@ -163,11 +163,25 @@ export async function recordFailedLogin(email, ip) {
     if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
       record.count = 0;
       record.firstAttempt = Date.now();
+      record.ips = [];
     }
 
     record.count += 1;
+    if (ip) {
+      record.ips = record.ips || [];
+      if (!record.ips.includes(ip)) {
+        record.ips.push(ip);
+      }
+    }
 
-    if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    const isAccountKey = key.startsWith('account:');
+    // For account-level key, require distributed attempts (multiple IPs) or no IP specified
+    // to prevent a single IP from causing a global denial-of-service on legitimate users.
+    const shouldLock = isAccountKey
+      ? (!ip || (record.ips && record.ips.length > 1)) && record.count >= MAX_LOGIN_ATTEMPTS
+      : record.count >= MAX_LOGIN_ATTEMPTS;
+
+    if (shouldLock) {
       record.lockedUntil = Date.now() + LOGIN_ATTEMPT_WINDOW_MS;
     }
 

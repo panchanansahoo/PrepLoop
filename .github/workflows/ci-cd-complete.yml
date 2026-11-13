@@ -92,7 +92,7 @@ jobs:
           JWT_SECRET: test-jwt-secret-key-with-32-characters
 
       - name: Run performance tests
-        run: node backend/utils/performanceTest.js
+        run: node backend/scripts/performanceReport.js
         continue-on-error: true
 
       - name: Upload test results

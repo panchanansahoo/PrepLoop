@@ -98,7 +98,7 @@ export async function getGateRule(featureKey: FeatureKey, tier: SubscriptionTier
     if (!error && data) {
       return {
         enabled: Boolean((data as any).enabled),
-        limit: (data as any).limit_value !== null ? Number((data as any).limit_value) : null,
+        limit: (data as any).limit_value != null ? Number((data as any).limit_value) : null,
         period: ((data as any).limit_period || 'unlimited') as GateRule['period'],
       };
     }

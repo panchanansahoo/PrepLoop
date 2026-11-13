@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
+import { authenticateToken, requireAdmin, invalidateUserRole } from '../middleware/auth.ts';
 import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
@@ -185,8 +185,9 @@ router.put('/users/:id/role', async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (!['user', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be "user" or "admin"' });
+    const allowedRoles = ['user', 'admin', 'hr', 'employer'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: `Role must be one of: ${allowedRoles.join(', ')}` });
     }
 
     // Prevent self-demotion
@@ -199,9 +200,15 @@ router.put('/users/:id/role', async (req, res) => {
       .update({ role })
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Evict cached role immediately to prevent stale permissions
+    invalidateUserRole(id);
 
     adminLogger.info('ADMIN_ROLE_UPDATED', {
       adminId: req.user.id,
@@ -340,8 +347,11 @@ router.post('/question-sets', async (req, res) => {
       allowedEmails = [], role = '', roleName = ''
     } = req.body;
 
-    if (!title || !title.trim()) {
+    if (typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' });
+    }
+    if (description !== undefined && description !== null && typeof description !== 'string') {
+      return res.status(400).json({ error: 'Description must be a string' });
     }
 
     if (!Array.isArray(questions) || questions.length === 0) {
@@ -362,12 +372,12 @@ router.post('/question-sets', async (req, res) => {
 
     // Validate each question has at least a question text
     const validatedQuestions = questions.map((q, i) => {
-      if (!q.question || !q.question.trim()) {
+      if (!q || typeof q.question !== 'string' || !q.question.trim()) {
         throw new Error(`Question ${i + 1} is missing question text`);
       }
       return {
         question: q.question.trim(),
-        context: q.context?.trim() || '',
+        context: typeof q.context === 'string' ? q.context.trim() : '',
         expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics : [],
         timeLimit: Number(q.timeLimit) || 120,
       };
@@ -376,8 +386,9 @@ router.post('/question-sets', async (req, res) => {
     const shareCode = generateShareCode();
     const accessLimits = normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, allowedEmails });
     const mergedSettings = { ...settings };
-    if (role || roleName) {
-      mergedSettings.roleName = (roleName || role).trim();
+    const rawRoleName = typeof roleName === 'string' && roleName.trim() ? roleName : (typeof role === 'string' ? role : '');
+    if (rawRoleName.trim()) {
+      mergedSettings.roleName = rawRoleName.trim();
     }
     if (accessLimits.allowed_emails) {
       mergedSettings.allowedEmails = accessLimits.allowed_emails;
@@ -388,7 +399,7 @@ router.post('/question-sets', async (req, res) => {
       .insert({
         admin_id: req.user.id,
         title: title.trim(),
-        description: description?.trim() || null,
+        description: typeof description === 'string' && description.trim() ? description.trim() : null,
         share_code: shareCode,
         interview_type: interviewType,
         difficulty,
@@ -529,8 +540,18 @@ router.put('/question-sets/:id', async (req, res) => {
     }
 
     const updates = { updated_at: new Date().toISOString() };
-    if (title !== undefined) updates.title = title.trim();
-    if (description !== undefined) updates.description = description?.trim() || null;
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({ error: 'Title must be a non-empty string' });
+      }
+      updates.title = title.trim();
+    }
+    if (description !== undefined) {
+      if (description !== null && typeof description !== 'string') {
+        return res.status(400).json({ error: 'Description must be a string' });
+      }
+      updates.description = typeof description === 'string' && description.trim() ? description.trim() : null;
+    }
     if (interviewType !== undefined) {
       if (!VALID_INTERVIEW_TYPES.includes(interviewType)) {
         return res.status(400).json({ error: 'Invalid interview type' });
@@ -548,7 +569,8 @@ router.put('/question-sets/:id', async (req, res) => {
 
     const mergedSettings = { ...(existing.settings || {}), ...(settings || {}) };
     if (role !== undefined || roleName !== undefined) {
-      mergedSettings.roleName = (roleName || role || '').trim();
+      const rawRoleName = typeof roleName === 'string' && roleName.trim() ? roleName : (typeof role === 'string' ? role : '');
+      mergedSettings.roleName = rawRoleName.trim();
     }
     if (allowedEmails !== undefined) {
       const accessLimits = normalizeInterviewLimits({ allowedEmails }, { isUpdate: true });
@@ -575,12 +597,12 @@ router.put('/question-sets/:id', async (req, res) => {
         return res.status(400).json({ error: 'Maximum 50 questions per set' });
       }
       updates.questions = questions.map((q, i) => {
-        if (!q.question || !q.question.trim()) {
+        if (!q || typeof q.question !== 'string' || !q.question.trim()) {
           throw new Error(`Question ${i + 1} is missing question text`);
         }
         return {
           question: q.question.trim(),
-          context: q.context?.trim() || '',
+          context: typeof q.context === 'string' ? q.context.trim() : '',
           expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics : [],
           timeLimit: Number(q.timeLimit) || 120,
         };

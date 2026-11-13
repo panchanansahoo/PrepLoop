@@ -77,7 +77,10 @@ export class InterviewTelemetryService {
     const dbClient = client || this.supabase;
     if (dbClient && typeof dbClient.from === 'function') {
       try {
-        await dbClient.from('interview_telemetry_events').insert(events);
+        const { error } = await dbClient.from('interview_telemetry_events').insert(events);
+        if (error) {
+          process.stderr.write(`[telemetry-flush-error] ${error.message || JSON.stringify(error)}\n`);
+        }
       } catch (err) {
         process.stderr.write(`[telemetry-flush-error] ${err?.message}\n`);
       }

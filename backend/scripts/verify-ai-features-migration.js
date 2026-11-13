@@ -6,11 +6,19 @@
  * Usage: npm run verify:migration
  */
 
+import pg from 'pg';
 import { createClient } from '@supabase/supabase-js';
 import '../config/env.js';
 
+const { Client } = pg;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const projectRef = SUPABASE_URL?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  (projectRef && process.env.SUPABASE_DB_PASSWORD
+    ? `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD}@db.${projectRef}.supabase.co:5432/postgres`
+    : null);
 
 // Color codes
 const colors = {
@@ -143,23 +151,23 @@ async function checkTables(supabase) {
 }
 
 /**
- * Check table columns using information_schema
+ * Check table columns using information_schema via direct PostgreSQL connection
  */
-async function checkColumns(supabase) {
+async function checkColumns(pgClient) {
   console.log(`\n${colors.blue}Checking Table Columns:${colors.reset}`);
+
+  if (!pgClient) {
+    console.log(`${colors.cyan}→ Skipping column verification (DATABASE_URL / SUPABASE_DB_PASSWORD not set)${colors.reset}`);
+    return;
+  }
 
   for (const [table, columns] of Object.entries(EXPECTED_COLUMNS)) {
     try {
-      const { data, error } = await supabase
-        .rpc('get_table_columns', { table_name: table })
-        .limit(100);
-
-      if (error) {
-        console.log(`${colors.yellow}⚠ ${table} - Cannot verify columns: ${error.message}${colors.reset}`);
-        continue;
-      }
-
-      const existingColumns = data?.map((c) => c.column_name) || [];
+      const { rows } = await pgClient.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+        [table]
+      );
+      const existingColumns = rows.map((c) => c.column_name);
       const missing = columns.filter((c) => !existingColumns.includes(c));
 
       if (missing.length === 0) {
@@ -167,39 +175,28 @@ async function checkColumns(supabase) {
       } else {
         console.log(`${colors.red}✗ ${table} - Missing columns: ${missing.join(', ')}${colors.reset}`);
       }
-    } catch {
-      // Fallback: try to select * to verify table existence
-      try {
-        await supabase
-          .from(table)
-          .select('*')
-          .limit(0);
-        console.log(`${colors.cyan}→ ${table} - Columns not directly verifiable (table exists)${colors.reset}`);
-      } catch {
-        console.log(`${colors.red}✗ ${table} - Table verification failed${colors.reset}`);
-      }
+    } catch (err) {
+      console.log(`${colors.yellow}⚠ ${table} - Cannot verify columns: ${err.message}${colors.reset}`);
     }
   }
 }
 
 /**
- * Check indexes using information_schema
+ * Check indexes using pg_indexes via direct PostgreSQL connection
  */
-async function checkIndexes(supabase) {
+async function checkIndexes(pgClient) {
   console.log(`\n${colors.blue}Checking Indexes:${colors.reset}`);
 
+  if (!pgClient) {
+    console.log(`${colors.cyan}→ Skipping index verification (DATABASE_URL / SUPABASE_DB_PASSWORD not set)${colors.reset}`);
+    return;
+  }
+
   try {
-    const { data, error } = await supabase
-      .rpc('get_all_indexes')
-      .limit(100);
-
-    if (error) {
-      console.log(`${colors.yellow}⚠ Cannot verify indexes: ${error.message}${colors.reset}`);
-      console.log(`${colors.cyan}→ Skipping index verification${colors.reset}`);
-      return;
-    }
-
-    const existingIndexes = data?.map((i) => i.index_name) || [];
+    const { rows } = await pgClient.query(
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`
+    );
+    const existingIndexes = rows.map((i) => i.indexname);
 
     for (const expectedIndex of EXPECTED_INDEXES) {
       if (existingIndexes.includes(expectedIndex)) {
@@ -208,8 +205,8 @@ async function checkIndexes(supabase) {
         console.log(`${colors.yellow}⚠ ${expectedIndex} - Not found (optional)${colors.reset}`);
       }
     }
-  } catch {
-    console.log(`${colors.cyan}→ Index verification not available (this is okay)${colors.reset}`);
+  } catch (err) {
+    console.log(`${colors.yellow}⚠ Cannot verify indexes: ${err.message}${colors.reset}`);
   }
 }
 
@@ -283,13 +280,30 @@ async function verifyMigration() {
 
   // Initialize Supabase client
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  let pgClient = null;
+  if (DATABASE_URL) {
+    pgClient = new Client({
+      connectionString: DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+    try {
+      await pgClient.connect();
+    } catch (err) {
+      console.log(`${colors.yellow}⚠ Direct PostgreSQL connection unavailable: ${err.message}${colors.reset}`);
+      pgClient = null;
+    }
+  }
 
-  // Run all checks
-  await testConnectivity(supabase);
-  await checkTables(supabase);
-  await checkColumns(supabase);
-  await checkIndexes(supabase);
-  await checkRLS(supabase);
+  try {
+    // Run all checks
+    await testConnectivity(supabase);
+    await checkTables(supabase);
+    await checkColumns(pgClient);
+    await checkIndexes(pgClient);
+    await checkRLS(supabase);
+  } finally {
+    await pgClient?.end().catch(() => {});
+  }
 
   // Summary
   console.log(`\n${colors.blue}Verification Summary:${colors.reset}`);

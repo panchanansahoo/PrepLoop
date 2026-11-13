@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 
 /**
@@ -125,11 +126,20 @@ export function requireValidFileSignature(allowedTypes = ['pdf', 'docx', 'text']
   return (req, res, next) => {
     if (!req.file) return next();
 
-    if (!req.file.buffer || req.file.buffer.length === 0) {
+    let buffer = req.file.buffer;
+    if (!buffer && req.file.path) {
+      try {
+        buffer = fs.readFileSync(req.file.path);
+      } catch (_readErr) {
+        return res.status(400).json({ error: 'Failed to read uploaded file' });
+      }
+    }
+
+    if (!buffer || buffer.length === 0) {
       return res.status(400).json({ error: 'Uploaded file is empty' });
     }
 
-    const check = validateFileMagicBytes(req.file.buffer, allowedTypes);
+    const check = validateFileMagicBytes(buffer, allowedTypes);
     if (!check.valid) {
       return res.status(415).json({
         error: check.error,

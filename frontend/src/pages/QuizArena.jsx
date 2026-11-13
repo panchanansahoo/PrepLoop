@@ -356,7 +356,7 @@ export default function QuizArena() {
     setSaveMessage('');
 
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/user/quiz/attempt`, {
+      const response = await authFetch(buildQuizApiUrl('/user/quiz/attempt'), {
         method: 'POST',
         body: JSON.stringify({
           topic,

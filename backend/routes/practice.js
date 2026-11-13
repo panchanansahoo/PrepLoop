@@ -798,13 +798,14 @@ router.post('/submit', authenticateToken, async (req, res) => {
         updateData.status = 'solved';
         updateData.solved_at = new Date().toISOString();
       }
-      const { data } = await supabaseAdmin
+      const { data, error: updateError } = await supabaseAdmin
         .from('user_progress')
         .update(updateData)
         .eq('user_id', req.user.id)
         .eq('problem_id', canonicalProblemId)
         .select()
         .single();
+      if (updateError) throw updateError;
       progress = data;
 
       const isFirstSolve = progressStatus === 'solved' && existingProgress.status !== 'solved';
@@ -826,7 +827,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         }
       }
     } else {
-      const { data } = await supabaseAdmin
+      const { data, error: insertError } = await supabaseAdmin
         .from('user_progress')
         .insert({
           user_id: req.user.id,
@@ -838,6 +839,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         })
         .select()
         .single();
+      if (insertError) throw insertError;
       progress = data;
 
       if (progressStatus === 'solved') {
@@ -1422,8 +1424,8 @@ router.get('/all-problems', optionalAuth, (req, res) => {
       filteredProblems = filteredProblems.filter((p) => p.companies?.includes(company));
     }
 
-    if (search) {
-      const searchLower = search.toLowerCase();
+    if (typeof search === 'string' && search.trim()) {
+      const searchLower = search.trim().toLowerCase();
       filteredProblems = filteredProblems.filter((p) =>
         p.title.toLowerCase().includes(searchLower)
       );

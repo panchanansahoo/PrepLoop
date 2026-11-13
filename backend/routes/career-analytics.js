@@ -445,18 +445,19 @@ router.post('/jd-prep-plan', expensiveFeatureLimiter, authenticateToken, async (
       profile?.bio || ''
     ].join(' ');
 
-    const matchResult = await resumeMatcher.matchResumeToJd(userText || 'Software Developer', jobDescription);
+    const matchResult = await resumeMatcher.computeResumeSimilarity(userText || 'Software Developer', jobDescription);
+    const matchedKeywords = Array.isArray(matchResult.matchedSkills) ? matchResult.matchedSkills : [];
 
     const prepPlan = {
       targetRole,
       company,
-      overallFitScore: matchResult.similarityScore || 72,
-      keywordMatches: matchResult.topMatchingKeywords || [],
-      missingCompetencies: matchResult.missingKeywords || [],
+      overallFitScore: matchResult.score ?? 72,
+      keywordMatches: matchedKeywords,
+      missingCompetencies: [],
       tailoredQuestions: [
-        `How have you applied ${matchResult.topMatchingKeywords?.[0] || 'core technologies'} in previous high-scale projects?`,
+        `How have you applied ${matchedKeywords[0] || 'core technologies'} in previous high-scale projects?`,
         `Walk me through an architectural challenge you solved that relates to ${targetRole} requirements.`,
-        `How would you ramp up on ${matchResult.missingKeywords?.[0] || 'emerging tooling'} within your first 30 days at ${company}?`
+        `How would you ramp up on ${targetRole} priorities within your first 30 days at ${company}?`
       ],
       recommendedModules: [
         { name: 'System Design Scaling', track: 'system-design' },

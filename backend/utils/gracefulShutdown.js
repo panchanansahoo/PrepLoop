@@ -25,7 +25,7 @@ class GracefulShutdownManager {
     this.forceExitTimeout = options.forceExitTimeout || 5000; // 5 seconds after graceful timeout
     this.abortController = new AbortController();
     this.isShuttingDown = false;
-    this.inflightRequests = new Set();
+    this.inflightRequests = new Map();
     this.shutdownStartTime = null;
 
     // Track in-flight requests
@@ -41,15 +41,15 @@ class GracefulShutdownManager {
    */
   setupRequestTracking() {
     this.server.on('request', (req, res) => {
-      const requestId = `${req.method} ${req.url}`;
-      this.inflightRequests.add(requestId);
+      const requestToken = Symbol(`${req.method} ${req.url}`);
+      this.inflightRequests.set(requestToken, `${req.method} ${req.url}`);
 
       res.on('finish', () => {
-        this.inflightRequests.delete(requestId);
+        this.inflightRequests.delete(requestToken);
       });
 
       res.on('close', () => {
-        this.inflightRequests.delete(requestId);
+        this.inflightRequests.delete(requestToken);
       });
     });
   }
@@ -145,7 +145,7 @@ class GracefulShutdownManager {
         logger.warn('Graceful shutdown timeout exceeded', {
           remainingRequests: this.inflightRequests.size,
           timeoutMs: this.shutdownTimeout,
-          requests: Array.from(this.inflightRequests),
+          requests: Array.from(this.inflightRequests.values()),
         });
         break;
       }
@@ -153,7 +153,7 @@ class GracefulShutdownManager {
       logger.debug('Waiting for in-flight requests', {
         count: this.inflightRequests.size,
         elapsedMs,
-        requests: Array.from(this.inflightRequests).slice(0, 5), // Log first 5
+        requests: Array.from(this.inflightRequests.values()).slice(0, 5), // Log first 5
       });
 
       // Wait 1 second before checking again

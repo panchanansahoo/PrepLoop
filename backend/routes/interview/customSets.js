@@ -361,13 +361,21 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       }
     }
 
+    const safeUserName = typeof userName === 'string' && userName.trim()
+      ? userName.trim()
+      : (req.user?.user_metadata?.full_name || 'Guest Candidate');
+    const rawUserEmail = typeof userEmail === 'string' && userEmail.trim()
+      ? userEmail.trim()
+      : (req.user?.email || null);
+    const safeUserEmail = typeof rawUserEmail === 'string' ? rawUserEmail.trim().toLowerCase() || null : null;
+
     const { data, error } = await supabaseAdmin
-      .from('admin_question_set_submissions')
+      .from('admin_interview_submissions')
       .insert({
         question_set_id: questionSet.id,
         user_id: req.user?.id || null,
-        user_name: (userName || req.user?.user_metadata?.full_name || 'Guest Candidate').trim(),
-        user_email: (userEmail || req.user?.email || null)?.trim().toLowerCase() || null,
+        user_name: safeUserName,
+        user_email: safeUserEmail,
         responses: serverResponses,
         scores,
         overall_score: overallScore,

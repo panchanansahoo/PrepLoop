@@ -61,10 +61,10 @@ export default function Analytics() {
       setMounted(true);
   }, []);
 
-  const solvedTotal = dashboardData?.stats?.problemsSolved || 0;
-  const easySolved = dashboardData?.weeklyGoals?.easy || 15;
-  const mediumSolved = dashboardData?.weeklyGoals?.medium || 34;
-  const hardSolved = dashboardData?.weeklyGoals?.hard || 5;
+  const solvedTotal = dashboardData?.stats?.problemsSolved ?? 0;
+  const easySolved = dashboardData?.weeklyGoals?.easy ?? 0;
+  const mediumSolved = dashboardData?.weeklyGoals?.medium ?? 0;
+  const hardSolved = dashboardData?.weeklyGoals?.hard ?? 0;
 
   const weeklyProgress = useMemo(() => {
     const days = [];
@@ -73,7 +73,7 @@ export default function Analytics() {
       d.setDate(d.getDate() - i);
       days.push({
         label: d.toLocaleDateString('en-US', { weekday: 'short' }),
-        value: Math.max(0, Math.round((solvedTotal / 7) * (0.6 + (i / 20)))) || Math.floor(Math.random() * 8) + 2
+        value: solvedTotal > 0 ? Math.max(0, Math.round((solvedTotal / 7) * (0.6 + (i / 20)))) : 0
       });
     }
     return days;
@@ -85,7 +85,7 @@ export default function Analytics() {
     { label: 'Hard', value: hardSolved, color: '#f43f5e', total: diffCounts.Hard },
   ];
 
-  const avgSolveTime = solvedTotal > 0 ? Math.round(15 + (dashboardData?.stats?.mockInterviews || 0)) : 14;
+  const avgSolveTime = solvedTotal > 0 ? Math.round(15 + (dashboardData?.stats?.mockInterviews || 0)) : 0;
 
   const c = {
     bg: isLight ? '#f8fafc' : '#0f1014',
@@ -149,11 +149,11 @@ export default function Analytics() {
             boxShadow: c.shadow, overflowX: 'auto'
         }}>
           {[
-            { label: 'Total Solved', value: solvedTotal || 54, icon: CheckCircle2, color: '#10b981' },
+            { label: 'Total Solved', value: solvedTotal, icon: CheckCircle2, color: '#10b981' },
             { label: 'Avg Solve Time', value: `${avgSolveTime}m`, icon: Clock, color: '#f59e0b' },
             { label: 'Longest Streak', value: `${dashboardData?.bestStreak || 12}d`, icon: Flame, color: '#f43f5e' },
             { label: 'Code Quality Rating', value: 'A-', icon: Shield, color: '#3b82f6' },
-            { label: 'Mock Interviews', value: dashboardData?.stats?.mockInterviews || 3, icon: Activity, color: '#8b5cf6' },
+            { label: 'Mock Interviews', value: dashboardData?.stats?.mockInterviews ?? 0, icon: Activity, color: '#8b5cf6' },
           ].map((stat, i) => {
               const Icon = stat.icon;
               return (
@@ -280,8 +280,7 @@ export default function Analytics() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 20 }}>
             {TOPICS.slice(0, 12).map((topic, i) => {
               const topicProblems = PROBLEMS.filter(p => p.topics.includes(topic));
-              const randomSolved = Math.floor(Math.random() * topicProblems.length); // Use random for visual depth if solvedTotal is 0
-              const solved = Math.min(topicProblems.length, Math.floor((solvedTotal / Math.max(TOPICS.length, 1)) * (1 + ((i % 5) / 10)))) || randomSolved || 2;
+              const solved = solvedTotal > 0 ? Math.min(topicProblems.length, Math.floor((solvedTotal / Math.max(TOPICS.length, 1)) * (1 + ((i % 5) / 10)))) : 0;
               const pct = topicProblems.length > 0 ? Math.round((solved / topicProblems.length) * 100) : 0;
               
               let barColor = '#f43f5e';

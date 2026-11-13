@@ -24,10 +24,14 @@ import {
 } from './middleware/apiRateLimiter.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
+import { createDistributedRateLimitStore } from './config/rateLimitStore.js';
 import cacheManager from './utils/cacheManager.js';
 import performanceMonitor from './utils/performanceMonitor.js';
 
 let routesInitialized = false;
+let healthCheckHandler = null;
+let readinessCheckHandler = null;
+let shutdownManager = null;
 const voiceHttpLogger = createLogger('voice-http');
 
 // Disable console.log in production
@@ -42,14 +46,15 @@ validateStartupEnv();
 const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
-// Keep a tiny endpoint available while heavier route initialization completes.
-// This lets Render detect the bound port instead of timing out during cold start.
+// Keep endpoints available while heavier route initialization completes.
+// This lets orchestrators (K8s / Render) check liveness and readiness immediately without 404s.
 app.get('/', (_req, res) => {
   res.status(200).json({
     service: 'Preploop backend',
     status: 'running',
     health: '/health',
     live: '/health/live',
+    ready: '/health/ready',
   });
 });
 
@@ -61,13 +66,86 @@ app.get('/health/live', (_req, res) => {
   });
 });
 
+app.get('/health/ready', (req, res, next) => {
+  if (!routesInitialized || !readinessCheckHandler) {
+    return res.status(503).json({
+      ready: false,
+      initializing: true,
+      timestamp: new Date().toISOString(),
+      message: 'Routes are still initializing',
+    });
+  }
+  return readinessCheckHandler(req, res, next);
+});
+
+app.get('/health', (req, res, next) => {
+  if (!routesInitialized || !healthCheckHandler) {
+    return res.status(503).json({
+      status: 'degraded',
+      initializing: true,
+      timestamp: new Date().toISOString(),
+      message: 'Routes are still initializing',
+    });
+  }
+  return healthCheckHandler(req, res, next);
+});
+
+// Production Prometheus & JSON telemetry metrics endpoint
+app.get('/metrics', (req, res) => {
+  const metricsKey = process.env.METRICS_API_KEY;
+  if (process.env.NODE_ENV === 'production' && metricsKey) {
+    const authHeader = req.get('Authorization') || '';
+    const providedKey = authHeader.replace(/^Bearer\s+/i, '') || req.query.key;
+    if (providedKey !== metricsKey) {
+      return res.status(401).json({ error: 'Unauthorized: invalid or missing METRICS_API_KEY' });
+    }
+  }
+
+  const data = performanceMonitor.getMetrics();
+  if (req.headers.accept?.includes('application/json') || req.query.format === 'json') {
+    return res.status(200).json(data);
+  }
+
+  const lines = [
+    '# HELP preploop_uptime_seconds Total application uptime in seconds',
+    '# TYPE preploop_uptime_seconds gauge',
+    `preploop_uptime_seconds ${(data.uptimeMs / 1000).toFixed(2)}`,
+    '',
+    '# HELP preploop_http_requests_total Total number of HTTP requests tracked',
+    '# TYPE preploop_http_requests_total counter',
+    `preploop_http_requests_total ${data.requests.total}`,
+    '',
+    '# HELP preploop_http_errors_total Total number of 5xx errors recorded',
+    '# TYPE preploop_http_errors_total counter',
+    `preploop_http_errors_total ${data.errors}`,
+    '',
+    '# HELP preploop_http_slow_requests_total Requests exceeding slow API threshold',
+    '# TYPE preploop_http_slow_requests_total counter',
+    `preploop_http_slow_requests_total ${data.slowRequests}`,
+    '',
+    '# HELP preploop_cache_events_total Cache hits and misses',
+    '# TYPE preploop_cache_events_total counter',
+    `preploop_cache_events_total{event="hit"} ${data.cache.hits}`,
+    `preploop_cache_events_total{event="miss"} ${data.cache.misses}`,
+    `preploop_cache_events_total{event="set"} ${data.cache.sets}`,
+    '',
+    '# HELP preploop_system_memory_bytes System memory telemetry',
+    '# TYPE preploop_system_memory_bytes gauge',
+    `preploop_system_memory_bytes{type="free"} ${data.system.freeMem}`,
+    `preploop_system_memory_bytes{type="total"} ${data.system.totalMem}`,
+  ];
+
+  res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+  return res.status(200).send(lines.join('\n') + '\n');
+});
+
 async function initializeServer() {
   try {
     console.log('📦 Initializing API Route Registry...');
     const { createApiRouter } = await import('./routes/index.js');
     const { authenticateToken } = await import('./middleware/auth.ts');
     const { errorHandler } = await import('./middleware/errorHandler.js');
-    const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
+    const { healthCheck, readinessCheck } = await import('./middleware/healthCheck.js');
     const interviewModule = await import('./routes/interview.js');
     const { getInterviewAnalytics, getInterviewRecommendations } = interviewModule;
     const apiRouter = await createApiRouter({
@@ -77,13 +155,14 @@ async function initializeServer() {
     });
     console.log('✅ Routes loaded successfully');
 
-    // Configure rate limiting
+    // Configure rate limiting with multi-instance distributed store (Redis / Upstash / memory fallback)
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000,
       max: Number.parseInt(process.env.GLOBAL_RATE_LIMIT_MAX || '250', 10),
       message: 'Too many requests from this IP, please try again later.',
       standardHeaders: true,
       legacyHeaders: false,
+      store: createDistributedRateLimitStore({ prefix: 'rl:global:', windowMs: 15 * 60 * 1000 }),
     });
 
     // Stricter rate limit for auth endpoints to prevent brute-force attacks
@@ -93,6 +172,7 @@ async function initializeServer() {
       message: 'Too many authentication attempts. Please try again later.',
       standardHeaders: true,
       legacyHeaders: false,
+      store: createDistributedRateLimitStore({ prefix: 'rl:auth:', windowMs: 15 * 60 * 1000 }),
     });
 
     // Middleware setup
@@ -239,15 +319,9 @@ async function initializeServer() {
       });
     }
 
-    // Health check endpoints
-    app.get('/health', healthCheck);
-    app.get('/health/ready', (req, res, next) => {
-      if (!routesInitialized) {
-        return res.status(503).json({ ready: false, message: 'Routes are still initializing' });
-      }
-      return readinessCheck(req, res, next);
-    });
-    app.get('/health/live', livenessCheck);
+    // Health check handlers attached to early-registered probes
+    healthCheckHandler = healthCheck;
+    readinessCheckHandler = readinessCheck;
 
     // OpenAPI & Swagger Documentation endpoints
     app.get('/api/docs/openapi.json', async (_req, res) => {
@@ -384,8 +458,12 @@ process.on('unhandledRejection', (reason, promise) => {
   // Log but don't exit immediately - some rejections may be recoverable
   // Exit with code 1 only if it's a critical error
   if (process.env.NODE_ENV === 'production') {
-    console.error('🚨 Unhandled rejection in production - exiting');
-    process.exit(1);
+    console.error('🚨 Unhandled rejection in production - triggering graceful shutdown drain');
+    if (shutdownManager) {
+      shutdownManager.shutdown();
+    } else {
+      process.exit(1);
+    }
   }
 });
 
@@ -404,18 +482,32 @@ process.on('uncaughtException', (error) => {
 // Start listening before heavier route imports so platform port scans pass.
 startServer(DEFAULT_PORT)
   .then((server) => {
-    // Initialize collaboration service (must happen before shutdown setup)
-    collaborationService.initialize(server);
+    // Initialize collaboration & realtime interview WebSocket services via single upgrade router
+    collaborationService.initialize(server, { noServer: true });
     try {
-      realtimeInterviewService.initialize(server);
+      realtimeInterviewService.initialize(server, { noServer: true });
       console.log('✅ Realtime interview service initialized');
     } catch (realtimeErr) {
       console.warn('Realtime interview service initialization warning:', realtimeErr.message);
     }
+    server.on('upgrade', (request, socket, head) => {
+      try {
+        const pathname = new URL(request.url || '', 'http://localhost').pathname;
+        if (pathname === '/ws/collaborate') {
+          collaborationService.handleUpgrade(request, socket, head);
+        } else if (pathname === '/ws/interview') {
+          realtimeInterviewService.handleUpgrade(request, socket, head);
+        } else {
+          socket.destroy();
+        }
+      } catch {
+        socket.destroy();
+      }
+    });
     console.log('✅ Collaboration service initialized');
 
     // Setup graceful shutdown with configurable timeouts
-    setupGracefulShutdown(server, {
+    shutdownManager = setupGracefulShutdown(server, {
       shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
       forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
     });

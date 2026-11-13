@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ResumeGapAnalysisRequestSchema } from '@preploop/contracts/jobs';
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles, Target, X } from 'lucide-react';
@@ -21,6 +21,17 @@ export default function ResumeGapAnalyzerModal({
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setJobTitle(initialJobTitle);
+    setCompany(initialCompany);
+    setJobDescription(initialJobDescription);
+    if (initialResumeText) {
+      setResumeText(initialResumeText);
+    }
+    setError('');
+  }, [isOpen, initialJobTitle, initialCompany, initialJobDescription, initialResumeText]);
+
   if (!isOpen) return null;
 
   const handleAnalyze = async (e) => {
@@ -39,12 +50,12 @@ export default function ResumeGapAnalyzerModal({
 
     setLoading(true);
     try {
-      const res = await authFetch(buildApiUrl('/api/resume/gap-analysis'), {
+      const res = await authFetch(buildApiUrl('/resume/gap-analysis'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed.data),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || 'Failed to analyze resume fit');
       }

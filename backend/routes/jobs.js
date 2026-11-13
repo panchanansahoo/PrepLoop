@@ -819,20 +819,25 @@ router.get('/live', async (req, res) => {
 // ─── POST /api/jobs/ai-search — AI-powered natural-language search ───
 router.post('/ai-search', aiEndpointsLimiter, async (req, res) => {
   try {
-    const { query } = req.body;
-    if (!query || query.trim().length < 3) {
+    const { query } = req.body || {};
+    if (typeof query !== 'string' || query.trim().length < 3) {
       return res.status(400).json({ error: 'Please enter a search query (at least 3 characters).' });
     }
+    if (query.trim().length > 500) {
+      return res.status(400).json({ error: 'Search query is too long (maximum 500 characters).' });
+    }
 
+    const cleanQuery = query.trim().slice(0, 500);
     let parsedParams = null;
     let aiSuggestions = [];
-    let searchQuery = query; // Declare searchQuery before first assignment
+    let searchQuery = cleanQuery; // Declare searchQuery before first assignment
 
     // ── Use Groq LLM to parse the natural language query ──
     if (GROQ_API_KEY) {
       try {
         const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
+          signal: AbortSignal.timeout(10000),
           headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json',
@@ -858,7 +863,7 @@ Return this exact JSON structure:
               },
               {
                 role: 'user',
-                content: query
+                content: cleanQuery
               }
             ],
             temperature: 0.3,
@@ -964,7 +969,9 @@ router.get('/', optionalAuth, async (req, res) => {
       source,
     } = req.query;
 
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (parsedPage - 1) * parsedLimit;
     let adminJobs = [];
     let externalJobs = [];
 
@@ -989,7 +996,7 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     }
 
-    const { data, error } = await query.range(offset, offset + parseInt(limit) - 1);
+    const { data, error } = await query.range(offset, offset + parsedLimit - 1);
 
     if (error) {
       logger.error('Supabase job fetch error', { error: error.message, code: error.code });
@@ -999,8 +1006,8 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // ── Fetch external API jobs (only page 1 or when specifically requested) ──
     const searchQuery = search || category || 'fresher software developer India';
-    if (source !== 'admin' && parseInt(page, 10) <= 2) {
-      externalJobs = await fetchExternalJobs(searchQuery, parseInt(page, 10));
+    if (source !== 'admin' && parsedPage <= 2) {
+      externalJobs = await fetchExternalJobs(searchQuery, parsedPage);
     }
 
     // Combine and send
@@ -1031,16 +1038,15 @@ router.get('/', optionalAuth, async (req, res) => {
       : allJobs;
 
     // Respect the limit parameter for the combined results
-    const requestedLimit = Math.min(100, parseInt(limit, 10));
-    const combinedJobs = filteredJobs.slice(0, requestedLimit);
+    const combinedJobs = filteredJobs.slice(0, parsedLimit);
 
     res.json({
       jobs: combinedJobs,
       total: filteredJobs.length,
-      page: parseInt(page),
-      totalPages: Math.ceil(filteredJobs.length / parseInt(limit, 10)) || 1,
+      page: parsedPage,
+      totalPages: Math.ceil(filteredJobs.length / parsedLimit) || 1,
       hasExternalApi: !!RAPIDAPI_KEY,
-      cached: !!getCachedJobs(`jobs_${searchQuery}_${parseInt(page, 10)}`),
+      cached: !!getCachedJobs(`jobs_${searchQuery}_${parsedPage}`),
       rateLimit: {
         remaining: rateLimit.remaining,
         limit: 10

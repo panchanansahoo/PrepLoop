@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node scripts/devRunner.cjs",
-    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "install:all": "npm install && npm install --prefix packages/contracts && npm run build --prefix packages/contracts && npm install --prefix backend && npm install --prefix frontend",
     "start": "npm run dev",
     "setup:env": "node scripts/bootstrapSetup.cjs",
     "setup": "node scripts/bootstrapSetup.cjs --verify",
@@ -33,7 +33,8 @@
     "generate:jwt": "node scripts/generate-jwt-secrets.cjs",
     "test:fixes": "node scripts/test-critical-fixes.cjs",
     "test": "npm run test --prefix backend && npm run test --prefix frontend",
-    "build": "npm run build --prefix frontend",
+    "build:contracts": "npm run build --prefix packages/contracts",
+    "build": "npm run build:contracts && npm run build --prefix frontend",
     "check:bundle": "npm run check:bundle --prefix frontend",
     "audit": "npm audit --omit=dev --prefix backend && npm audit --omit=dev --prefix frontend",
     "test:e2e": "npm run test:e2e --prefix frontend",

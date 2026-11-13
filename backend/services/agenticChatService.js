@@ -127,13 +127,18 @@ export async function runAgenticChat({ userId, message, history = [] }) {
   }
 
   try {
+    const trimmedHistory = (history || []).slice(-8).map((m) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+    }));
+
+    const lastMsg = trimmedHistory[trimmedHistory.length - 1];
+    const isAlreadyAppended = lastMsg && lastMsg.role === 'user' && lastMsg.content?.trim() === message?.trim();
+
     const messages = [
       { role: 'system', content: AGENT_SYSTEM_PROMPT },
-      ...history.slice(-8).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content,
-      })),
-      { role: 'user', content: message },
+      ...trimmedHistory,
+      ...(isAlreadyAppended ? [] : [{ role: 'user', content: message }]),
     ];
 
     const thoughtProcess = [];

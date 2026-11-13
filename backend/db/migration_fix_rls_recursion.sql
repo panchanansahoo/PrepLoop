@@ -1,22 +1,39 @@
 -- Migration: Fix RLS Infinite Recursion on Profiles Table
 -- Problem: Self-referential RLS policies cause infinite recursion
--- Solution: Disable RLS on profiles since all backend operations use service role key
+-- Solution: Replace self-referential policies with a SECURITY DEFINER helper while keeping RLS enabled
 
--- 1. Disable RLS on profiles table
--- Since all backend operations use supabaseAdmin (service role key),
--- RLS is not needed and the self-referential policies cause recursion
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- 2. Drop problematic self-referential policies to clean up
--- These policies query profiles from within profiles RLS evaluation
-DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
 
--- 3. Verification: Confirm RLS is disabled
--- After running this migration, the following should show 0 policies on profiles:
--- SELECT schemaname, tablename, policyname FROM pg_policies WHERE tablename = 'profiles';
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+$$;
 
--- 4. Note: If frontend needs direct profile access in future, consider:
--- - Creating a read-only view with simple conditions (not self-referential)
--- - Routing all profile updates through backend API (recommended)
--- - Using database functions with SECURITY DEFINER to handle RLS logic
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+CREATE POLICY "Admins can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (public.is_admin());
+
+CREATE POLICY "Admins can update all profiles"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (public.is_admin())
+WITH CHECK (public.is_admin());

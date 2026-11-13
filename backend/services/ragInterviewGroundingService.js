@@ -265,7 +265,7 @@ export class InterviewGroundingService {
     const hintPatterns = buildHintPatterns(missingAreas, normalizedResumeContext);
 
     return {
-      source: selected[0]?.id?.startsWith('fallback_') ? 'fallback_templates' : 'company_question_bank',
+      source: String(selected[0]?.id || '').startsWith('fallback_') ? 'fallback_templates' : 'company_question_bank',
       query: {
         company: company || null,
         role,

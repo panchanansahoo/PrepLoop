@@ -869,7 +869,7 @@ Respond as JSON:
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.75,
@@ -1070,7 +1070,7 @@ router.post('/hint', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',

@@ -22,22 +22,33 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_count INTEGER;
 BEGIN
+  IF limit_input IS NULL OR limit_input <= 0 THEN
+    RETURN QUERY SELECT FALSE, 0, 0;
+    RETURN;
+  END IF;
+
   INSERT INTO public.usage_quota_windows (user_id, category, window_started_at, request_count)
   VALUES (user_id_input, category_input, window_started_at_input, 1)
   ON CONFLICT (user_id, category, window_started_at)
   DO UPDATE SET request_count = usage_quota_windows.request_count + 1
-  WHERE usage_quota_windows.request_count < limit_input;
+  WHERE usage_quota_windows.request_count < limit_input
+  RETURNING usage_quota_windows.request_count INTO v_count;
 
-  RETURN QUERY
-  SELECT
-    q.request_count <= limit_input,
-    q.request_count,
-    GREATEST(0, limit_input - q.request_count)
+  IF v_count IS NOT NULL THEN
+    RETURN QUERY SELECT TRUE, v_count, GREATEST(0, limit_input - v_count);
+    RETURN;
+  END IF;
+
+  SELECT q.request_count INTO v_count
   FROM public.usage_quota_windows q
   WHERE q.user_id = user_id_input
     AND q.category = category_input
     AND q.window_started_at = window_started_at_input;
+
+  RETURN QUERY SELECT FALSE, COALESCE(v_count, limit_input), 0;
 END;
 $$;
 

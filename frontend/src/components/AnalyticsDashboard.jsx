@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {TrendingUp, Award, Calendar, Target, Zap} from 'lucide-react';
+import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 
 /**
  * Comprehensive Analytics Dashboard
@@ -18,13 +21,20 @@ export default function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/ai/analytics/dashboard?range=${timeRange}`, {
-        headers: { 'Content-Type': 'application/json' }
+      const url = buildApiUrl(`/company-interview/analytics?range=${encodeURIComponent(timeRange)}`, {
+        rawBaseUrl: API_URL,
+        apiPrefix: '/api',
       });
+      const response = await authFetch(url);
+      if (!response.ok) {
+        setAnalyticsData(null);
+        return;
+      }
       const data = await response.json();
       setAnalyticsData(data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      setAnalyticsData(null);
     } finally {
       setLoading(false);
     }

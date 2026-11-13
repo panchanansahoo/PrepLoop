@@ -14,9 +14,15 @@ export default function DiscussionForumScreen({ navigation }) {
     const loadData = async () => {
         try {
             const data = await communityApi.getDiscussions();
-            setThreads(data || []);
+            const list = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.posts)
+                ? data.posts
+                : [];
+            setThreads(list);
         } catch (error) {
             console.error("Failed to load discussions:", error);
+            setThreads([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -32,7 +38,7 @@ export default function DiscussionForumScreen({ navigation }) {
         loadData();
     };
 
-    const filteredThreads = threads.filter(t => 
+    const filteredThreads = (Array.isArray(threads) ? threads : []).filter(t => 
         t.title?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 

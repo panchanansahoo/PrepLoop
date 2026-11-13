@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
 
@@ -45,9 +45,9 @@ export default function useCalendarEvents() {
       }
 
       try {
-        const res = await axios.get(buildCalendarApiUrl('/user/calendar-events'));
+        const res = await apiClient.get(buildCalendarApiUrl('/user/calendar-events'));
         if (!cancelled) {
-          setEvents(res.data.events || {});
+          setEvents(res?.events || res?.data?.events || {});
           initialLoadDone.current = true;
         }
       } catch (err) {
@@ -92,13 +92,13 @@ export default function useCalendarEvents() {
     }
 
     try {
-      const res = await axios.post(buildCalendarApiUrl('/user/calendar-events'), {
+      const res = await apiClient.post(buildCalendarApiUrl('/user/calendar-events'), {
         title: title.trim(),
         date: dateKey,
         time: time || '',
         tag: tag || 'study',
       });
-      const newEvt = res.data.event;
+      const newEvt = res?.event || res?.data?.event || res;
       setEvents(prev => ({
         ...prev,
         [dateKey]: [...(prev[dateKey] || []), {
@@ -137,7 +137,7 @@ export default function useCalendarEvents() {
 
     if (isLoggedIn) {
       try {
-        await axios.put(buildCalendarApiUrl(`/user/calendar-events/${eventId}`), updates);
+        await apiClient.put(buildCalendarApiUrl(`/user/calendar-events/${eventId}`), updates);
       } catch (err) {
         console.error('Failed to update event:', err);
       }
@@ -153,7 +153,7 @@ export default function useCalendarEvents() {
 
     if (isLoggedIn) {
       try {
-        await axios.delete(buildCalendarApiUrl(`/user/calendar-events/${eventId}`));
+        await apiClient.delete(buildCalendarApiUrl(`/user/calendar-events/${eventId}`));
       } catch (err) {
         console.error('Failed to delete event:', err);
         setEvents(prev);

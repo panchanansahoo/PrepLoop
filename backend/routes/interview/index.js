@@ -8,13 +8,13 @@ import playbackRoutes from './playback.js';
 
 const router = express.Router();
 
-// Mount subroutes with exact path matching and precedence
-router.use(sessionRoutes);
-router.use(feedbackRoutes);
+// Mount static/specific subroutes before parameterized /:id routes in sessionRoutes
 router.use(analyticsRoutes);
-router.use(transcribeRoutes);
 router.use(customSetsRoutes);
 router.use(playbackRoutes);
+router.use(feedbackRoutes);
+router.use(transcribeRoutes);
+router.use(sessionRoutes);
 
 export { getInterviewAnalytics, getInterviewRecommendations };
 export default router;

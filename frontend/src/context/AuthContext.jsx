@@ -237,18 +237,23 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+      const logoutResponse = await authFetch('/api/auth/logout', { method: 'POST' });
+      if (!logoutResponse.ok) {
+        console.warn('Session cookie cleanup failed:', logoutResponse.status);
+      }
+    } catch (err) {
+      console.warn('Logout request failed:', err);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      delete axios.defaults.headers.common['Authorization'];
+      setUser(null);
     }
-    const logoutResponse = await authFetch('/api/auth/logout', { method: 'POST' });
-    if (!logoutResponse.ok) {
-      console.warn('Session cookie cleanup failed:', logoutResponse.status);
-    }
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    delete axios.defaults.headers.common['Authorization'];
-    setUser(null);
   };
 
   const refreshSession = () => {

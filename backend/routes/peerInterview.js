@@ -260,6 +260,8 @@ router.post('/match', authenticateToken, validateRequest({ body: matchPeerRoomSc
           started_at: new Date().toISOString(),
         })
         .eq('id', targetRoom.id)
+        .is('candidate_id', null)
+        .eq('status', 'waiting')
         .select()
         .single();
 

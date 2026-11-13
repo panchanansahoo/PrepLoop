@@ -7,6 +7,8 @@ ADD COLUMN IF NOT EXISTS reference_key TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_coin_transactions_user_reference_key
 ON coin_transactions(user_id, reference_key);
 
+DROP FUNCTION IF EXISTS public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION coin_apply_transaction(
   user_id_input UUID,
   amount_input INTEGER,
@@ -17,6 +19,7 @@ CREATE OR REPLACE FUNCTION coin_apply_transaction(
 RETURNS TABLE(success BOOLEAN, new_balance INTEGER, error TEXT, applied BOOLEAN)
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   current_balance INTEGER;
@@ -100,3 +103,8 @@ BEGIN
   RETURN QUERY SELECT TRUE, current_balance, NULL::TEXT, TRUE;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT, TEXT)
+  TO service_role;

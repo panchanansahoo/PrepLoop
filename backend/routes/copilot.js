@@ -1,6 +1,8 @@
 import express from 'express';
 import Groq from 'groq-sdk';
 import { authenticateToken } from '../middleware/auth.ts';
+import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
@@ -30,7 +32,7 @@ const COPILOT_SYSTEM_PROMPT = `You are an expert career coach and interview stra
 ## Tone:
 Professional yet approachable, like a mentor who's been through the process.`;
 
-router.post('/ask', authenticateToken, async (req, res) => {
+router.post('/ask', authenticateToken, aiEndpointsLimiter, usageQuota('ai'), async (req, res) => {
   try {
     const { query, context } = req.body;
 
@@ -92,7 +94,7 @@ router.post('/ask', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/job-fit', authenticateToken, async (req, res) => {
+router.post('/job-fit', authenticateToken, aiEndpointsLimiter, usageQuota('ai'), async (req, res) => {
   try {
     const { jobTitle, jobDescription, userProfile } = req.body;
 

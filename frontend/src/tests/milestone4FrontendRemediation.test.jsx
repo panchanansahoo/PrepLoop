@@ -98,8 +98,9 @@ describe('Milestone 4 — Frontend Remediation & Regression Tests', () => {
 
       const plan = await generateImprovementPlan({ focusAreas: ['system_design'] });
 
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const requestedUrl = fetchSpy.mock.calls[0][0];
+      const apiCalls = fetchSpy.mock.calls.filter(([url]) => !String(url).includes('/api/csrf-token'));
+      expect(apiCalls).toHaveLength(1);
+      const requestedUrl = apiCalls[0][0];
       expect(requestedUrl).toContain('/api/improvement-plan/generate');
       expect(requestedUrl).not.toContain('/api/ai-features/improvement-plan');
 
@@ -132,8 +133,9 @@ describe('Milestone 4 — Frontend Remediation & Regression Tests', () => {
       });
 
       const updated = await updateImprovementPlanProgress('plan-1', [{ task: 't1', done: true }]);
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(fetchSpy.mock.calls[0][0]).toContain('/api/improvement-plan/plan-1/progress');
+      const apiCalls = fetchSpy.mock.calls.filter(([url]) => !String(url).includes('/api/csrf-token'));
+      expect(apiCalls).toHaveLength(1);
+      expect(apiCalls[0][0]).toContain('/api/improvement-plan/plan-1/progress');
       expect(updated.progress).toBe(50);
     });
   });

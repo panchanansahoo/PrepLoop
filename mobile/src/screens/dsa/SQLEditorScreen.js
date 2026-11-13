@@ -251,6 +251,8 @@ export default function SQLEditorScreen({ route, navigation }) {
                             ref={webViewRef}
                             source={{ uri: htmlContent }}
                             style={styles.webview}
+                            originWhitelist={["*"]}
+                            allowFileAccess={true}
                             onMessage={onMessage}
                             bounces={false}
                             scrollEnabled={false}

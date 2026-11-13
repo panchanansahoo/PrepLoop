@@ -305,7 +305,15 @@ export async function getUserProgressSummary(userId) {
 export async function updateUserProgress(userId, problemId, status, code = null) {
   try {
     const now = new Date().toISOString();
-    
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('user_progress')
+      .select('attempts')
+      .eq('user_id', userId)
+      .eq('problem_id', problemId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
     // Upsert with conflict resolution
     const { data, error } = await supabaseAdmin
       .from('user_progress')
@@ -315,7 +323,7 @@ export async function updateUserProgress(userId, problemId, status, code = null)
         status,
         last_attempt: now,
         last_code: code,
-        attempts: supabaseAdmin.rpc('increment', { x: 1 }), // handled via fetch-then-set below
+        attempts: (existing?.attempts || 0) + 1,
         updated_at: now,
       }, {
         onConflict: 'user_id,problem_id',

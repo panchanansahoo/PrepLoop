@@ -233,7 +233,7 @@ export const getOrCreateUserProfile = async (userContext: UserContext) => {
   if (profile) {
     if ((userContext.role === 'admin' || isAdminEmail(userContext.email)) && profile.role !== 'admin') {
       profile.role = 'admin';
-      (supabaseAdmin as any).from('profiles').update({ role: 'admin' }).eq('id', userId).catch(() => {});
+      (supabaseAdmin as any).from('profiles').update({ role: 'admin' }).eq('id', userId).then(() => {}, () => {});
     }
     cacheManager.set(cacheKey, profile, 60).catch(() => {});
     return buildProfileResponse(userContext, profile);
@@ -268,7 +268,7 @@ export const getOrCreateUserProfile = async (userContext: UserContext) => {
   if (profile) {
     if ((userContext.role === 'admin' || isAdminEmail(userContext.email)) && profile.role !== 'admin') {
       profile.role = 'admin';
-      (supabaseAdmin as any).from('profiles').update({ role: 'admin' }).eq('id', userId).catch(() => {});
+      (supabaseAdmin as any).from('profiles').update({ role: 'admin' }).eq('id', userId).then(() => {}, () => {});
     }
     cacheManager.set(cacheKey, profile, 60).catch(() => {});
     return buildProfileResponse(userContext, profile);
@@ -595,7 +595,7 @@ export const getUserSettings = async (userId: string, userContext: UserContext):
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (isProfilesAccessBlocked(error)) {
     return {
@@ -642,7 +642,7 @@ export const updateUserSettings = async (userId: string, updates: { fullName?: s
     .update(dbUpdates)
     .eq('id', userId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     if (isProfilesAccessBlocked(error)) {
@@ -652,6 +652,12 @@ export const updateUserSettings = async (userId: string, updates: { fullName?: s
       throw err;
     }
     throw error;
+  }
+
+  if (!data) {
+    const err: any = new Error('User not found');
+    err.status = 404;
+    throw err;
   }
 
   await cacheManager.delete(`profile:${userId}`).catch(() => {});

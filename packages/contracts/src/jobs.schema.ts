@@ -18,7 +18,7 @@ const JobApplicationBaseSchema = z.object({
   jobUrl: z.string().trim().url('Invalid job URL').max(500).or(z.literal('')),
   location: z.string().trim().max(160),
   salaryRange: z.string().trim().max(120),
-  appliedAt: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
+  appliedAt: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)).nullable(),
 });
 
 export const CreateJobApplicationSchema = JobApplicationBaseSchema.extend({
@@ -27,7 +27,7 @@ export const CreateJobApplicationSchema = JobApplicationBaseSchema.extend({
   jobUrl: z.string().trim().url('Invalid job URL').max(500).optional().or(z.literal('')),
   location: z.string().trim().max(160).optional().default(''),
   salaryRange: z.string().trim().max(120).optional().default(''),
-  appliedAt: z.string().datetime({ offset: true }).optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)).optional(),
+  appliedAt: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)).nullable().optional(),
 });
 
 export const UpdateJobApplicationSchema = JobApplicationBaseSchema.partial().refine(

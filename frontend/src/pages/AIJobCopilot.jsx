@@ -132,7 +132,7 @@ export default function AIJobCopilot() {
       const headers = buildAuthHeaders(user);
       delete headers['Content-Type'];
 
-      const response = await fetch(buildApiUrl('/resume/analyze', {
+      const response = await authFetch(buildApiUrl('/resume/analyze', {
         rawBaseUrl: import.meta.env.VITE_API_URL || '',
       }), {
         method: 'POST',
@@ -183,7 +183,7 @@ export default function AIJobCopilot() {
         onClose={() => setGapModalOpen(false)}
         initialJobTitle={targetRole}
         initialCompany={initialJobDetails.company || ''}
-        initialJobDescription={initialJobDetails.description || ''}
+        initialJobDescription={jobDescription}
       />
 
       {/* AI Chat Section */}

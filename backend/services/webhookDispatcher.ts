@@ -99,13 +99,17 @@ export class WebhookDispatcher {
     } catch (err: any) {
       logger.warn('Webhook delivery failed', { subId: sub.id, eventType, error: err.message });
 
-      await supabaseAdmin.from('webhook_deliveries').insert({
-        webhook_id: sub.id,
-        event_type: eventType,
-        payload,
-        response_status: 0,
-        error: err.message,
-      });
+      try {
+        await supabaseAdmin.from('webhook_deliveries').insert({
+          webhook_id: sub.id,
+          event_type: eventType,
+          payload,
+          response_status: 0,
+          error: err.message,
+        });
+      } catch (logErr: any) {
+        logger.debug('Failed to record failed webhook delivery', { subId: sub.id, error: logErr.message });
+      }
 
       return { success: false, error: err.message };
     }

@@ -152,7 +152,7 @@ export default function History() {
                 gap: 16, cursor: 'pointer', transition: 'all 0.2s'
               }} onClick={() => {
                 if (s.type === 'interview') navigate('/interview-history', { state: { sessionId: s.id } });
-                else if (s.type === 'practice') navigate('/coding-playground');
+                else if (s.type === 'practice') navigate('/playground');
                 else if (s.type === 'resume') navigate('/resume-analyzer');
               }}>
                 <div style={{

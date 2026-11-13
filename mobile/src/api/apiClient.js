@@ -58,35 +58,48 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error),
 );
 
-// Response interceptor — handle 401/token refresh
+let activeRefreshPromise = null;
+
+async function executeTokenRefresh() {
+    const refreshToken = await storage.getRefreshToken();
+    if (!refreshToken) throw new Error("No refresh token");
+
+    const res = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
+        refreshToken,
+    });
+    const { token, refreshToken: newRefreshToken } = res.data;
+    await storage.saveToken(token);
+    await storage.saveRefreshToken(newRefreshToken);
+    apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    return token;
+}
+
+// Response interceptor — handle 401/token refresh with singleton mutex
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest?._retry) {
             originalRequest._retry = true;
             try {
-                const refreshToken = await storage.getRefreshToken();
-                if (!refreshToken) throw new Error("No refresh token");
-
-                const res = await axios.post(
-                    `${API_BASE_URL}/api/auth/refresh`,
-                    {
-                        refreshToken,
-                    },
-                );
-                const { token, refreshToken: newRefreshToken } = res.data;
-                await storage.saveToken(token);
-                await storage.saveRefreshToken(newRefreshToken);
-                apiClient.defaults.headers.common["Authorization"] =
-                    `Bearer ${token}`;
-                originalRequest.headers.Authorization = `Bearer ${token}`;
+                if (!activeRefreshPromise) {
+                    activeRefreshPromise = executeTokenRefresh().finally(() => {
+                        activeRefreshPromise = null;
+                    });
+                }
+                const newToken = await activeRefreshPromise;
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return apiClient(originalRequest);
-            } catch {
-                await storage.clearAuth();
-                if (authEvents.onLogout) authEvents.onLogout();
-                return Promise.reject(error);
+            } catch (refreshErr) {
+                const status = refreshErr.response?.status;
+                // Only clear credentials if the refresh token is rejected by the server (401/403).
+                // Do NOT wipe auth on transient network errors (offline, ECONNABORTED, timeout).
+                if (status === 401 || status === 403) {
+                    await storage.clearAuth();
+                    if (authEvents.onLogout) authEvents.onLogout();
+                }
+                return Promise.reject(refreshErr || error);
             }
         }
 

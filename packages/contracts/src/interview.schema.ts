@@ -6,6 +6,7 @@ export const InterviewModeSchema = z.enum([
   'hr',
   'system-design',
   'dsa',
+  'coding',
   'company',
   'fresher',
   'mixed',
@@ -14,12 +15,14 @@ export const InterviewModeSchema = z.enum([
 export const InterviewDifficultySchema = z.enum(['easy', 'medium', 'hard', 'adaptive']);
 
 export const StartInterviewRequestSchema = z.object({
-  role: z.string().trim().min(1, 'Role is required').max(120),
+  role: z.string().trim().min(1).max(120).optional(),
+  type: InterviewModeSchema.optional(),
   company: z.string().trim().max(120).optional(),
   mode: InterviewModeSchema.default('technical'),
   difficulty: InterviewDifficultySchema.default('medium'),
   topics: z.array(z.string().trim().min(1)).max(20).optional(),
   durationMinutes: z.number().int().min(5).max(120).optional(),
+  duration: z.number().int().min(5).max(180).optional(),
   resumeText: z.string().max(50000).optional(),
 });
 

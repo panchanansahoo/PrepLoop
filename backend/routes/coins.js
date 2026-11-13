@@ -188,6 +188,18 @@ router.post('/earn', authenticateToken, async (req, res) => {
       });
     }
 
+    if ((source === 'manual' || source === 'bonus') && req.user?.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Admin role required for manual or bonus coin grants',
+      });
+    }
+
+    if (source === 'problem_solved' && !sourceRef) {
+      return res.status(400).json({
+        error: 'sourceRef is required when earning coins for problem_solved',
+      });
+    }
+
     const atomicResult = await applyCoinTransaction({
       userId: req.user.id,
       amount,
@@ -472,21 +484,23 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     if (queryError) throw queryError;
 
-    // Fetch all transactions for accurate summary computation across all pages
-    const { data: allRows } = await supabaseAdmin
-      .from('coin_transactions')
-      .select('amount, type, description')
-      .eq('user_id', req.user.id);
-
     const items = (filteredRows || []).map((item) => ({
       ...item,
       displayType: normalizeTxnType(item),
     }));
-    const summary = summarizeTransactions(allRows || []);
 
     if (!detailed) {
       return res.json(items);
     }
+
+    // Fetch transactions for summary computation only when detailed is requested (bounded to 1000)
+    const { data: allRows } = await supabaseAdmin
+      .from('coin_transactions')
+      .select('amount, type, description')
+      .eq('user_id', req.user.id)
+      .limit(1000);
+
+    const summary = summarizeTransactions(allRows || []);
 
     res.json({
       items,
@@ -532,18 +546,19 @@ router.get('/spend-history', authenticateToken, async (req, res) => {
       displayType: 'spend',
     }));
 
-    // Fetch all spend transactions for accurate summary computation
+    if (!detailed) {
+      return res.json(spendRows);
+    }
+
+    // Fetch spend transactions for summary computation only when detailed is requested (bounded to 1000)
     const { data: allSpendRows } = await supabaseAdmin
       .from('coin_transactions')
       .select('amount, type, description')
       .eq('user_id', req.user.id)
-      .eq('type', 'spend');
+      .eq('type', 'spend')
+      .limit(1000);
 
     const summary = summarizeTransactions(allSpendRows || []);
-
-    if (!detailed) {
-      return res.json(spendRows);
-    }
 
     return res.json({
       items: spendRows,

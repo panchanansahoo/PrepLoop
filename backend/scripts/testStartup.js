@@ -89,6 +89,10 @@ async function run() {
     assert(health.status === 200, `Expected 200 for /health, got ${health.status}`);
     assert(health.json?.status === 'ok', 'Expected /health payload status=ok');
 
+    const metrics = await requestJson('/metrics');
+    assert(metrics.status === 200, `Expected 200 for /metrics, got ${metrics.status}`);
+    console.log('OK /metrics reached');
+
     const protectedTargets = [
       { path: '/api/interview-suite/weakness/heatmap', method: 'GET' },
       {

@@ -35,6 +35,8 @@ export default function PlaybackPage() {
     async function loadPlayback() {
       setLoading(true);
       setError('');
+      setActiveIndex(0);
+      setIsPlaying(false);
       try {
         if (sessionId === DEMO_INTERVIEW_SESSION.id) {
           const demoTurns = DEMO_INTERVIEW_SESSION.conversation.map((m, idx) => ({

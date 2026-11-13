@@ -466,14 +466,11 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 DROP POLICY IF EXISTS "Users can view own payments" ON payments;
-DROP POLICY IF EXISTS "Users can view own payments" ON payments;
 CREATE POLICY "Users can view own payments" ON payments FOR SELECT USING (auth.uid() = user_id);
+-- Note: Inserts and updates are performed strictly server-side by backend using service_role key,
+-- which bypasses RLS. Never grant public write access on financial payment records.
 DROP POLICY IF EXISTS "Service can insert payments" ON payments;
-DROP POLICY IF EXISTS "Service can insert payments" ON payments;
-CREATE POLICY "Service can insert payments" ON payments FOR INSERT WITH CHECK (true);
 DROP POLICY IF EXISTS "Service can update payments" ON payments;
-DROP POLICY IF EXISTS "Service can update payments" ON payments;
-CREATE POLICY "Service can update payments" ON payments FOR UPDATE USING (true);
 
 
 -- ==========================================
@@ -549,32 +546,35 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Admin RLS policies (admins can see and manage all profiles)
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE policyname = 'Admins can view all profiles'
-  ) THEN
-    DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+-- 4. Admin RLS helper and policies (recursion-safe via SECURITY DEFINER)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
 DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
 CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT
-      USING (
-        EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-      );
-  END IF;
-END $$;
+  TO authenticated
+  USING (public.is_admin());
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE policyname = 'Admins can update all profiles'
-  ) THEN
-    DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 CREATE POLICY "Admins can update all profiles" ON profiles FOR UPDATE
-      USING (
-        EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-      );
-  END IF;
-END $$;
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- Admin policies for other tables
 DO $$ BEGIN
@@ -1598,27 +1598,43 @@ CREATE POLICY "Users can update own activity" ON user_activity FOR UPDATE USING 
 -- ==========================================
 
 -- Migration: Fix RLS Infinite Recursion on Profiles Table
--- Problem: Self-referential RLS policies cause infinite recursion
--- Solution: Disable RLS on profiles since all backend operations use service role key
+-- Solution: Replace self-referential policies with a SECURITY DEFINER helper while keeping RLS enabled
 
--- 1. Disable RLS on profiles table
--- Since all backend operations use supabaseAdmin (service role key),
--- RLS is not needed and the self-referential policies cause recursion
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- 2. Drop problematic self-referential policies to clean up
--- These policies query profiles from within profiles RLS evaluation
-DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
 
--- 3. Verification: Confirm RLS is disabled
--- After running this migration, the following should show 0 policies on profiles:
--- SELECT schemaname, tablename, policyname FROM pg_policies WHERE tablename = 'profiles';
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+$$;
 
--- 4. Note: If frontend needs direct profile access in future, consider:
--- - Creating a read-only view with simple conditions (not self-referential)
--- - Routing all profile updates through backend API (recommended)
--- - Using database functions with SECURITY DEFINER to handle RLS logic
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+CREATE POLICY "Admins can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (public.is_admin());
+
+CREATE POLICY "Admins can update all profiles"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 
 
 -- ==========================================

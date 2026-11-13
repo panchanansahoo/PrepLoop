@@ -30,7 +30,11 @@ function parseCookies(cookieHeader) {
     if (idx === -1) continue;
     const name = pair.substring(0, idx).trim();
     const value = pair.substring(idx + 1).trim();
-    cookies[name] = decodeURIComponent(value);
+    try {
+      cookies[name] = decodeURIComponent(value);
+    } catch {
+      cookies[name] = value;
+    }
   }
   return cookies;
 }

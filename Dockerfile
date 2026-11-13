@@ -1,5 +1,18 @@
+# Base contracts build stage
+FROM node:22-alpine AS contracts-build
+WORKDIR /app/packages/contracts
+COPY packages/contracts/package*.json ./
+COPY packages/contracts/tsconfig.json ./
+RUN npm ci
+COPY packages/contracts/src ./src
+RUN npm run build
+
 # Backend Dockerfile
 FROM node:22-alpine AS backend
+
+WORKDIR /app
+# Copy built contracts into workspace
+COPY --from=contracts-build /app/packages/contracts /app/packages/contracts
 
 WORKDIR /app/backend
 
@@ -29,6 +42,10 @@ CMD ["node", "index.js"]
 
 # Frontend build stage
 FROM node:22-alpine AS frontend-build
+
+WORKDIR /app
+# Copy built contracts into workspace
+COPY --from=contracts-build /app/packages/contracts /app/packages/contracts
 
 WORKDIR /app/frontend
 

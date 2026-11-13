@@ -84,6 +84,37 @@ router.get('/latest', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/improvement-plan/history
+ * Get user's improvement plan history
+ */
+router.get('/history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+
+    const { data: plans, error } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      success: true,
+      data: plans || []
+    });
+  } catch (error) {
+    logger.error('Fetch plan history failed', { userId: req.user.id, error: error.message, stack: error.stack });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch plan history'
+    });
+  }
+});
+
+/**
  * GET /api/improvement-plan/:planId
  * Get specific improvement plan by ID
  */
@@ -111,37 +142,6 @@ router.get('/:planId', authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch improvement plan'
-    });
-  }
-});
-
-/**
- * GET /api/improvement-plan/history
- * Get user's improvement plan history
- */
-router.get('/history', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const limit = Math.min(50, parseInt(req.query.limit) || 10);
-
-    const { data: plans, error } = await supabaseAdmin
-      .from('improvement_plans')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-
-    return res.status(200).json({
-      success: true,
-      data: plans || []
-    });
-  } catch (error) {
-    logger.error('Fetch plan history failed', { userId: req.user.id, error: error.message, stack: error.stack });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch plan history'
     });
   }
 });

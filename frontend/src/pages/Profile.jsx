@@ -535,7 +535,7 @@ export default function Profile() {
       const form = new FormData();
       form.append('file', file);
       
-      const res = await fetch('/api/resume/import-linkedin', {
+      const res = await authFetch('/api/resume/import-linkedin', {
         method: 'POST',
         headers: mergeAuthHeaders({}, user),
         body: form
@@ -583,7 +583,7 @@ export default function Profile() {
       const form = new FormData();
       form.append('resume', file);
       
-      const res = await fetch('/api/resume/analyze', {
+      const res = await authFetch('/api/resume/analyze', {
         method: 'POST',
         headers: mergeAuthHeaders({}, user),
         body: form
@@ -669,7 +669,7 @@ export default function Profile() {
 
       const headers = mergeAuthHeaders({}, user);
 
-      const res = await fetch('/api/user/profile/avatar', {
+      const res = await authFetch('/api/user/profile/avatar', {
         method: 'POST',
         headers,
         body: form,

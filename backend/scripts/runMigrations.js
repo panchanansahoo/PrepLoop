@@ -31,10 +31,34 @@ async function runMigrations() {
   console.log('====================================\n');
 
   const dbDir = path.join(__dirname, '../db');
-  const migrationFiles = fs
+  const discoveredMigrations = fs
     .readdirSync(dbDir)
     .filter((file) => file.startsWith('migration_') && file.endsWith('.sql'))
     .sort();
+
+  // Explicit dependency order for migrations whose alphabetical names invert table/column creation order
+  const PRIORITY_MIGRATION_ORDER = [
+    'migration_fix_mismatches.sql',
+    'migration_add_roles.sql',
+    'migration_fix_rls_recursion.sql',
+    'migration_enable_profiles_rls.sql',
+    'migration_coins_streaks.sql',
+    'migration_user_streaks_badges.sql',
+    'migration_atomic_coin_transactions.sql',
+    'migration_coin_transaction_idempotency.sql',
+    'migration_coin_real_data_sync.sql',
+    'migration_job_listings.sql',
+    'migration_hr_system.sql',
+    'migration_ai_features.sql',
+    'migration_interview_checkpoints.sql',
+    'migration_interview_idempotency.sql',
+    'migration_spaced_repetition_and_job_tracker.sql',
+  ];
+  const discoveredSet = new Set(discoveredMigrations);
+  const orderedPrefix = PRIORITY_MIGRATION_ORDER.filter((file) => discoveredSet.has(file));
+  const orderedPrefixSet = new Set(orderedPrefix);
+  const remainingMigrations = discoveredMigrations.filter((file) => !orderedPrefixSet.has(file));
+  const migrationFiles = [...orderedPrefix, ...remainingMigrations];
 
   console.log(`📦 Found ${migrationFiles.length} migration files in backend/db/\n`);
 

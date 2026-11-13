@@ -163,6 +163,16 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
 
 // Hook for fetching jobs with filters
 export function useJobs(filters = {}) {
+  const {
+    page = 1,
+    limit = 50,
+    search,
+    category,
+    type,
+    company,
+    source
+  } = filters;
+
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -178,13 +188,13 @@ export function useJobs(filters = {}) {
       setError(null);
 
       const params = new URLSearchParams({
-        page: filters.page || 1,
-        limit: filters.limit || 50,
-        ...(filters.search && { search: filters.search }),
-        ...(filters.category && { category: filters.category }),
-        ...(filters.type && { type: filters.type }),
-        ...(filters.company && { company: filters.company }),
-        ...(filters.source && { source: filters.source })
+        page,
+        limit,
+        ...(search && { search }),
+        ...(category && { category }),
+        ...(type && { type }),
+        ...(company && { company }),
+        ...(source && { source })
       });
 
       const response = await fetch(`${API_URL}/api/jobs?${params}`);
@@ -207,7 +217,7 @@ export function useJobs(filters = {}) {
       setError(err.message);
       setLoading(false);
     }
-  }, [filters]);
+  }, [page, limit, search, category, type, company, source]);
 
   useEffect(() => {
     fetchJobs();

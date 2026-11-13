@@ -53,10 +53,10 @@ export function CoinProvider({ children }) {
     };
   }, []);
 
-  // Memoize getHeaders with userId so callback references remain stable
+  // Memoize getHeaders with user so callback references remain stable and up-to-date
   const getHeaders = useCallback(() => {
     return buildAuthHeaders(user);
-  }, [userId]);
+  }, [user]);
 
   const refreshBalance = useCallback(async (signal) => {
     if (!userId) return;

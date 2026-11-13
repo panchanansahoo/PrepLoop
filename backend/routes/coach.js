@@ -19,7 +19,7 @@ const getSystemPrompt = (mode) => {
 };
 
 const getMockResponse = (message, _mode) => {
-  const lowerMessage = message.toLowerCase();
+  const lowerMessage = String(message || '').toLowerCase();
   
   if (lowerMessage.includes('dynamic programming') || lowerMessage.includes('dp')) {
     return {
@@ -44,12 +44,18 @@ Thinking about the Fibonacci sequence is a great start. How would you optimize a
 
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const { message, mode, history } = req.body;
-    
+    const { message, mode, history } = req.body || {};
+    if (typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'message string is required' });
+    }
+    const safeHistory = Array.isArray(history)
+      ? history.filter(h => h && typeof h.role === 'string' && typeof h.content === 'string').slice(-10)
+      : [];
+
     // Context management
     const messages = [
       { role: 'system', content: getSystemPrompt(mode) },
-      ...(history || []).slice(-10).map(h => ({ role: h.role, content: h.content })),
+      ...safeHistory.map(h => ({ role: h.role, content: h.content })),
       { role: 'user', content: message }
     ];
 

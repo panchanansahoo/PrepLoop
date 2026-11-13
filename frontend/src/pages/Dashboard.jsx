@@ -173,6 +173,8 @@ export default function Dashboard() {
                         lastWeek: { problems: dashboardData.lastWeekProblems ?? 0, time: dashboardData.lastWeekTime ?? 0, points: dashboardData.lastWeekXP ?? 0 }
                     }
                 };
+            case 'learningStreak':
+                return { data: dashboardData };
             default:
                 return {};
         }

@@ -284,9 +284,9 @@ export const PACING_MODES = {
         label: 'Realistic (Timed)',
         badge: 'Interview Mode',
         description: 'Standard interview pacing closer to real-time company interview conditions.',
-        nudgeMs: 20_000,          // ~20s real silence -> offer hint
-        checkInMs: 32_000,
-        autoAdvanceMs: 45_000,     // ~45s real silence -> "Let's move on" and advance
+        nudgeMs: 12_000,          // ~12s real silence -> offer hint
+        checkInMs: 25_000,        // ~25s real silence -> check in
+        autoAdvanceMs: 40_000,     // ~40s real silence -> "Let's move on" and advance
         postSpeechSubmitMs: 3_500,
         fillerExtensionMs: 20_000,
         needAMomentMs: 30_000,

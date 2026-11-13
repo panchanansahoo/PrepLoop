@@ -51,7 +51,7 @@ export class InterviewScoringService {
     experienceLevel: string | null = null
   ): RollingScoresResult {
     const metrics = analysis?.metrics || {};
-    const rubric = this.buildTypeRubric(interviewType);
+    const rubric = this.buildTypeRubric(interviewType, experienceLevel);
     const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry?.role === 'candidate').length;
     const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
 

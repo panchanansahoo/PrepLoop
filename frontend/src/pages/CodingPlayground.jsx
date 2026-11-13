@@ -1142,7 +1142,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
         }
       }, 150);
 
-      fetch(`${API_URL}/api/practice/lint`, {
+      authFetch(`${API_URL}/api/practice/lint`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({ code, language }),

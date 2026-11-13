@@ -71,6 +71,14 @@ CREATE TABLE IF NOT EXISTS feature_gates (
   UNIQUE (feature_key, tier)
 );
 
+ALTER TABLE feature_gates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS feature_gates_read_policy ON feature_gates;
+CREATE POLICY feature_gates_read_policy
+  ON feature_gates
+  FOR SELECT
+  USING (true);
+
 INSERT INTO feature_gates (feature_key, tier, enabled, limit_value, limit_period, description)
 VALUES
   ('ai_mock_interview', 'free', true, 3, 'month', 'AI mock interviews per month'),
@@ -139,6 +147,14 @@ CREATE TABLE IF NOT EXISTS weekly_contests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE weekly_contests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS weekly_contests_read_policy ON weekly_contests;
+CREATE POLICY weekly_contests_read_policy
+  ON weekly_contests
+  FOR SELECT
+  USING (true);
 
 CREATE TABLE IF NOT EXISTS weekly_contest_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

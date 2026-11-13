@@ -450,7 +450,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -814,7 +814,7 @@ router.post('/save-session', optionalAuth, async (req, res) => {
       completed_at: completedAt || new Date().toISOString(),
       ai_model_version: getSessionScorer(sessionId)
         ? `${getSessionScorer(sessionId).provider}:${getSessionScorer(sessionId).model}`
-        : (summaryData?.reportModelUsed || 'openai/gpt-oss-20b'),
+        : (summaryData?.reportModelUsed || process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant'),
       pinned_scorer: getSessionScorer(sessionId) || (summaryData?.reportModelUsed ? { provider: summaryData?.reportProvider, model: summaryData?.reportModelUsed } : null),
     };
 
@@ -1064,16 +1064,16 @@ router.get('/sessions', optionalAuth, async (req, res) => {
 // ─── Get Session Detail ───
 router.get('/sessions/:id', optionalAuth, async (req, res) => {
   const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
   const rawId = String(req.params.id || '');
   const cleanId = rawId.replace(/^(interview_session_|mock_interview_)/, '');
 
   try {
     let session = null;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
-    let query = supabaseAdmin.from('interview_sessions').select('*');
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
+    let query = supabaseAdmin.from('interview_sessions').select('*').eq('user_id', userId);
     if (isUuid) {
       query = query.eq('id', cleanId);
     } else {

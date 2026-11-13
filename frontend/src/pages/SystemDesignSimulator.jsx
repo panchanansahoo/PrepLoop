@@ -31,8 +31,9 @@ function getIcon(componentId, size = 18) {
 import {SD_PROBLEMS, SD_COMPONENT_CATEGORIES} from '../data/systemDesignProblems';
 
 import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const GRID_SIZE = 20;
 const PROTOCOLS = ['HTTP/REST', 'gRPC', 'WebSocket', 'TCP', 'AMQP', 'Kafka', 'Redis', 'SQL'];
 const DIFF_COLORS = {
@@ -616,7 +617,9 @@ function DesignCanvas({ problem, onBack }) {
         try {
             const designDesc = nodes.map(n => { const cfg = nodeConfigs[n.id]; const cfgStr = cfg ? ` (${Object.entries(cfg).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''; return `${n.label}${cfgStr}`; }).join(', ');
             const connDesc = connections.map(c => { const f = nodes.find(n => n.id === c.from); const t = nodes.find(n => n.id === c.to); return f && t ? `${f.label} →${c.label ? ' [' + c.label + ']' : ''} ${t.label}` : ''; }).filter(Boolean).join('; ');
-            const res = await authFetch(`${API}/system-design/feedback`, {
+            const res = await authFetch(
+                buildApiUrl('/system-design/feedback', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+                {
                 method: 'POST',
                 body: JSON.stringify({ topicId: 1, design: `Problem: ${problem.title}\nComponents: ${designDesc}\nConnections: ${connDesc}\nRequirements: ${problem.requirements.functional.join(', ')}`, components: nodes.map(n => n.label) }),
             });

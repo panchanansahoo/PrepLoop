@@ -8,6 +8,8 @@ import { analyzeResumeJobGap } from '../services/resumeGapAnalysisService.ts';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
+import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 import { sanitizeDocumentForPrompt, fenceUntrustedContent } from '../utils/promptInjectionGuard.js';
 import multer from 'multer';
 
@@ -322,7 +324,7 @@ function buildStaticAnalysis(resumeText) {
   };
 }
 
-router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploader.single('resume'), requireValidFileSignature(['pdf', 'docx', 'doc', 'text']), async (req, res) => {
+router.post('/analyze', authenticateToken, uploadEndpointsLimiter, aiEndpointsLimiter, usageQuota('ai'), resumeUploader.single('resume'), requireValidFileSignature(['pdf', 'docx', 'doc', 'text']), async (req, res) => {
   try {
     let resumeText = req.body.resumeText;
     let pageCount = null;
@@ -335,7 +337,7 @@ router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploade
       isScanned = extracted.isScanned;
     }
 
-    if (isScanned || !resumeText || resumeText.replace(/\s+/g, '').length < 50) {
+    if (isScanned || typeof resumeText !== 'string' || resumeText.replace(/\s+/g, '').length < 50) {
       return res.status(400).json({
         error: 'SCANNED_PDF_DETECTED',
         message: 'This document appears to be an image-only scan or has insufficient extractable text (<50 characters). Please paste your resume text directly.',
@@ -547,7 +549,7 @@ const RESUME_GENERATION_PROMPT = `You are an expert resume writer and ATS optimi
 - Skills should be real, industry-standard technology names
 - Response must be valid JSON only — no markdown, no explanation`;
 
-router.post('/generate', authenticateToken, async (req, res) => {
+router.post('/generate', authenticateToken, aiEndpointsLimiter, usageQuota('ai'), async (req, res) => {
   try {
     const { fullName, email, phone, location, linkedin, summary, experience, education, skills, projects, awards, template } = req.body;
 
@@ -593,7 +595,9 @@ ${formatAwards(awards)}
 
     // ── Skill categorization helper ──
     const categorizeSkills = (skillStr) => {
-      const all = skillStr ? skillStr.split(/[,\n]/).map(s => s.trim()).filter(Boolean) : [];
+      const all = Array.isArray(skillStr)
+        ? skillStr.map(s => String(s).trim()).filter(Boolean)
+        : (typeof skillStr === 'string' ? skillStr.split(/[,\n]/).map(s => s.trim()).filter(Boolean) : []);
       const dbKeywords = ['sql', 'mysql', 'postgresql', 'postgres', 'mongodb', 'oracle', 'redis', 'sqlite', 'dynamodb', 'cassandra', 'mariadb', 'firebase', 'supabase', 'microsoft sql server', 'nosql', 'ssrs', 'ssis'];
       const toolKeywords = ['git', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'jira', 'jenkins', 'ci/cd', 'linux', 'power bi', 'tableau', 'excel', 'microsoft excel', 'jupyter', 'vscode', 'postman', 'figma', 'slack', 'terraform', 'ansible', 'spss', 'looker', 'visio', 'alteryx', 'hadoop', 'google analytics', 'sas', 'sap', 'sharepoint', 'power automate', 'powerapps'];
       const fwKeywords = ['react', 'angular', 'vue', 'next', 'express', 'django', 'flask', 'spring', 'node', 'tensorflow', 'pytorch', 'pandas', 'numpy', 'scikit', 'bootstrap', 'tailwind', '.net', 'laravel', 'rails', 'spark'];
@@ -766,6 +770,7 @@ ${formatAwards(awards)}
       }
 
       const userExp = buildExperience();
+      const resumeVocab = buildResumeVocabulary(rawInput);
       if (userExp.length > 0 && Array.isArray(generatedResume.experience)) {
         generatedResume.experience = generatedResume.experience.map((e, idx) => {
           const originalBullets = userExp[idx]?.bullets || [];
@@ -776,9 +781,9 @@ ${formatAwards(awards)}
               originalText: origBullet,
               entryContextText: originalContext,
               generatedText: b,
-              fullResumeText: rawInput,
+              resumeVocabularySet: resumeVocab,
             });
-            if (!verification.allowed) {
+            if (!verification.valid) {
               console.warn(`[Fabrication Guard] Rejected generated bullet: "${b}" (${verification.reason}) -> Reverting to original.`);
               return origBullet || b;
             }
@@ -1068,7 +1073,7 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
       isScanned = extracted.isScanned;
     }
 
-    if (isScanned || !rawText || rawText.replace(/\s+/g, '').length < 50) {
+    if (isScanned || typeof rawText !== 'string' || rawText.replace(/\s+/g, '').length < 50) {
       return res.status(400).json({
         error: 'SCANNED_PDF_DETECTED',
         message: 'This document appears to be an image-only scan or has insufficient extractable text (<50 characters). Please paste your resume text directly.',
@@ -1158,7 +1163,7 @@ router.post('/verify-rewrite', authenticateToken, (req, res) => {
  * POST /api/resume/gap-analysis
  * Compares resume text against a job description and returns match score, missing skills, talking points, and practice questions.
  */
-router.post('/gap-analysis', authenticateToken, validateBody(ResumeGapAnalysisRequestSchema), async (req, res) => {
+router.post('/gap-analysis', authenticateToken, aiEndpointsLimiter, usageQuota('ai'), validateBody(ResumeGapAnalysisRequestSchema), async (req, res) => {
   try {
     const result = await analyzeResumeJobGap(req.body);
     return res.json(result);

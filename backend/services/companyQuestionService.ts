@@ -34,6 +34,76 @@ export interface CompanyMeta {
 let questionCache: CompanyQuestion[] | null = null;
 let companiesList: CompanyMeta[] | null = null;
 
+const EMBEDDED_DEFAULT_COMPANIES: CompanyMeta[] = [
+  { id: 'google', name: 'Google', industry: 'Technology' },
+  { id: 'amazon', name: 'Amazon', industry: 'E-commerce & Cloud' },
+  { id: 'meta', name: 'Meta', industry: 'Social Technology' },
+  { id: 'microsoft', name: 'Microsoft', industry: 'Cloud & Software' },
+];
+
+const EMBEDDED_DEFAULT_QUESTIONS: CompanyQuestion[] = [
+  {
+    id: 'g-1',
+    company: 'google',
+    question: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+    title: 'Two Sum & Window Target',
+    role: 'Software Engineer',
+    difficulty: 'easy',
+    category: 'Arrays & Hashing',
+    stage: 'Technical',
+  },
+  {
+    id: 'g-2',
+    company: 'google',
+    question: 'Design a data structure that follows the constraints of a Least Recently Used (LRU) cache with O(1) time complexity.',
+    title: 'LRU Cache Design',
+    role: 'Software Engineer',
+    difficulty: 'medium',
+    category: 'Design & Linked Lists',
+    stage: 'Technical',
+  },
+  {
+    id: 'a-1',
+    company: 'amazon',
+    question: 'Tell me about a time when you had to make a decision without all the data you needed. How did you handle customer impact?',
+    title: 'Customer Obsession Conflict Resolution',
+    role: 'Software Development Engineer',
+    difficulty: 'medium',
+    category: 'Leadership Principles',
+    stage: 'HR',
+  },
+  {
+    id: 'a-2',
+    company: 'amazon',
+    question: 'Given an integer array nums and an integer k, return the k most frequent elements in an incoming streaming pipeline.',
+    title: 'Top K Frequent Elements in Stream',
+    role: 'Software Development Engineer',
+    difficulty: 'medium',
+    category: 'Heap & Queue',
+    stage: 'Technical',
+  },
+  {
+    id: 'm-1',
+    company: 'meta',
+    question: 'Given the root of a binary tree, calculate the vertical order traversal of the binary tree nodes values.',
+    title: 'Binary Tree Vertical Order Traversal',
+    role: 'Software Engineer',
+    difficulty: 'medium',
+    category: 'Trees & BFS',
+    stage: 'Technical',
+  },
+  {
+    id: 'ms-1',
+    company: 'microsoft',
+    question: 'Design a globally distributed key-value store with eventual consistency, active replication, and partition tolerance.',
+    title: 'Design distributed key-value store with replication',
+    role: 'Software Engineer',
+    difficulty: 'hard',
+    category: 'System Design',
+    stage: 'System Design',
+  },
+];
+
 /**
  * Try to resolve question data from known locations.
  * Returns null if source files are unavailable in this runtime.
@@ -81,9 +151,9 @@ async function loadQuestionData(): Promise<void> {
 
   const dataModules = await resolveQuestionModule();
   if (!dataModules || (!dataModules.metaMod && !dataModules.qsMod)) {
-    console.warn('⚠️ Company question dataset not found in this runtime. Using empty fallback set.');
-    questionCache = [];
-    companiesList = [];
+    console.warn('⚠️ Company question dataset not found in this runtime. Using embedded fallback dataset.');
+    questionCache = [...EMBEDDED_DEFAULT_QUESTIONS];
+    companiesList = [...EMBEDDED_DEFAULT_COMPANIES];
     return;
   }
 
@@ -105,8 +175,8 @@ async function loadQuestionData(): Promise<void> {
     console.log(`✅ Company Question Bank loaded: ${questionCache.length} questions, ${companiesList?.length || 0} companies`);
   } catch (error: any) {
     console.error('Failed to parse company question data:', error.message);
-    questionCache = [];
-    companiesList = [];
+    questionCache = [...EMBEDDED_DEFAULT_QUESTIONS];
+    companiesList = [...EMBEDDED_DEFAULT_COMPANIES];
   }
 }
 
@@ -124,7 +194,11 @@ export async function getFilteredQuestions(
   if (redis) {
     try {
       const cached = await redis.get(cacheKey);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (_) {}
+      }
     } catch (_) {}
   }
   await loadQuestionData();

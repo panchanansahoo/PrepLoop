@@ -23,7 +23,7 @@ export default function SpacedRepetitionWidget() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await authFetch(buildApiUrl('/api/spaced-repetition/due?limit=6'));
+      const res = await authFetch(buildApiUrl('/spaced-repetition/due?limit=6'));
       if (res.ok) {
         const data = await res.json();
         setDueProblems(Array.isArray(data.dueProblems) ? data.dueProblems : []);
@@ -43,7 +43,7 @@ export default function SpacedRepetitionWidget() {
   const handleRate = async (problem, quality) => {
     setSubmittingId(problem.problem_id);
     try {
-      const res = await authFetch(buildApiUrl('/api/spaced-repetition/review'), {
+      const res = await authFetch(buildApiUrl('/spaced-repetition/review'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

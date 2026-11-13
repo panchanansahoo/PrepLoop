@@ -437,10 +437,6 @@ export default function DSACodeEditor() {
       }
 
       const data = await res.json();
-      const unlockKey = getSolutionUnlockKey(resolvedProblemId);
-      setSolutionUnlocked(true);
-      localStorage.setItem(unlockKey, 'true');
-
       const accepted = data.submission?.status === 'accepted';
       setOutput({
         success: accepted,
@@ -453,6 +449,10 @@ export default function DSACodeEditor() {
       });
 
       if (accepted) {
+        const unlockKey = getSolutionUnlockKey(resolvedProblemId);
+        setSolutionUnlocked(true);
+        localStorage.setItem(unlockKey, 'true');
+
         setFeedback({
           timeComplexity: 'Submitted',
           spaceComplexity: 'Submitted',

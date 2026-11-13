@@ -114,19 +114,19 @@ check('V2 Auth', 'Generic error on invalid credentials',
 // OWASP ASVS Level 2 — Session Management (V3)
 // ============================================================
 check('V3 Session', 'JWT-based auth (Bearer token support)',
-  fileContains('backend/middleware/auth.js', "authorization") &&
-  fileContains('backend/middleware/auth.js', 'Bearer'),
+  fileContains('backend/middleware/auth.ts', "authorization") &&
+  fileContains('backend/middleware/auth.ts', 'Bearer'),
   'ASVS 3.1.1 — Bearer token auth, CSRF-safe');
 
 check('V3 Session', 'Token verified server-side via Supabase',
-  fileContains('backend/middleware/auth.js', 'supabaseAdmin.auth.getUser'),
+  fileContains('backend/middleware/auth.ts', /\(?supabaseAdmin(?:\s+as\s+any\))?\.auth\.getUser/),
   'ASVS 3.5.3 — tokens validated at auth provider');
 
 // ============================================================
 // OWASP ASVS Level 2 — Access Control (V4)
 // ============================================================
 check('V4 Access', 'Role-based access control implemented',
-  fileContains('backend/middleware/auth.js', 'requireAdmin'),
+  fileContains('backend/middleware/auth.ts', 'requireAdmin'),
   'ASVS 4.1.2');
 
 check('V4 Access', 'CORS whitelist configured',

@@ -7,10 +7,11 @@ export class WSConnectionManager {
     this.reconnectDelay = options.reconnectDelay || 1000;
     this.listeners = new Map();
     this.isIntentionallyClosed = false;
+    this.reconnectTimer = null;
   }
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
 
     this.ws = new WebSocket(this.url);
     this.isIntentionallyClosed = false;
@@ -36,7 +37,7 @@ export class WSConnectionManager {
       
       if (!this.isIntentionallyClosed && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
-        setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts);
+        this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts);
       }
     };
   }
@@ -52,6 +53,16 @@ export class WSConnectionManager {
       this.listeners.set(event, []);
     }
     this.listeners.get(event).push(callback);
+    return () => this.off(event, callback);
+  }
+
+  off(event, callback) {
+    const list = this.listeners.get(event);
+    if (!list) return;
+    const index = list.indexOf(callback);
+    if (index !== -1) {
+      list.splice(index, 1);
+    }
   }
 
   emit(event, data) {
@@ -60,6 +71,10 @@ export class WSConnectionManager {
 
   close() {
     this.isIntentionallyClosed = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.ws?.close();
   }
 }

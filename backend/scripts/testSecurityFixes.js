@@ -27,7 +27,7 @@ function assertNotRegex(source, regex, message) {
 function run() {
   const hrRoutes = read('routes/hr.js');
   const voiceRoutes = read('routes/voice.js');
-  const authMiddleware = read('middleware/auth.js');
+  const authMiddleware = read('middleware/auth.ts');
 
   // No insecure JWT fallback literals.
   assertNotRegex(
@@ -37,7 +37,7 @@ function run() {
   );
 
   // Ensure HR role gate exists and is used for privileged HR mutations.
-  assertRegex(authMiddleware, /export const requireHR\s*=\s*\(/, 'auth.js must export requireHR middleware');
+  assertRegex(authMiddleware, /export const requireHR\s*=\s*\(/, 'auth.ts must export requireHR middleware');
 
   const protectedHrRoutes = [
     /router\.post\('\/slots',\s*authenticateToken,\s*requireHR,\s*async/s,
