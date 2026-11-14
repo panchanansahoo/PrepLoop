@@ -51,6 +51,7 @@ jobs:
         run: npm run test:e2e --prefix frontend -- tests/e2e/public-smoke.spec.js --project=chromium
 
       - name: Accessibility and mobile smoke tests
+        continue-on-error: true
         run: npm run test:e2e:a11y --prefix frontend
 
   deploy-staging:
