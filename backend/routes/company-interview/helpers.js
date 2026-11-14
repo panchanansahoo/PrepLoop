@@ -45,13 +45,10 @@ export async function verifyGroqModelsOnStartup() {
     ];
     const missing = configuredModels.filter((m) => !available.includes(m));
     if (missing.length > 0) {
-      console.error(
-        `[Groq Startup CRITICAL] Configured model(s) NOT AVAILABLE on this Groq account: ${missing.join(', ')}. ` +
-        `Available models on key: ${available.join(', ')}`
+      console.warn(
+        `[Groq Startup Warning] Configured model(s) NOT AVAILABLE on this Groq account: ${missing.join(', ')}. ` +
+        `Available models on key: ${available.join(', ')}. Fallback providers (Gemini / OpenRouter / local heuristics) will be utilized.`
       );
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(`Configured Groq models missing: ${missing.join(', ')}`);
-      }
     } else {
       console.log(`[Groq Startup] ✓ Verified configured Groq models available: ${configuredModels.join(', ')}`);
     }

@@ -344,7 +344,7 @@ const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'];
  * Heuristic fallback question generator when Groq is unavailable or unconfigured.
  * Parses the JD text for skills, role title, and tech stack markers.
  */
-function generateFallbackQuestionsFromJd({ jobDescription, roleName, interviewType, difficulty, count = 5 }) {
+function generateFallbackQuestionsFromJd({ jobDescription, roleName, interviewType, difficulty: _difficulty, count = 5 }) {
   const jdLower = (jobDescription || '').toLowerCase();
   let detectedRole = roleName;
   if (!detectedRole) {

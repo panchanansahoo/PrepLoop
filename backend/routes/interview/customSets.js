@@ -702,7 +702,7 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
  * generates a targeted follow-up probing question.
  */
 export function generateProbingFollowUp({
-  question = '',
+  question: _question = '',
   userAnswer = '',
   expectedTopics = [],
   probingMode = false,

@@ -5,12 +5,9 @@ import { generateFallbackQuestionsFromJd } from '../../routes/admin.js';
 import {
   normalizeInterviewLimits,
   toDbQuestionSetLimits,
-  getInterviewScheduleStatus,
-  matchExpectedTopics,
   evaluateAssessmentIntegrity,
 } from '../../utils/privateInterviewAccess.js';
 import {
-  evaluateFresherAnswer,
   generateExecutiveSummary,
 } from '../../services/interviewAnswerEvaluator.js';
 import { generateProbingFollowUp } from '../../routes/interview/customSets.js';

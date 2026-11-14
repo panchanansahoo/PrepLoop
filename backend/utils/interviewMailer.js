@@ -646,7 +646,6 @@ export function buildCandidateReminderEmail({
     : `⏳ Reminder: Your Interview for ${roleDisplay}${companyDisplay} is in 24 Hours`;
 
   const badgeText = isOneHour ? '1 HOUR COUNTDOWN' : '24 HOURS REMINDER';
-  const badgeBg = isOneHour ? '#ef4444' : '#6366f1';
   const headerSubtitle = isOneHour
     ? 'Your interview waiting lobby is now opening. Join 10 minutes early for device checks.'
     : 'Your private interview assessment is scheduled for tomorrow. Here is your quick checklist.';
@@ -986,12 +985,13 @@ export async function dispatchCandidateReminder({
   });
 
   const emailConfigured = isEmailConfigured();
-  let result = {
+  const result = {
     email: cleanEmail,
     countdown,
     joinUrl,
     subject: emailContent.subject,
     smsText: smsContent.text,
+    slackPayload: slackReminderPayload,
     status: 'simulated',
     messageId: null,
   };

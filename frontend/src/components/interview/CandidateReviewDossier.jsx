@@ -38,18 +38,17 @@ export function CandidateReviewDossier({
   onClose = null,
   inline = false,
 }) {
-  if (!submission) return null;
-
-  const scores = submission.scores || {};
-  const overallScore = Math.round(Number(submission.overall_score ?? scores.serverOverallScore ?? scores.score ?? 0));
+  const scores = submission?.scores || {};
+  const overallScore = Math.round(Number(submission?.overall_score ?? scores.serverOverallScore ?? scores.score ?? 0));
   const passingScore = Number(scores.passingScore ?? 70);
   const decision = scores.decision || (overallScore >= passingScore ? 'qualified' : 'review_needed');
   const integrity = scores.integrity || {};
   const breakdown = Array.isArray(scores.breakdown) ? scores.breakdown : [];
-  const durationMinutes = Math.round((Number(submission.duration) || 0) / 60);
+  const durationMinutes = Math.round((Number(submission?.duration) || 0) / 60);
 
   // Cohort ranking & percentile calculation
   const cohortData = useMemo(() => {
+    if (!submission) return null;
     if (cohortBenchmark && typeof cohortBenchmark === 'object') {
       return cohortBenchmark;
     }
@@ -99,6 +98,7 @@ export function CandidateReviewDossier({
 
   // AI flag pins for AudioTimelinePlayer
   const timelineFlags = useMemo(() => {
+    if (!submission) return [];
     if (Array.isArray(scores.audioFlags) && scores.audioFlags.length > 0) return scores.audioFlags;
     if (Array.isArray(submission.audioFlags) && submission.audioFlags.length > 0) return submission.audioFlags;
 
@@ -155,6 +155,7 @@ export function CandidateReviewDossier({
 
   // Synthesize or extract the 3-bullet Executive Summary
   const executiveSummary = useMemo(() => {
+    if (!submission) return null;
     const raw = scores.executiveSummary;
     if (raw && typeof raw === 'object') {
       const strengths = raw.keyStrengths || (Array.isArray(raw.bullets) && raw.bullets[0]?.replace(/^Key Strengths:\s*/i, ''));
@@ -215,6 +216,8 @@ export function CandidateReviewDossier({
       ],
     };
   }, [scores, overallScore, passingScore, decision, integrity, breakdown]);
+
+  if (!submission) return null;
 
   const scoreColor = overallScore >= passingScore
     ? '#22c55e'

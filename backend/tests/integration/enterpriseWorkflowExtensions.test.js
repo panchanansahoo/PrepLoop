@@ -72,7 +72,6 @@ import {
   calculateSpectralCentroid,
   detectWhisperSignature,
   detectSecondaryVoiceSignature,
-  AUDIO_BANDS,
 } from '../../../frontend/src/utils/audioProctoringDetector.js';
 
 // Pillar 4: Candidate Self-Scheduling & Feedback Portal
@@ -87,10 +86,8 @@ import {
   formatCandidateSmsReminder,
   formatSlackReminderPayload,
   dispatchCandidateReminder,
-  generateCalendarIcs,
 } from '../../utils/interviewMailer.js';
 import * as emailService from '../../services/emailService.js';
-import { supabaseAdmin } from '../../db/supabaseClient.js';
 
 describe('Enterprise Workflow Extensions Integration Test Suite (Pillars 1 - 5)', () => {
   let app;

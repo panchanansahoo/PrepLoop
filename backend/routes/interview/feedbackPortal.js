@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
-import { generateCalendarIcs, buildCandidateInviteEmail } from '../../utils/interviewMailer.js';
+import { generateCalendarIcs } from '../../utils/interviewMailer.js';
 import { createLogger } from '../../utils/structuredLogger.js';
 
 const logger = createLogger('candidate-feedback-portal');
@@ -406,7 +406,7 @@ router.get('/feedback-portal/schedule/:token', customInterviewLimiter, async (re
 });
 
 // ─── POST /feedback-portal/schedule/:token/book (Confirm Self-Scheduled Slot) ───
-router.post('/feedback-portal/schedule/:token/book', customInterviewLimiter, async (req, res) => {
+router.post('/feedback-portal/schedule/:token/book', customInterviewLimiter, (req, res) => {
   try {
     const rawToken = req.params.token;
     const { slotTimestamp, candidateTimezone = 'UTC' } = req.body || {};

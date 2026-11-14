@@ -459,7 +459,7 @@ export function generateExecutiveSummary(optionsOrBreakdown = {}, maybeOverallSc
     const passedQuestions = breakdown.filter((b) => (b.score || 0) >= passingScore);
     const explicitStrengths = Array.isArray(opts.strengths) ? opts.strengths.filter(Boolean) : [];
 
-    let keyStrengths = '';
+    let keyStrengths;
     if (explicitStrengths.length > 0) {
         keyStrengths = explicitStrengths.slice(0, 2).join('; ') + (coveredTopics.length > 0 ? ` with solid coverage of ${coveredTopics.slice(0, 3).join(', ')}.` : '.');
     } else if (coveredTopics.length > 0 && passedQuestions.length > 0) {
@@ -476,7 +476,7 @@ export function generateExecutiveSummary(optionsOrBreakdown = {}, maybeOverallSc
     const missedTopics = [...new Set(breakdown.flatMap((b) => Array.isArray(b.missedTopics) ? b.missedTopics : []))];
     const explicitImprovements = Array.isArray(opts.improvements) ? opts.improvements.filter(Boolean) : [];
 
-    let growthAreas = '';
+    let growthAreas;
     if (explicitImprovements.length > 0) {
         growthAreas = explicitImprovements.slice(0, 2).join('; ') + (missedTopics.length > 0 ? ` (notably missed: ${missedTopics.slice(0, 3).join(', ')})` : '.');
     } else if (missedTopics.length > 0) {
@@ -499,7 +499,7 @@ export function generateExecutiveSummary(optionsOrBreakdown = {}, maybeOverallSc
         }
     }
 
-    let hiringRecommendation = '';
+    let hiringRecommendation;
     if (integrity.flagged) {
         const flagDetails = [];
         if ((integrity.tabSwitchCount || 0) > 0) {
@@ -670,15 +670,15 @@ export function generateTestRunnerFeedback(results = {}, options = {}) {
     }
 
     // Build category, headline, summary, and interviewer prompts
-    let category = 'partial_passed';
-    let status = 'failed';
-    let headline = '';
-    let summary = '';
+    let category;
+    let status;
+    let headline;
+    let summary;
     const actionableHints = [];
-    let interviewerQuestionCue = '';
+    let interviewerQuestionCue;
     let timeComplexityObservation = '';
     let spaceComplexityObservation = '';
-    let recommendedFix = '';
+    let recommendedFix;
 
     if (allPassed) {
         category = 'all_passed';
