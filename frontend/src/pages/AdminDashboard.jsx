@@ -165,6 +165,8 @@ export default function AdminDashboard() {
   const [dispatchResults, setDispatchResults] = useState(null);
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [testWebhookResult, setTestWebhookResult] = useState(null);
+  const [quickInviteInput, setQuickInviteInput] = useState('');
+  const [addingInvites, setAddingInvites] = useState(false);
 
   // Question Set Form
   const initialSetForm = {
@@ -490,6 +492,90 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleDuplicateSet = (qs) => {
+    setEditingSet(null);
+    const questionsArr = Array.isArray(qs.questions) ? qs.questions.map(q => ({
+      question: q.question || '',
+      context: q.context || '',
+      expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics.join(', ') : (q.expectedTopics || ''),
+      timeLimit: q.timeLimit || 60,
+    })) : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }];
+
+    const allowlist = Array.isArray(qs.allowed_emails) ? qs.allowed_emails : (qs.settings?.allowedEmails || []);
+    const allowlistStr = allowlist.join('\n');
+
+    setSetForm({
+      title: `${qs.title} (Copy)`,
+      description: qs.description || '',
+      interviewType: qs.interview_type || 'technical',
+      difficulty: qs.difficulty || 'medium',
+      requiresLogin: qs.requires_login !== false,
+      passcode: '',
+      clearPasscode: false,
+      hasPasscode: false,
+      expiresAt: qs.expires_at ? new Date(qs.expires_at).toISOString().slice(0, 16) : '',
+      scheduledAt: (qs.scheduled_at || qs.settings?.scheduledAt) ? new Date(qs.scheduled_at || qs.settings?.scheduledAt).toISOString().slice(0, 16) : '',
+      scheduledDurationMinutes: qs.scheduled_duration_minutes || qs.settings?.scheduledDurationMinutes || 45,
+      maxAttempts: qs.max_attempts ?? '',
+      allowedEmails: allowlistStr,
+      companyName: qs.settings?.companyName || '',
+      roleName: qs.settings?.roleName || qs.roleName || '',
+      customInstructions: qs.settings?.customInstructions || '',
+      passingScore: qs.settings?.passingScore ?? 70,
+      webhookUrl: qs.settings?.webhookUrl || '',
+      webhookSecret: qs.settings?.webhookSecret || '',
+      probingMode: Boolean(qs.settings?.probingMode),
+      questions: questionsArr.length > 0 ? questionsArr : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }],
+    });
+    setShowBulkUpload(false);
+    setBulkCsvText('');
+    setBulkError('');
+    setShowSetPreview(false);
+    setShowSetModal(true);
+    setSuccess(`Cloned "${qs.title}" into a new draft. Review and click Save.`);
+  };
+
+  const handleDownloadAdminIcs = (qs) => {
+    if (!qs) return;
+    const scheduledAt = qs.scheduled_at || qs.settings?.scheduledAt;
+    if (!scheduledAt) return;
+    const durationMinutes = Number(qs.scheduled_duration_minutes || qs.settings?.scheduledDurationMinutes) || 45;
+    const shareCode = qs.share_code || qs.id;
+    const joinUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${shareCode}`;
+    const startDate = new Date(scheduledAt);
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+    const formatUtc = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const cleanTitle = String(qs.title || 'Technical Interview').replace(/[\r\n]+/g, ' ');
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//PrepLoop Inc.//Interview Platform//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:REQUEST',
+      'BEGIN:VEVENT',
+      `UID:interview-${shareCode}@preploop.me`,
+      `DTSTAMP:${formatUtc(new Date())}`,
+      `DTSTART:${formatUtc(startDate)}`,
+      `DTEND:${formatUtc(endDate)}`,
+      `SUMMARY:${cleanTitle} - PrepLoop Assessment`,
+      `DESCRIPTION:Scheduled candidate assessment.\\n\\nJoin URL: ${joinUrl}`,
+      `URL:${joinUrl}`,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-invite.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const moveQuestion = (index, offset) => {
     setSetForm(prev => {
       const destination = index + offset;
@@ -707,6 +793,18 @@ export default function AdminDashboard() {
         customMessage: `Please join your scheduled technical interview for "${activeSetForInvites.title}".`,
       });
       setDispatchResults(res.data);
+      if (res.data.candidateInvites) {
+        const updatedSettings = {
+          ...(activeSetForInvites.settings || {}),
+          candidateInvites: res.data.candidateInvites,
+        };
+        const updatedSet = {
+          ...activeSetForInvites,
+          settings: updatedSettings,
+        };
+        setActiveSetForInvites(updatedSet);
+        setQuestionSets(prev => prev.map(qs => qs.id === updatedSet.id ? { ...qs, ...updatedSet } : qs));
+      }
       if (res.data.isSimulated) {
         setSuccess(`Generated invitation previews for ${res.data.total} candidates (email service running in simulation mode).`);
       } else {
@@ -716,6 +814,135 @@ export default function AdminDashboard() {
       setError(err.response?.data?.error || 'Failed to dispatch candidate invitations');
     } finally {
       setDispatchingInvites(false);
+    }
+  };
+
+  const handleCsvInvitesUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeSetForInvites) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result;
+        if (typeof text !== 'string') return;
+        const matchedEmails = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+        const cleanEmails = [...new Set(matchedEmails.map(m => m.trim().toLowerCase()))];
+        if (cleanEmails.length === 0) {
+          setError('No valid email addresses found in uploaded file');
+          return;
+        }
+
+        const currentList = Array.isArray(activeSetForInvites.allowed_emails)
+          ? activeSetForInvites.allowed_emails
+          : [];
+        const combined = [...new Set([...currentList, ...cleanEmails])];
+
+        setAddingInvites(true);
+        await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${activeSetForInvites.id}`), {
+          allowedEmails: combined,
+        });
+
+        const updatedSet = {
+          ...activeSetForInvites,
+          allowed_emails: combined,
+          has_allowlist: combined.length > 0,
+        };
+        setActiveSetForInvites(updatedSet);
+        setQuestionSets(prev => prev.map(qs => qs.id === updatedSet.id ? { ...qs, ...updatedSet } : qs));
+        setSuccess(`Successfully imported ${cleanEmails.length} candidate email(s) from CSV`);
+      } catch (err) {
+        setError(err.response?.data?.error || err.message || 'Failed to import CSV candidates');
+      } finally {
+        setAddingInvites(false);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleGenerateSingleUseLinks = async () => {
+    if (!activeSetForInvites || !Array.isArray(activeSetForInvites.allowed_emails) || activeSetForInvites.allowed_emails.length === 0) {
+      setError('Please add candidate emails to the allowlist first');
+      return;
+    }
+    setAddingInvites(true);
+    try {
+      const existingInvites = { ...(activeSetForInvites.settings?.candidateInvites || {}) };
+      const updatedInvites = { ...existingInvites };
+
+      for (const email of activeSetForInvites.allowed_emails) {
+        const lowerEmail = email.toLowerCase();
+        const hasExisting = Object.keys(updatedInvites).find(t => updatedInvites[t]?.email?.toLowerCase() === lowerEmail);
+        if (!hasExisting) {
+          const randomPart = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+          const token = `inv_${randomPart}`;
+          updatedInvites[token] = {
+            email: lowerEmail,
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      const updatedSettings = {
+        ...(activeSetForInvites.settings || {}),
+        candidateInvites: updatedInvites,
+      };
+
+      await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${activeSetForInvites.id}`), {
+        settings: updatedSettings,
+      });
+
+      const updatedSet = {
+        ...activeSetForInvites,
+        settings: updatedSettings,
+      };
+      setActiveSetForInvites(updatedSet);
+      setQuestionSets(prev => prev.map(qs => qs.id === updatedSet.id ? { ...qs, ...updatedSet } : qs));
+      setSuccess(`Generated unique single-use magic links for ${activeSetForInvites.allowed_emails.length} candidate(s)!`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to generate single-use links');
+    } finally {
+      setAddingInvites(false);
+    }
+  };
+
+  const handleQuickAddInvites = async () => {
+    if (!activeSetForInvites || !quickInviteInput.trim()) return;
+    const newEmails = quickInviteInput
+      .split(/[\n,; ]+/)
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && e.includes('@'));
+
+    if (newEmails.length === 0) {
+      setError('Please enter at least one valid candidate email address');
+      return;
+    }
+
+    const currentList = Array.isArray(activeSetForInvites.allowed_emails)
+      ? activeSetForInvites.allowed_emails
+      : [];
+    const combined = [...new Set([...currentList, ...newEmails])];
+
+    setAddingInvites(true);
+    try {
+      await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${activeSetForInvites.id}`), {
+        allowedEmails: combined,
+      });
+
+      const updatedSet = {
+        ...activeSetForInvites,
+        allowed_emails: combined,
+        has_allowlist: combined.length > 0,
+      };
+      setActiveSetForInvites(updatedSet);
+      setQuestionSets(prev => prev.map(qs => qs.id === updatedSet.id ? { ...qs, ...updatedSet } : qs));
+      setQuickInviteInput('');
+      setSuccess(`Added ${newEmails.length} candidate email(s) successfully`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update candidate invite list');
+    } finally {
+      setAddingInvites(false);
     }
   };
 
@@ -1510,6 +1737,26 @@ export default function AdminDashboard() {
                           <Share2 size={13} />
                           <span style={{ fontSize: '11px' }}>Invites</span>
                         </button>
+                        {(qs.scheduled_at || qs.settings?.scheduledAt) && (
+                          <button
+                            className="admin-btn-sm"
+                            style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                            onClick={() => handleDownloadAdminIcs(qs)}
+                            title="Download .ICS Calendar Invitation"
+                          >
+                            <Download size={13} />
+                            <span style={{ fontSize: '11px' }}>.ICS</span>
+                          </button>
+                        )}
+                        <button
+                          className="admin-btn-sm"
+                          style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#cbd5e1', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                          onClick={() => handleDuplicateSet(qs)}
+                          title="Duplicate / Clone Question Set"
+                        >
+                          <Copy size={13} />
+                          <span style={{ fontSize: '11px' }}>Clone</span>
+                        </button>
                         <button className="admin-btn-sm promote" onClick={() => openEditSet(qs)} title="Edit Question Set">
                           <Edit3 size={14} />
                         </button>
@@ -2164,7 +2411,7 @@ export default function AdminDashboard() {
       {/* ═══ SUBMISSIONS / RESULTS MODAL ═══ */}
       {showSubmissionsModal && (
         <div className="admin-modal-overlay" onClick={() => setShowSubmissionsModal(false)}>
-          <div className="admin-modal" style={{ maxWidth: '840px', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+          <div className="admin-modal" style={{ maxWidth: submissionsModalTab === 'matrix' ? '1120px' : '840px', width: '95%', maxHeight: '88vh', transition: 'max-width 0.2s ease' }} onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <div>
                 <h2>Submissions: {activeSetForSubmissions?.title}</h2>
@@ -2246,8 +2493,8 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Modal Tabs: Submissions vs Live Roster */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '0 24px', background: 'rgba(0,0,0,0.2)' }}>
+            {/* Modal Tabs: Submissions vs Live Roster vs Comparison Matrix */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '0 24px', background: 'rgba(0,0,0,0.2)', overflowX: 'auto' }}>
               <button
                 type="button"
                 onClick={() => setSubmissionsModalTab('submissions')}
@@ -2260,9 +2507,30 @@ export default function AdminDashboard() {
                   borderBottom: submissionsModalTab === 'submissions' ? '2px solid #6366f1' : '2px solid transparent',
                   color: submissionsModalTab === 'submissions' ? '#fff' : 'rgba(255,255,255,0.5)',
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Completed Submissions ({submissionsList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubmissionsModalTab('matrix')}
+                style={{
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: submissionsModalTab === 'matrix' ? '2px solid #10b981' : '2px solid transparent',
+                  color: submissionsModalTab === 'matrix' ? '#fff' : 'rgba(255,255,255,0.5)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <BarChart3 size={14} /> Side-by-Side Comparison Matrix ({submissionsList.length})
               </button>
               <button
                 type="button"
@@ -2279,6 +2547,7 @@ export default function AdminDashboard() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Live Candidate Activity
@@ -2409,6 +2678,197 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+              ) : submissionsModalTab === 'matrix' ? (
+                submissionsLoading ? (
+                  <div className="admin-loading" style={{ padding: '40px 0' }}>
+                    <Loader2 size={24} className="spin" />
+                    <span>Loading candidate responses...</span>
+                  </div>
+                ) : submissionsList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ fontSize: '14px', margin: 0 }}>No candidate submissions yet to compare.</p>
+                    <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'rgba(255,255,255,0.3)' }}>
+                      Share this interview link with candidates. Once they submit, their responses will appear side-by-side.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', paddingBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
+                        Comparing <strong>{submissionsList.length}</strong> candidate submissions across <strong>{Array.isArray(activeSetForSubmissions?.questions) ? activeSetForSubmissions.questions.length : 0}</strong> questions
+                      </span>
+                      <button
+                        type="button"
+                        className="admin-btn-sm"
+                        onClick={handleExportSubmissionsCsv}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(34,197,94,0.12)', color: '#86efac', border: '1px solid rgba(34,197,94,0.3)', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        <Download size={13} /> Export Comparison
+                      </button>
+                    </div>
+
+                    <table style={{ width: '100%', minWidth: `${Math.max(640, submissionsList.length * 280 + 220)}px`, borderCollapse: 'separate', borderSpacing: 0, border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', overflow: 'hidden' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          <th style={{ padding: '14px 16px', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#94a3b8', width: '220px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'sticky', left: 0, background: '#0f172a', zIndex: 2 }}>
+                            Evaluation Metric
+                          </th>
+                          {submissionsList.map((sub) => {
+                            const score = sub.overall_score || 0;
+                            const scoreColor = score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+                            const decision = sub.scores?.decision || (score >= 70 ? 'qualified' : score >= 55 ? 'review_needed' : 'rejected');
+
+                            return (
+                              <th key={sub.id} style={{ padding: '14px 16px', textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.08)', borderLeft: '1px solid rgba(255,255,255,0.06)', minWidth: '260px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                  <div style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>
+                                    {sub.user_name || sub.user_email?.split('@')[0] || 'Candidate'}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePrintReport(sub)}
+                                    style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: '2px' }}
+                                    title="Print candidate assessment report"
+                                  >
+                                    <Printer size={13} />
+                                  </button>
+                                </div>
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+                                  {sub.user_email || 'Direct Session'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: '13px', fontWeight: '800', color: scoreColor, background: `${scoreColor}18`, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${scoreColor}40` }}>
+                                    {score} / 100
+                                  </span>
+                                  <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', padding: '2px 6px', borderRadius: '4px', background: decision === 'qualified' ? 'rgba(34,197,94,0.15)' : decision === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)', color: decision === 'qualified' ? '#86efac' : decision === 'rejected' ? '#fca5a5' : '#fcd34d' }}>
+                                    {decision.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Proctoring & Integrity Row */}
+                        <tr style={{ background: 'rgba(255,255,255,0.01)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#a5b4fc', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
+                            🛡️ Proctoring Telemetry
+                          </td>
+                          {submissionsList.map((sub) => {
+                            const integrity = sub.scores?.integrity || {};
+                            const tabSwitches = integrity.tabSwitchCount || 0;
+                            const pastes = integrity.pasteCount || 0;
+                            const isClean = tabSwitches === 0 && pastes === 0;
+
+                            return (
+                              <td key={`integrity-${sub.id}`} style={{ padding: '12px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isClean ? '#86efac' : tabSwitches <= 2 ? '#fcd34d' : '#fca5a5', fontWeight: '600' }}>
+                                  <Shield size={13} />
+                                  <span>{isClean ? 'Clean Focus' : `${tabSwitches} switches, ${pastes} pastes`}</span>
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>
+                                  Confidence: {integrity.integrityRating ? integrity.integrityRating.toUpperCase() : (isClean ? 'HIGH (100%)' : 'MODERATE')}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* Duration & Timestamp Row */}
+                        <tr>
+                          <td style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#a5b4fc', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
+                            ⏱️ Duration & Date
+                          </td>
+                          {submissionsList.map((sub) => (
+                            <td key={`meta-${sub.id}`} style={{ padding: '12px 16px', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>
+                              <div>{Math.round((sub.duration || 0) / 60)} minutes</div>
+                              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                                {new Date(sub.completed_at || sub.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+
+                        {/* Recruiter Notes Row */}
+                        <tr style={{ background: 'rgba(255,255,255,0.01)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '700', color: '#a5b4fc', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
+                            📝 Recruiter Notes
+                          </td>
+                          {submissionsList.map((sub) => (
+                            <td key={`notes-${sub.id}`} style={{ padding: '12px 16px', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: '1px solid rgba(255,255,255,0.06)', color: sub.scores?.reviewerNotes ? '#e2e8f0' : 'rgba(255,255,255,0.3)', fontStyle: sub.scores?.reviewerNotes ? 'normal' : 'italic' }}>
+                              {sub.scores?.reviewerNotes || 'No notes added'}
+                            </td>
+                          ))}
+                        </tr>
+
+                        {/* Question Rows */}
+                        {Array.isArray(activeSetForSubmissions?.questions) && activeSetForSubmissions.questions.map((qObj, qIdx) => (
+                          <tr key={`q-row-${qIdx}`}>
+                            <td style={{ padding: '14px 16px', verticalAlign: 'top', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '2px' }}>
+                                Question {qIdx + 1}
+                              </div>
+                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#fff', lineHeight: 1.4, maxWidth: '200px' }}>
+                                {qObj.question}
+                              </div>
+                              {qObj.expectedTopics && (
+                                <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                                  <strong>Rubric:</strong> {Array.isArray(qObj.expectedTopics) ? qObj.expectedTopics.join(', ') : qObj.expectedTopics}
+                                </div>
+                              )}
+                            </td>
+                            {submissionsList.map((sub) => {
+                              const breakdownItem = sub.scores?.breakdown?.find(b => b.questionIndex === qIdx + 1);
+                              const qScore = breakdownItem?.score;
+                              const qScoreColor = typeof qScore === 'number' ? (qScore >= 70 ? '#22c55e' : qScore >= 50 ? '#f59e0b' : '#ef4444') : '#fff';
+                              const answerExcerpt = breakdownItem?.answer || sub.responses?.find(r => r.role === 'candidate' && r.question_index === qIdx)?.content || '';
+
+                              return (
+                                <td key={`q-${qIdx}-${sub.id}`} style={{ padding: '14px 16px', verticalAlign: 'top', borderBottom: '1px solid rgba(255,255,255,0.06)', borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: '800', color: qScoreColor }}>
+                                      {typeof qScore === 'number' ? `${qScore} / 100` : '—'}
+                                    </span>
+                                    {breakdownItem?.elapsedSeconds > 0 && (
+                                      <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
+                                        {breakdownItem.elapsedSeconds}s
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Topic Pills */}
+                                  {breakdownItem && ((breakdownItem.coveredTopics?.length > 0) || (breakdownItem.missedTopics?.length > 0)) && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                                      {breakdownItem.coveredTopics?.map((t, idx) => (
+                                        <span key={`m-cov-${idx}`} style={{ fontSize: '10px', color: '#86efac', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', padding: '1px 5px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                          ✓ {t}
+                                        </span>
+                                      ))}
+                                      {breakdownItem.missedTopics?.map((t, idx) => (
+                                        <span key={`m-mis-${idx}`} style={{ fontSize: '10px', color: '#fca5a5', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', padding: '1px 5px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                          ✗ {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {answerExcerpt ? (
+                                    <div style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: '1.4', background: 'rgba(0,0,0,0.25)', padding: '8px', borderRadius: '6px', maxHeight: '110px', overflowY: 'auto', fontStyle: 'italic' }}>
+                                      &ldquo;{answerExcerpt}&rdquo;
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>No response recorded</div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
               ) : submissionsLoading ? (
                 <div className="admin-loading" style={{ padding: '40px 0' }}>
                   <Loader2 size={24} className="spin" />
@@ -3052,16 +3512,96 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Quick Add Candidate Invites & CSV Import */}
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#e2e8f0' }}>
+                  Quick Add Candidate Email(s)
+                </span>
+                <label
+                  className="admin-btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '6px' }}
+                  title="Upload CSV or TXT file containing candidate email addresses"
+                >
+                  <FileUp size={12} />
+                  <span>Import CSV / TXT</span>
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    hidden
+                    onChange={handleCsvInvitesUpload}
+                  />
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. candidate@domain.com or comma-separated emails"
+                  value={quickInviteInput}
+                  onChange={(e) => setQuickInviteInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddInvites(); } }}
+                  style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '8px 12px', color: '#fff', fontSize: '13px' }}
+                />
+                <button
+                  type="button"
+                  className="admin-btn-primary"
+                  onClick={handleQuickAddInvites}
+                  disabled={addingInvites || !quickInviteInput.trim()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', flexShrink: 0 }}
+                >
+                  {addingInvites ? <Loader2 size={13} className="spin" /> : <Plus size={13} />}
+                  <span>{addingInvites ? 'Adding...' : 'Add'}</span>
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '6px' }}>
+                Adds authorized candidate emails immediately to this question set.
+              </div>
+            </div>
+
             {/* List of candidates from allowed_emails or fallback */}
             <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '0 0 10px' }}>
-                Authorized Candidate Links ({activeSetForInvites.allowed_emails?.length || 0})
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px' }}>
+                <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                  Authorized Candidate Links ({activeSetForInvites.allowed_emails?.length || 0})
+                </h4>
+                {Array.isArray(activeSetForInvites.allowed_emails) && activeSetForInvites.allowed_emails.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateSingleUseLinks}
+                    disabled={addingInvites}
+                    style={{
+                      background: 'rgba(129,140,248,0.12)',
+                      color: '#a5b4fc',
+                      border: '1px solid rgba(129,140,248,0.25)',
+                      borderRadius: '6px',
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Generate unique single-use magic tokens (inv_<id>) for all candidates"
+                  >
+                    <Sparkles size={11} /> Generate Single-Use Magic Links
+                  </button>
+                )}
+              </div>
 
               {Array.isArray(activeSetForInvites.allowed_emails) && activeSetForInvites.allowed_emails.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                   {activeSetForInvites.allowed_emails.map((email, idx) => {
-                    const candidateUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
+                    const candidateInvites = activeSetForInvites.settings?.candidateInvites || {};
+                    const tokenEntry = Object.entries(candidateInvites).find(
+                      ([, inv]) => inv?.email?.toLowerCase() === email.toLowerCase()
+                    );
+                    const singleUseToken = tokenEntry ? tokenEntry[0] : null;
+                    const inviteInfo = tokenEntry ? tokenEntry[1] : null;
+
+                    const candidateUrl = singleUseToken
+                      ? `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${singleUseToken}`
+                      : `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
                     const isCopied = copiedIndividualLink === email;
 
                     return (
@@ -3069,7 +3609,7 @@ export default function AdminDashboard() {
                         key={idx}
                         style={{
                           background: 'rgba(255,255,255,0.02)',
-                          border: '1px solid rgba(255,255,255,0.06)',
+                          border: singleUseToken ? '1px solid rgba(129,140,248,0.2)' : '1px solid rgba(255,255,255,0.06)',
                           borderRadius: '8px',
                           padding: '10px 14px',
                           display: 'flex',
@@ -3079,10 +3619,31 @@ export default function AdminDashboard() {
                         }}
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>
-                            {email}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>
+                              {email}
+                            </span>
+                            {singleUseToken ? (
+                              inviteInfo?.status === 'completed' ? (
+                                <span style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac', border: '1px solid rgba(34,197,94,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  ✓ Submitted
+                                </span>
+                              ) : inviteInfo?.status === 'claimed' ? (
+                                <span style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  In Progress
+                                </span>
+                              ) : (
+                                <span style={{ background: 'rgba(129,140,248,0.15)', color: '#a5b4fc', border: '1px solid rgba(129,140,248,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>
+                                  Single-Use Link
+                                </span>
+                              )
+                            ) : (
+                              <span style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                                Allowlist Link
+                              </span>
+                            )}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: '11px', color: singleUseToken ? '#a5b4fc' : 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
                             {candidateUrl}
                           </div>
                         </div>
@@ -3146,6 +3707,17 @@ export default function AdminDashboard() {
               >
                 Close
               </button>
+              {activeSetForInvites.scheduled_at && (
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => handleDownloadAdminIcs(activeSetForInvites)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}
+                  title="Download .ICS calendar invitation file"
+                >
+                  <Download size={14} /> Download .ICS
+                </button>
+              )}
               {Array.isArray(activeSetForInvites.allowed_emails) && activeSetForInvites.allowed_emails.length > 0 && (
                 <>
                   <button
@@ -3162,12 +3734,19 @@ export default function AdminDashboard() {
                     type="button"
                     className="admin-btn-primary"
                     onClick={() => {
+                      const candidateInvites = activeSetForInvites.settings?.candidateInvites || {};
                       const allLinksText = activeSetForInvites.allowed_emails.map(email => {
-                        const url = `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
+                        const tokenEntry = Object.entries(candidateInvites).find(
+                          ([, inv]) => inv?.email?.toLowerCase() === email.toLowerCase()
+                        );
+                        const singleUseToken = tokenEntry ? tokenEntry[0] : null;
+                        const url = singleUseToken
+                          ? `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${singleUseToken}`
+                          : `${typeof window !== 'undefined' ? window.location.origin : 'https://preploop.com'}/ai-interview?token=${activeSetForInvites.share_code}&email=${encodeURIComponent(email)}`;
                         return `${email}: ${url}`;
                       }).join('\n');
                       navigator.clipboard.writeText(allLinksText);
-                      setSuccess('All candidate personalized join links copied to clipboard!');
+                      setSuccess('All candidate join links copied to clipboard!');
                       setTimeout(() => setShowPersonalizedInvitesModal(false), 800);
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}

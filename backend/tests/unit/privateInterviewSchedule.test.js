@@ -314,9 +314,10 @@ describe('Private Interview Session & Schedule Time Conformance', () => {
       expect(result.total).toBe(2);
       expect(result.results).toHaveLength(2);
       expect(result.results[0].email).toBe('dev1@test.com');
-      expect(result.results[0].joinUrl).toContain('token=fstk-2026&email=dev1%40test.com');
+      expect(result.results[0].joinUrl).toMatch(/token=(inv_[a-f0-9]+|fstk-2026)/);
       expect(result.results[1].email).toBe('dev2@test.com');
-      expect(result.results[1].joinUrl).toContain('token=fstk-2026&email=dev2%40test.com');
+      expect(result.results[1].joinUrl).toMatch(/token=(inv_[a-f0-9]+|fstk-2026)/);
+      expect(result.candidateInvites).toBeDefined();
     });
 
     it('blocks dangerous SSRF attempts targeting private IP ranges in webhook dispatcher', async () => {

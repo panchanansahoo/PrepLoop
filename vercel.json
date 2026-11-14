@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm ci && cd frontend && npm ci",
-  "buildCommand": "cd frontend && node ./node_modules/vite/bin/vite.js build",
+  "installCommand": "npm --prefix packages/contracts install && npm --prefix packages/contracts run build && npm ci && cd frontend && npm ci",
+  "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
   "rewrites": [

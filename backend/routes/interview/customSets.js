@@ -14,6 +14,34 @@ import { dispatchInterviewWebhook } from '../../utils/interviewMailer.js';
 
 const router = express.Router();
 
+async function findQuestionSetByCodeOrInvite(code) {
+  if (!code || typeof code !== 'string') return { data: null, singleUseInvite: null };
+  const cleanCode = code.trim();
+
+  if (cleanCode.startsWith('inv_')) {
+    const { data: allSets, error: fetchErr } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, scheduled_at, scheduled_duration_minutes')
+      .not('settings', 'is', null);
+
+    if (fetchErr || !Array.isArray(allSets)) return { data: null, singleUseInvite: null };
+    const matchingSet = allSets.find(s => s.settings?.candidateInvites?.[cleanCode]);
+    if (!matchingSet) return { data: null, singleUseInvite: null };
+
+    const singleUseInvite = matchingSet.settings?.candidateInvites?.[cleanCode] || null;
+    return { data: matchingSet, singleUseInvite };
+  }
+
+  const { data: qsData, error: qsError } = await supabaseAdmin
+    .from('admin_question_sets')
+    .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, scheduled_at, scheduled_duration_minutes')
+    .eq('share_code', cleanCode)
+    .maybeSingle();
+
+  if (qsError || !qsData) return { data: null, singleUseInvite: null };
+  return { data: qsData, singleUseInvite: null };
+}
+
 // ─── Get Question Set by Share Code (Public — no auth required) ───
 router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (req, res) => {
   try {
@@ -23,14 +51,14 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
       return res.status(400).json({ error: 'Invalid share code' });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails')
-      .eq('share_code', code)
-      .single();
+    const { data, singleUseInvite } = await findQuestionSetByCodeOrInvite(code);
 
-    if (error || !data) {
+    if (!data) {
       return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    if (singleUseInvite?.status === 'completed') {
+      return res.status(410).json({ error: 'This single-use interview invitation link has already been used and completed.' });
     }
 
     if (!data.is_active) {
@@ -61,7 +89,7 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
         difficulty: data.difficulty,
         requiresLogin: data.requires_login,
         requiresPasscode: Boolean(data.passcode_hash),
-        requiresEmailAllowlist: allowedEmails.length > 0,
+        requiresEmailAllowlist: allowedEmails.length > 0 || Boolean(singleUseInvite),
         expiresAt: data.expires_at,
         scheduledAt,
         scheduledDurationMinutes,
@@ -76,7 +104,9 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
         questions: [],
         settings: data.settings || {},
         shareCode: data.share_code,
-        token: data.share_code,
+        token: code,
+        isSingleUseInvite: Boolean(singleUseInvite),
+        singleUseEmail: singleUseInvite?.email || null,
       }
     });
   } catch (error) {
@@ -95,14 +125,14 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
       return res.status(400).json({ error: 'Invalid candidate token' });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails')
-      .eq('share_code', code)
-      .single();
+    const { data, singleUseInvite } = await findQuestionSetByCodeOrInvite(code);
 
-    if (error || !data) {
+    if (!data) {
       return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    if (singleUseInvite?.status === 'completed') {
+      return res.status(410).json({ error: 'This single-use interview invitation link has already been used and completed.' });
     }
 
     if (!data.is_active) {
@@ -133,7 +163,7 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
         difficulty: data.difficulty,
         requiresLogin: data.requires_login,
         requiresPasscode: Boolean(data.passcode_hash),
-        requiresEmailAllowlist: allowedEmails.length > 0,
+        requiresEmailAllowlist: allowedEmails.length > 0 || Boolean(singleUseInvite),
         expiresAt: data.expires_at,
         scheduledAt,
         scheduledDurationMinutes,
@@ -148,7 +178,9 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
         questions: [],
         settings: data.settings || {},
         shareCode: data.share_code,
-        token: data.share_code,
+        token: code,
+        isSingleUseInvite: Boolean(singleUseInvite),
+        singleUseEmail: singleUseInvite?.email || null,
       }
     });
   } catch (error) {
@@ -384,14 +416,13 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       userName, userEmail
     } = req.body;
 
-    const { data: questionSet, error: fetchError } = await supabaseAdmin
-      .from('admin_question_sets')
-      .select('id, title, is_active, requires_login, allowed_emails, settings, questions')
-      .eq('share_code', code)
-      .single();
+    const { data: questionSet, singleUseInvite } = await findQuestionSetByCodeOrInvite(code);
 
-    if (fetchError || !questionSet) {
+    if (!questionSet) {
       return res.status(404).json({ error: 'Question set not found' });
+    }
+    if (singleUseInvite?.status === 'completed') {
+      return res.status(410).json({ error: 'This single-use invitation link has already been used and completed' });
     }
     if (!questionSet.is_active) {
       return res.status(410).json({ error: 'This interview is no longer available' });
@@ -583,6 +614,29 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       .update({ submitted_at: new Date().toISOString() })
       .eq('id', attempt.id)
       .is('submitted_at', null);
+
+    // Invalidate single-use invite token if candidate used one
+    const usedInviteToken = code.startsWith('inv_') ? code : (req.body?.inviteToken || null);
+    if (usedInviteToken && questionSet.settings?.candidateInvites?.[usedInviteToken]) {
+      const updatedInvites = {
+        ...questionSet.settings.candidateInvites,
+        [usedInviteToken]: {
+          ...questionSet.settings.candidateInvites[usedInviteToken],
+          status: 'completed',
+          submittedAt: new Date().toISOString(),
+          submissionId: data?.id,
+        },
+      };
+      await supabaseAdmin
+        .from('admin_question_sets')
+        .update({
+          settings: {
+            ...questionSet.settings,
+            candidateInvites: updatedInvites,
+          },
+        })
+        .eq('id', questionSet.id);
+    }
 
     const webhookUrl = questionSet.settings?.webhookUrl;
     if (webhookUrl) {

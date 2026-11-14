@@ -8,7 +8,12 @@ import { Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen, CheckCircl
 import { Button } from '../components/ui/button';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
-const Hero3DScene = lazyWithRecovery(() => import('../components/Hero3DScene'), 1);
+const Hero3DScene = lazyWithRecovery(() => {
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    return Promise.resolve({ default: () => null });
+  }
+  return import('../components/Hero3DScene');
+}, 1);
 import HeroShowcase from '../components/HeroShowcase';
 
 /* ═══════════════════════════════════════════════ */

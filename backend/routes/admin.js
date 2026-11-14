@@ -462,15 +462,21 @@ router.post('/question-sets', async (req, res) => {
 // ─── List Question Sets ──────────────────────────────────────────
 router.get('/question-sets', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
     const parsedPage = Math.max(1, parseInt(page, 10) || 1);
     const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
-    const { data, count, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, created_at, updated_at', { count: 'exact' })
-      .eq('admin_id', req.user.id)
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, scheduled_at, scheduled_duration_minutes, created_at, updated_at', { count: 'exact' });
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const term = search.trim();
+      query = query.or(`title.ilike.%${term}%,interview_type.ilike.%${term}%`);
+    }
+
+    const { data, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + parsedLimit - 1);
 
@@ -530,9 +536,8 @@ router.get('/question-sets/:id', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, expires_at, max_attempts, attempts_started, allowed_emails, created_at, updated_at, passcode_hash')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, expires_at, max_attempts, attempts_started, allowed_emails, scheduled_at, scheduled_duration_minutes, created_at, updated_at, passcode_hash')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (error || !data) {
@@ -577,12 +582,11 @@ router.put('/question-sets/:id', async (req, res) => {
       scheduledAt, scheduledDurationMinutes
     } = req.body;
 
-    // Verify ownership
+    // Verify existence
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
       .select('id, passcode_hash, settings')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {
@@ -718,12 +722,10 @@ router.put('/question-sets/:id', async (req, res) => {
 // ─── Delete Question Set ─────────────────────────────────────────
 router.delete('/question-sets/:id', async (req, res) => {
   try {
-    // Verify ownership
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
       .select('id')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {
@@ -752,12 +754,10 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
     const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
-    // Verify ownership
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
       .select('id, title')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {
@@ -793,7 +793,6 @@ router.get('/question-sets/:id/attempts', async (req, res) => {
       .from('admin_question_sets')
       .select('id, title, questions')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {
@@ -874,12 +873,11 @@ router.patch('/submissions/:id/review', async (req, res) => {
       return res.status(404).json({ error: 'Submission not found' });
     }
 
-    // Verify admin owns the question set
+    // Verify admin access to the question set
     const { data: setOwner, error: setErr } = await supabaseAdmin
       .from('admin_question_sets')
       .select('id')
       .eq('id', submission.question_set_id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (setErr || !setOwner) {
@@ -923,7 +921,6 @@ router.post('/question-sets/:id/dispatch-invites', async (req, res) => {
       .from('admin_question_sets')
       .select('id, title, description, share_code, allowed_emails, scheduled_at, scheduled_duration_minutes, settings')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {
@@ -987,7 +984,6 @@ router.post('/question-sets/:id/test-webhook', async (req, res) => {
       .from('admin_question_sets')
       .select('id, title, settings')
       .eq('id', req.params.id)
-      .eq('admin_id', req.user.id)
       .single();
 
     if (fetchError || !existing) {

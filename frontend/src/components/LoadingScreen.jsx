@@ -32,7 +32,7 @@ const LoadingScreen = ({ onFinished, minimumDuration = 400 }) => {
     let height = (canvas.height = window.innerHeight);
 
     const particles = [];
-    const PARTICLE_COUNT = 60;
+    const PARTICLE_COUNT = width < 768 ? 20 : 60;
 
     class Particle {
       constructor() {

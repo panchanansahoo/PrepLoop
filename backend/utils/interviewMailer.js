@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { sendEmail, isEmailConfigured, getFromAddress } from '../services/emailService.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 import { isSafeOutboundUrl } from './ssrfGuard.js';
 import { createLogger } from './structuredLogger.js';
 
@@ -245,13 +246,29 @@ export async function dispatchCandidateInvitations({
   const shareCode = questionSet.share_code || questionSet.token || '';
   const emailConfigured = isEmailConfigured();
 
+  const existingInvites = { ...(questionSet.settings?.candidateInvites || {}) };
+  const updatedInvites = { ...existingInvites };
+
   const results = [];
   let sentCount = 0;
   let simulatedCount = 0;
   let failedCount = 0;
 
   for (const email of cleanEmails) {
-    const candidateUrl = `${baseUrl.replace(/\/+$/, '')}/ai-interview?token=${shareCode}&email=${encodeURIComponent(email)}`;
+    // Generate or retrieve unique single-use token for this candidate
+    let inviteToken = Object.keys(existingInvites).find(
+      t => existingInvites[t]?.email?.toLowerCase() === email.toLowerCase()
+    );
+    if (!inviteToken) {
+      inviteToken = `inv_${crypto.randomBytes(12).toString('hex')}`;
+    }
+    updatedInvites[inviteToken] = {
+      email,
+      createdAt: existingInvites[inviteToken]?.createdAt || new Date().toISOString(),
+      status: existingInvites[inviteToken]?.status || 'pending',
+    };
+
+    const candidateUrl = `${baseUrl.replace(/\/+$/, '')}/ai-interview?token=${inviteToken}`;
     const emailContent = buildCandidateInviteEmail({
       candidateEmail: email,
       questionSetTitle: questionSet.title || 'Technical Interview Session',
@@ -272,6 +289,14 @@ export async function dispatchCandidateInvitations({
       organizerName,
     });
 
+    const calendarAttachments = scheduledAt && icsContent ? [
+      {
+        filename: 'interview-invitation.ics',
+        content: icsContent,
+        contentType: 'text/calendar; method=REQUEST; charset=UTF-8',
+      },
+    ] : [];
+
     if (emailConfigured) {
       try {
         const sendResult = await sendEmail({
@@ -283,6 +308,7 @@ export async function dispatchCandidateInvitations({
           headers: {
             'Content-Type': 'text/html; charset=utf-8',
           },
+          attachments: calendarAttachments,
         });
         sentCount += 1;
         results.push({
@@ -315,6 +341,21 @@ export async function dispatchCandidateInvitations({
     }
   }
 
+  // Persist generated candidate invite tokens in questionSet settings
+  try {
+    await supabaseAdmin
+      .from('admin_question_sets')
+      .update({
+        settings: {
+          ...(questionSet.settings || {}),
+          candidateInvites: updatedInvites,
+        },
+      })
+      .eq('id', questionSet.id);
+  } catch (dbErr) {
+    logger.warn('Failed to persist candidateInvites in questionSet settings', { error: dbErr.message });
+  }
+
   return {
     total: cleanEmails.length,
     sent: sentCount,
@@ -322,6 +363,7 @@ export async function dispatchCandidateInvitations({
     failed: failedCount,
     isSimulated: !emailConfigured,
     results,
+    candidateInvites: updatedInvites,
   };
 }
 

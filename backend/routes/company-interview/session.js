@@ -175,14 +175,37 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
 
   // Admin Custom Question Set Mode
   if (questionSetCode) {
-    const { data: questionSet, error: qsError } = await supabaseAdmin
-      .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, expires_at, max_attempts, passcode_hash, allowed_emails')
-      .eq('share_code', questionSetCode)
-      .eq('is_active', true)
-      .single();
+    let questionSet;
+    let singleUseInvite = null;
 
-    if (qsError || !questionSet) {
+    if (questionSetCode.startsWith('inv_')) {
+      const { data: allSets, error: fetchErr } = await supabaseAdmin
+        .from('admin_question_sets')
+        .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, expires_at, max_attempts, passcode_hash, allowed_emails, scheduled_at, scheduled_duration_minutes')
+        .eq('is_active', true)
+        .not('settings', 'is', null);
+
+      if (!fetchErr && Array.isArray(allSets)) {
+        questionSet = allSets.find(s => s.settings?.candidateInvites?.[questionSetCode]);
+      }
+      if (questionSet) {
+        singleUseInvite = questionSet.settings?.candidateInvites?.[questionSetCode];
+        if (singleUseInvite?.status === 'completed') {
+          return res.status(410).json({ error: 'This single-use invitation link has already been used and completed.' });
+        }
+      }
+    } else {
+      const { data: qsData, error: qsError } = await supabaseAdmin
+        .from('admin_question_sets')
+        .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, expires_at, max_attempts, passcode_hash, allowed_emails, scheduled_at, scheduled_duration_minutes')
+        .eq('share_code', questionSetCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      questionSet = qsData;
+    }
+
+    if (!questionSet) {
       return res.status(404).json({ error: 'Question set not found or inactive' });
     }
 
@@ -215,6 +238,13 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
 
     if (!verifyInterviewPasscode(questionSetPasscode, questionSet.passcode_hash)) {
       return res.status(401).json({ error: 'The interview passcode is incorrect' });
+    }
+
+    if (singleUseInvite) {
+      const candidateEmail = req.user?.email || req.body?.userEmail || req.body?.candidateEmail;
+      if (candidateEmail && candidateEmail.trim().toLowerCase() !== singleUseInvite.email.toLowerCase()) {
+        return res.status(403).json({ error: `This single-use invite is reserved for ${singleUseInvite.email}` });
+      }
     }
 
     const allowedEmails = Array.isArray(questionSet.allowed_emails)

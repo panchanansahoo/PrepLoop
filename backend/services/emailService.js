@@ -73,7 +73,7 @@ const getSmtpTransporter = () => {
   return smtpTransporter;
 };
 
-const sendViaResend = async ({ from, to, subject, html, text, replyTo, headers }) => {
+const sendViaResend = async ({ from, to, subject, html, text, replyTo, headers, attachments }) => {
   const recipients = Array.isArray(to) ? to : [to];
   const payload = {
     from: from || getFromAddress(),
@@ -88,6 +88,14 @@ const sendViaResend = async ({ from, to, subject, html, text, replyTo, headers }
   if (html) payload.html = html;
   if (text) payload.text = text;
   if (replyTo) payload.reply_to = replyTo;
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    payload.attachments = attachments.map(att => ({
+      filename: att.filename,
+      content: Buffer.isBuffer(att.content)
+        ? att.content.toString('base64')
+        : (typeof att.content === 'string' ? Buffer.from(att.content, 'utf8').toString('base64') : att.content),
+    }));
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
@@ -127,7 +135,7 @@ const sendViaResend = async ({ from, to, subject, html, text, replyTo, headers }
   }
 };
 
-const sendViaSmtp = async ({ from, to, subject, html, text, replyTo, headers }) => {
+const sendViaSmtp = async ({ from, to, subject, html, text, replyTo, headers, attachments }) => {
   const info = await getSmtpTransporter().sendMail({
     from: from || getFromAddress(),
     to,
@@ -139,6 +147,7 @@ const sendViaSmtp = async ({ from, to, subject, html, text, replyTo, headers }) 
     ...(html ? { html } : {}),
     ...(text ? { text } : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(Array.isArray(attachments) && attachments.length > 0 ? { attachments } : {}),
   });
 
   return { provider: 'smtp', id: info?.messageId || null };
@@ -148,7 +157,7 @@ const sendViaSmtp = async ({ from, to, subject, html, text, replyTo, headers }) 
  * Send an email through the best available transport.
  * Resend keys use the HTTPS API; other credentials fall back to SMTP.
  */
-export const sendEmail = async ({ to, subject, html, text, from, replyTo, headers } = {}) => {
+export const sendEmail = async ({ to, subject, html, text, from, replyTo, headers, attachments } = {}) => {
   if (!to) throw new Error('Email recipient is required');
   if (!subject) throw new Error('Email subject is required');
   if (!html && !text) throw new Error('Email content is required');
@@ -158,8 +167,8 @@ export const sendEmail = async ({ to, subject, html, text, from, replyTo, header
 
   const startedAt = Date.now();
   const result = provider === 'resend'
-    ? await sendViaResend({ from, to, subject, html, text, replyTo, headers })
-    : await sendViaSmtp({ from, to, subject, html, text, replyTo, headers });
+    ? await sendViaResend({ from, to, subject, html, text, replyTo, headers, attachments })
+    : await sendViaSmtp({ from, to, subject, html, text, replyTo, headers, attachments });
 
   logger.info('Email sent', {
     provider: result.provider,
