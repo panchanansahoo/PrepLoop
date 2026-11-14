@@ -33,7 +33,10 @@ async function getCsrfToken(forceRefresh = false) {
 
   if (!csrfTokenRequest) {
     csrfTokenRequest = axios
-      .get(`${API_URL}/api/csrf-token`, { withCredentials: true })
+      .get(`${API_URL}/api/csrf-token`, {
+        withCredentials: true,
+        timeout: 4000,
+      })
       .then((response) => {
         csrfTokenCache = response.data?.csrfToken || null;
         return csrfTokenCache;
@@ -44,7 +47,10 @@ async function getCsrfToken(forceRefresh = false) {
       });
   }
 
-  return csrfTokenRequest;
+  return Promise.race([
+    csrfTokenRequest,
+    new Promise((resolve) => setTimeout(() => resolve(null), 4000)),
+  ]);
 }
 
 /**
@@ -59,11 +65,11 @@ apiClient.interceptors.request.use(
 
     // Cookie-authenticated mutations need the double-submit CSRF header.
     const method = String(config.method || 'get').toUpperCase();
-    if (!SAFE_METHODS.has(method)) {
-      let csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        // Force refresh CSRF token if missing from cookie or cache
-        csrfToken = await getCsrfToken(true);
+    if (!SAFE_METHODS.has(method) && !config.skipCsrf) {
+      let csrfToken = readCsrfCookie() || csrfTokenCache;
+      if (!csrfToken && !config.skipAuthRefresh) {
+        // Skip blocking CSRF network fetch for unauthenticated public requests
+        csrfToken = await getCsrfToken();
       }
       if (csrfToken) {
         config.headers['X-CSRF-Token'] = csrfToken;

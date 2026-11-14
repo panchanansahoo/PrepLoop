@@ -317,8 +317,17 @@ export default function Login() {
       return;
     }
     setLoading(true);
+    let timeoutId;
     try {
-      await login(parsed.data.email, parsed.data.password);
+      const loginPromise = login(parsed.data.email, parsed.data.password);
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          const timeoutErr = new Error('Sign-in timed out. Please check your internet connection and try again.');
+          timeoutErr.code = 'ECONNABORTED';
+          reject(timeoutErr);
+        }, 15000);
+      });
+      await Promise.race([loginPromise, timeoutPromise]);
       const target = (() => {
         if (!redirectTo) return '/dashboard';
         try {
@@ -352,6 +361,7 @@ export default function Login() {
         setError(err.response?.data?.error || 'Incorrect email or password. Please check your credentials and try again.');
       }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
     }
   };

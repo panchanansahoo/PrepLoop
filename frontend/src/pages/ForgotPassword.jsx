@@ -204,12 +204,21 @@ export default function ForgotPassword() {
     if (loading) return;
     setError('');
     setLoading(true);
+    let timeoutId;
     try {
-      const res = await apiClient.post(
+      const requestPromise = apiClient.post(
         '/api/auth/forgot-password',
         { email: email.trim().toLowerCase() },
         { skipAuthRefresh: true, skipRetry: true }
       );
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          const timeoutErr = new Error('Reset request timed out. Please check your internet connection and try again.');
+          timeoutErr.code = 'ECONNABORTED';
+          reject(timeoutErr);
+        }, 15000);
+      });
+      const res = await Promise.race([requestPromise, timeoutPromise]);
       const payload = res?.data || res;
       setEmailSent(payload?.emailSent !== false);
       setSuccess(true);
@@ -233,6 +242,7 @@ export default function ForgotPassword() {
         setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
       }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
     }
   };

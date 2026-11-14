@@ -294,8 +294,17 @@ export default function Signup() {
     }
 
     setLoading(true);
+    let timeoutId;
     try {
-      const user = await signup(trimmedEmail, password, trimmedName);
+      const signupPromise = signup(trimmedEmail, password, trimmedName);
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          const timeoutErr = new Error('Sign-up timed out. Please check your internet connection and try again.');
+          timeoutErr.code = 'ECONNABORTED';
+          reject(timeoutErr);
+        }, 15000);
+      });
+      const user = await Promise.race([signupPromise, timeoutPromise]);
       if (user && user.emailVerified === false) {
         navigate(`/check-email?email=${encodeURIComponent(trimmedEmail)}`);
       } else {
@@ -320,6 +329,7 @@ export default function Signup() {
         setError(err.response?.data?.error || 'Signup failed. Please check your information and try again.');
       }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
     }
   };
