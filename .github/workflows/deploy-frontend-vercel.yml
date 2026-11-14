@@ -113,27 +113,25 @@ jobs:
           echo "Staging backend health check failed"
           exit 1
 
-      - name: Install and build contracts
+      - name: Install dependencies
         run: |
           npm ci --prefix packages/contracts
           npm run build --prefix packages/contracts
+          npm ci --prefix frontend
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
       - name: Reset Vercel link
-        working-directory: frontend
-        run: rm -rf .vercel
+        run: rm -rf .vercel frontend/.vercel
 
       - name: Pull Vercel project settings (preview)
-        working-directory: frontend
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build frontend artifacts (preview)
-        working-directory: frontend
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -143,7 +141,6 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ env.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Vercel preview
-        working-directory: frontend
         run: vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -208,27 +205,25 @@ jobs:
           echo "Production backend health check failed"
           exit 1
 
-      - name: Install and build contracts
+      - name: Install dependencies
         run: |
           npm ci --prefix packages/contracts
           npm run build --prefix packages/contracts
+          npm ci --prefix frontend
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
       - name: Reset Vercel link
-        working-directory: frontend
-        run: rm -rf .vercel
+        run: rm -rf .vercel frontend/.vercel
 
       - name: Pull Vercel project settings (production)
-        working-directory: frontend
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build frontend artifacts (production)
-        working-directory: frontend
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -238,7 +233,6 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ env.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Vercel production
-        working-directory: frontend
         run: vercel deploy --prebuilt --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
