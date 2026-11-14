@@ -238,12 +238,16 @@ export function AuthProvider({ children }) {
       { email: email.trim().toLowerCase(), password },
       { skipAuthRefresh: true, skipRetry: true }
     );
-    const { token, user } = response;
+    const payload = response?.data ?? response ?? {};
+    const token = payload?.token ?? response?.token;
+    const user = payload?.user ?? response?.user;
 
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(user);
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+    }
 
     return user;
   };
@@ -282,8 +286,9 @@ export function AuthProvider({ children }) {
       { email: email.trim().toLowerCase(), password, fullName: fullName.trim() },
       { skipAuthRefresh: true, skipRetry: true }
     );
-    const payload = response || {};
-    const { token, user } = payload;
+    const payload = response?.data ?? response ?? {};
+    const token = payload?.token ?? response?.token;
+    const user = payload?.user ?? response?.user;
 
     if (token) {
       localStorage.setItem('token', token);

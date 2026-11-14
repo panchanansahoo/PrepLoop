@@ -303,10 +303,21 @@ export default function Signup() {
       }
     } catch (err) {
       console.error("Signup error:", err);
-      if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
-        setError('Unable to connect to the server. Please ensure the backend is running.');
+      const isConnectionIssue =
+        !err.response ||
+        err.message === 'Network Error' ||
+        err.code === 'ERR_NETWORK' ||
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ECONNABORTED' ||
+        err.code === 'ETIMEDOUT' ||
+        (typeof navigator !== 'undefined' && !navigator.onLine);
+
+      if (isConnectionIssue) {
+        setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
+      } else if (err.response?.status >= 500) {
+        setError("Our signup service is temporarily having trouble. Please try again shortly.");
       } else {
-        setError(err.response?.data?.error || 'Signup failed. Please try again.');
+        setError(err.response?.data?.error || 'Signup failed. Please check your information and try again.');
       }
     } finally {
       setLoading(false);

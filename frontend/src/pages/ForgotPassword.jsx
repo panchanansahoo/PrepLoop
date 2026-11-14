@@ -214,10 +214,21 @@ export default function ForgotPassword() {
       setEmailSent(payload?.emailSent !== false);
       setSuccess(true);
     } catch (err) {
-      if (!err.response) {
-        setError('Unable to connect to the server. Please check your connection and try again.');
+      const isConnectionIssue =
+        !err.response ||
+        err.message === 'Network Error' ||
+        err.code === 'ERR_NETWORK' ||
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ECONNABORTED' ||
+        err.code === 'ETIMEDOUT' ||
+        (typeof navigator !== 'undefined' && !navigator.onLine);
+
+      if (isConnectionIssue) {
+        setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
       } else if (err.response?.status === 503) {
-        setError(err.response?.data?.error || 'Password reset email service is currently unavailable. Please try again in a few minutes, or contact support.');
+        setError(err.response?.data?.error || 'Password reset service is currently unavailable. Please try again in a few minutes, or contact support.');
+      } else if (err.response?.status >= 500) {
+        setError("Our reset service is temporarily having trouble. Please try again shortly.");
       } else {
         setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
       }

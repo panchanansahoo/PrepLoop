@@ -331,14 +331,25 @@ export default function Login() {
       navigate(target);
     } catch (err) {
       console.error("Login error:", err);
-      if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
-        setError('Unable to connect to the server. Please ensure the backend is running.');
+      const isConnectionIssue =
+        !err.response ||
+        err.message === 'Network Error' ||
+        err.code === 'ERR_NETWORK' ||
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ECONNABORTED' ||
+        err.code === 'ETIMEDOUT' ||
+        (typeof navigator !== 'undefined' && !navigator.onLine);
+
+      if (isConnectionIssue) {
+        setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
       } else if (err.response?.status === 403 && err.response?.data?.email) {
         navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
       } else if (err.response?.status === 429) {
-        setError(err.response?.data?.error || 'Too many attempts. Please wait a few minutes and try again.');
+        setError(err.response?.data?.error || 'Too many sign-in attempts. Please wait a few minutes and try again.');
+      } else if (err.response?.status >= 500) {
+        setError('Our sign-in service is temporarily experiencing technical issues. Please try again shortly.');
       } else {
-        setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+        setError(err.response?.data?.error || 'Incorrect email or password. Please check your credentials and try again.');
       }
     } finally {
       setLoading(false);
@@ -537,13 +548,35 @@ export default function Login() {
               {/* Error */}
               {error && (
                 <div id="login-error" role="alert" aria-live="polite" className="auth-stagger" style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
                   padding: '12px 16px', marginBottom: '20px',
-                  background: 'rgba(239,68,68,0.06)', borderRadius: '14px',
-                  border: '1px solid rgba(239,68,68,0.15)',
+                  background: 'rgba(239,68,68,0.08)', borderRadius: '14px',
+                  border: '1px solid rgba(239,68,68,0.2)',
                   color: '#fca5a5', fontSize: '13px', lineHeight: 1.5,
                 }}>
-                  <AlertCircle size={16} style={{ flexShrink: 0 }} /> {error}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0, color: '#f87171' }} />
+                    <span>{error}</span>
+                  </div>
+                  {error.includes('Unable to connect') && (
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      style={{
+                        background: 'rgba(239,68,68,0.15)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: '8px',
+                        color: '#fca5a5',
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Try Again
+                    </button>
+                  )}
                 </div>
               )}
 

@@ -47,11 +47,10 @@ function isOriginAllowed(origin) {
   // Check explicit allowed origins
   if (ALL_ALLOWED_ORIGINS.includes(origin)) return true;
 
-  // In development only, allow localhost with specific ports only
-  if (process.env.NODE_ENV === 'development') {
-    const allowedPorts = [5173, 5174, 5175, 4173];
-    const match = origin.match(/^https?:\/\/(localhost|127\.0\.0\.1):(\d+)$/i);
-    if (match && allowedPorts.includes(parseInt(match[2], 10))) {
+  // In development, allow localhost (IPv4, IPv6) and local network IP addresses on standard web/dev ports
+  if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+    const devPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/i;
+    if (devPattern.test(origin)) {
       return true;
     }
   }

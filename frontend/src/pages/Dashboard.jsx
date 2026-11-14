@@ -64,6 +64,7 @@ function getDailyQuote(date = new Date()) {
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
+    { id: 'spacedRepetition', name: 'Spaced Repetition Queue', component: SpacedRepetitionWidget, defaultVisible: true, premium: false, layout: 'full', description: 'SM-2 memory schedule for daily problem recall' },
     { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
     { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
     { id: 'quickActions', name: 'Quick Actions', component: QuickActions, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
@@ -204,6 +205,10 @@ export default function Dashboard() {
         const rows = [];
         let rowKey = 0;
 
+        // Spaced Repetition Queue (full)
+        const spacedRepetition = visible.find(w => w.id === 'spacedRepetition');
+        if (spacedRepetition) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(spacedRepetition)}</div>);
+
         // QuickStats (full)
         const quickStats = visible.find(w => w.id === 'quickStats');
         if (quickStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickStats)}</div>);
@@ -256,8 +261,8 @@ export default function Dashboard() {
             );
         }
 
-        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, weeklyStats, skillMatchJobs)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
+        // Remaining full-width widgets (exclude quickStats, spacedRepetition, quickActions, dailyChallenge, upcomingContests, weeklyStats, skillMatchJobs)
+        const remainingFull = fullWidgets.filter(w => w.id !== 'spacedRepetition' && w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
         remainingFull.forEach(w => {
             rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
         });
@@ -318,11 +323,6 @@ export default function Dashboard() {
                         <Loader2 size={20} className="dash-spinner" />
                     </div>
                 )}
-
-                {/* ── Spaced Repetition Queue (F2-1) ── */}
-                <div style={{ marginBottom: '20px' }}>
-                    <SpacedRepetitionWidget />
-                </div>
 
                 {/* ── Dashboard Widgets ── */}
                 {renderRows()}
