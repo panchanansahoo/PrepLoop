@@ -6,7 +6,7 @@ import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta'
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
 import EmotionDetector from '../components/EmotionDetector';
 import AICopilot from '../components/AICopilot';
@@ -36,6 +36,7 @@ const AUTO_SUBMIT_COUNTDOWN_SECONDS = AUTO_SUBMIT_DELAY_MS / 1000;
 
 export default function CompanyInterview() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const INTERVIEW_RUNTIME_MODES = [
         { value: 'full_realtime', label: 'Full Real-Time' },
     ];
@@ -1125,6 +1126,12 @@ export default function CompanyInterview() {
     };
 
     const startInterview = async () => {
+        // Coding & OA rounds are strictly non-voice assessments
+        if (config.stage === 'OA' || config.stage === 'DSA / Coding') {
+            navigate(`/coding-round?company=${encodeURIComponent(config.company)}&role=${encodeURIComponent(config.role)}&difficulty=${encodeURIComponent(config.difficulty)}`);
+            return;
+        }
+
         setLoading(true);
         setRealtimeStartError('');
         timeLimitTriggeredRef.current = false;
@@ -1942,6 +1949,11 @@ export default function CompanyInterview() {
                                     <select value={config.stage} onChange={e => setConfig(prev => ({ ...prev, stage: e.target.value }))}>
                                         {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
+                                    {(config.stage === 'OA' || config.stage === 'DSA / Coding') && (
+                                        <div style={{ marginTop: 8, fontSize: 12, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                            <Code2 size={14} /> Non-voice Exam Mode — HackerRank-style silent coding environment.
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="ti-form-section">
                                     <label>{INTERVIEW_LABELS.difficulty}</label>

@@ -196,8 +196,11 @@ export default function CompanyPrep() {
           <button className={`cp-filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
             <Filter size={16} /> Filters {hasActiveFilters && <span className="cp-filter-badge">{[selectedDifficulty, selectedStage, selectedRole, frequencyMin > 0, recentFilter > 0, showSolvedOnly, showBookmarkedOnly, selectedCompanies.length > 0].filter(Boolean).length}</span>}
           </button>
+          <Link to="/coding-round" className="cp-action-link" style={{ background: 'linear-gradient(135deg, #059669, #10b981)', color: '#ffffff', textDecoration: 'none' }}>
+            <Code2 size={16} /> Coding Exam (OA)
+          </Link>
           <Link to="/company-interview" className="cp-action-link">
-            <Mic size={16} /> Mock Interview
+            <Mic size={16} /> Voice Interview
           </Link>
         </div>
       </div>

@@ -73,9 +73,53 @@ export default function MultiRoundInterview() {
     const [selectedRounds, setSelectedRounds] = useState(() => initialCtx.current?.selectedRounds || ['dsa', 'system-design', 'behavioral']);
 
     // Progress
-    const [phase, setPhase] = useState('setup'); // setup | transition | active | report
-    const [currentRoundIdx, setCurrentRoundIdx] = useState(() => initialCtx.current?.currentRoundIdx || 0);
-    const [roundResults, setRoundResults] = useState(() => initialCtx.current?.previousRounds || []); // {roundId, score, strengths, improvements, conversation}
+    const [phase, setPhase] = useState(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                if (sessionStorage.getItem('multiRoundResult')) {
+                    const rawCtx = sessionStorage.getItem('multiRoundContext');
+                    if (rawCtx) {
+                        const ctx = JSON.parse(rawCtx);
+                        const nextIdx = (ctx.currentRoundIdx ?? 0) + 1;
+                        const total = ctx.totalRounds ?? (ctx.selectedRounds ? ctx.selectedRounds.length : 3);
+                        return nextIdx < total ? 'transition' : 'report';
+                    }
+                    return 'transition';
+                }
+                if (initialCtx.current?.currentRoundIdx > 0 && initialCtx.current?.previousRounds?.length > 0) {
+                    const total = initialCtx.current.totalRounds ?? (initialCtx.current.selectedRounds ? initialCtx.current.selectedRounds.length : 3);
+                    return initialCtx.current.currentRoundIdx < total ? 'transition' : 'report';
+                }
+            }
+        } catch {}
+        return 'setup';
+    });
+    const [currentRoundIdx, setCurrentRoundIdx] = useState(() => {
+        try {
+            if (typeof window !== 'undefined' && sessionStorage.getItem('multiRoundResult')) {
+                const rawCtx = sessionStorage.getItem('multiRoundContext');
+                if (rawCtx) {
+                    const ctx = JSON.parse(rawCtx);
+                    return (ctx.currentRoundIdx ?? 0) + 1;
+                }
+            }
+        } catch {}
+        return initialCtx.current?.currentRoundIdx || 0;
+    });
+    const [roundResults, setRoundResults] = useState(() => {
+        try {
+            if (typeof window !== 'undefined' && sessionStorage.getItem('multiRoundResult')) {
+                const rawResult = sessionStorage.getItem('multiRoundResult');
+                const prev = initialCtx.current?.previousRounds || [];
+                if (rawResult) {
+                    const parsed = JSON.parse(rawResult);
+                    const score = Math.round(Number(parsed.score ?? parsed.percentage ?? parsed.finalScore?.percentage ?? 0));
+                    return [...prev, { ...parsed, score }];
+                }
+            }
+        } catch {}
+        return initialCtx.current?.previousRounds || [];
+    });
     const saveIdempotencyKeyRef = useRef(
         `multi-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
@@ -109,12 +153,12 @@ export default function MultiRoundInterview() {
         return { text: 'Needs Improvement 📚', color: '#ef4444' };
     };
 
-    // Start interview → navigate to CompanyInterview with the right config
+    // Start interview → navigate to CodingAssessment or CompanyInterview with the right config
     const startRound = () => {
         const round = activeRounds[currentRoundIdx];
         if (!round) return;
 
-        // Store multi-round context in sessionStorage for CompanyInterview to pick up
+        // Store multi-round context in sessionStorage for CodingAssessment / CompanyInterview to pick up
         sessionStorage.setItem('multiRoundContext', JSON.stringify({
             multiRound: true,
             company,
@@ -129,7 +173,12 @@ export default function MultiRoundInterview() {
             previousRounds: roundResults
         }));
 
-        navigate(`/company-interview?multiRound=true&stage=${encodeURIComponent(round.stage)}&company=${company}&role=${role}&difficulty=${difficulty}`);
+        if (round.id === 'dsa') {
+            navigate(`/coding-round?multiRound=true&company=${encodeURIComponent(company)}&role=${encodeURIComponent(role)}&difficulty=${encodeURIComponent(difficulty)}`);
+            return;
+        }
+
+        navigate(`/company-interview?multiRound=true&stage=${encodeURIComponent(round.stage)}&company=${encodeURIComponent(company)}&role=${encodeURIComponent(role)}&difficulty=${encodeURIComponent(difficulty)}`);
     };
 
     // Save session to backend and local history
@@ -190,8 +239,23 @@ export default function MultiRoundInterview() {
                 console.error("Failed to parse multiRoundResult:", e);
             }
             if (result) {
+                const roundScore = Math.round(Number(result.score ?? result.percentage ?? result.finalScore?.percentage ?? 0));
+                const normalizedResult = {
+                    roundId: result.roundId || ctx?.roundId || 'dsa',
+                    stage: result.stage || ctx?.stage || 'DSA / Coding',
+                    strengths: Array.isArray(result.strengths) && result.strengths.length > 0
+                        ? result.strengths
+                        : [
+                            result.passedProblems !== undefined ? `Passed ${result.passedProblems}/${result.totalProblems || result.passedProblems} problems` : 'Coding assessment completed',
+                            result.verdict || `${roundScore}% score`
+                        ],
+                    improvements: Array.isArray(result.improvements) ? result.improvements : [],
+                    ...result,
+                    score: roundScore
+                };
+
                 const prevRounds = ctx?.previousRounds || [];
-                const updatedResults = [...prevRounds, result];
+                const updatedResults = [...prevRounds, normalizedResult];
                 setRoundResults(updatedResults);
 
                 const restoredIdx = ctx ? (ctx.currentRoundIdx ?? 0) : 0;
@@ -201,6 +265,17 @@ export default function MultiRoundInterview() {
                 const total = ctx?.totalRounds ?? (ctx?.selectedRounds ? ctx.selectedRounds.length : activeRounds.length);
                 if (nextIdx < total) {
                     setPhase('transition');
+                    sessionStorage.setItem('multiRoundContext', JSON.stringify({
+                        ...(ctx || {}),
+                        multiRound: true,
+                        company: ctx?.company || company,
+                        role: ctx?.role || role,
+                        difficulty: ctx?.difficulty || difficulty,
+                        selectedRounds: ctx?.selectedRounds || selectedRounds,
+                        currentRoundIdx: nextIdx,
+                        totalRounds: total,
+                        previousRounds: updatedResults
+                    }));
                 } else {
                     setPhase('report');
                     sessionStorage.removeItem('multiRoundContext');
@@ -213,7 +288,7 @@ export default function MultiRoundInterview() {
                 }
             }
         }
-    }, []);
+    }, [company, role, difficulty, activeRounds.length]);
 
     // ═══════════════════════════════════════════
     //  SETUP PHASE — Select company, rounds

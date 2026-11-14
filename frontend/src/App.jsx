@@ -86,6 +86,7 @@ const SystemDesignSimulator = lazyWithRecovery(() => import('./pages/SystemDesig
 const CompanyPrep = lazyWithRecovery(() => import('./pages/CompanyPrep'));
 
 const MultiRoundInterview = lazyWithRecovery(() => import('./pages/MultiRoundInterview'));
+const CodingAssessmentPage = lazyWithRecovery(() => import('./pages/CodingAssessmentPage'));
 const InterviewAnalytics = lazyWithRecovery(() => import('./pages/InterviewAnalytics'));
 const InterviewHistory = lazyWithRecovery(() => import('./pages/InterviewHistory'));
 const PlaybackPage = lazyWithRecovery(() => import('./pages/PlaybackPage'));
@@ -225,6 +226,7 @@ function AppContent() {
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview' || location.pathname === '/app';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
+  const isCodingAssessmentRoute = location.pathname === '/coding-round' || location.pathname === '/coding-assessment';
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
@@ -237,16 +239,16 @@ function AppContent() {
   }
 
   // Routes that should NOT have any padding/margins (full viewport)
-  const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute || isPublicPortfolioRoute;
+  const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute || isPublicPortfolioRoute || isCodingAssessmentRoute;
 
   // Routes that should show the global sidebar
-  const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute;
+  const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute && !isCodingAssessmentRoute;
 
   // Routes that should hide the top navbar
-  const hideNavbar = isPaymentRoute || isAuthRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute || isPublicPortfolioRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute || isPublicPortfolioRoute || isCodingAssessmentRoute;
 
   // For backward compatibility with existing class logic
-  const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute;
+  const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute || isCodingAssessmentRoute;
 
 
   return (
@@ -350,6 +352,8 @@ function AppContent() {
                 <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
                 <Route path="/interview-suite" element={<InterviewSuite />} />
                 <Route path="/multi-round-interview" element={<MultiRoundInterview />} />
+                <Route path="/coding-round" element={<CodingAssessmentPage />} />
+                <Route path="/coding-assessment" element={<CodingAssessmentPage />} />
                 <Route path="/peer-interview" element={<PeerInterviewRoom />} />
                 <Route path="/peer-interview/:roomCode" element={<PeerInterviewRoom />} />
                 <Route path="/interview-platform" element={<InterviewPlatform />} />
@@ -413,7 +417,7 @@ function AppContent() {
           </RouteErrorBoundary>
         </div>
 
-        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && !isPublicPortfolioRoute && <AppFooter />}
+        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && !isPublicPortfolioRoute && !isCodingAssessmentRoute && <AppFooter />}
       </div>
     </div>
   );

@@ -137,6 +137,14 @@ export default function AIInterviewPage() {
     const questionSetCode = tokenParam || searchParams.get('set')?.trim();
     const voiceOnlyInterview = Boolean(questionSetCode);
     const focusArea = searchParams.get('focus') || '';
+
+    // Route non-voice coding/OA exam rounds directly to CodingAssessmentPage
+    useEffect(() => {
+        const rawStage = (searchParams.get('stage') || searchParams.get('type') || '').toLowerCase();
+        if (rawStage === 'oa' || rawStage === 'dsa / coding' || rawStage === 'dsa' || rawStage === 'coding') {
+            navigate(`/coding-round?${searchParams.toString()}`, { replace: true });
+        }
+    }, [searchParams, navigate]);
     const {
         state, refs, actions,
         voiceAI, intelligence, isListening,
@@ -223,9 +231,17 @@ export default function AIInterviewPage() {
             setLobbyCameraStream(null);
         }
 
-        // 4. Begin interview (or navigate to peer interview)
+        // 4. Begin interview (or navigate to dedicated non-voice coding round / peer interview)
         if (interviewType === 'peer') {
             navigate('/peer-interview');
+            return;
+        }
+        if (interviewType === 'coding' || interviewType === 'dsa' || interviewType === 'oa') {
+            const params = new URLSearchParams();
+            if (targetCompany) params.set('company', targetCompany);
+            if (targetRole) params.set('role', targetRole);
+            if (experienceLevel) params.set('difficulty', experienceLevel === 'senior' ? 'Hard' : experienceLevel === 'mid' ? 'Medium' : 'Easy');
+            navigate(`/coding-round?${params.toString()}`);
             return;
         }
         startInterview();

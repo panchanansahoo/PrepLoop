@@ -102,10 +102,19 @@ function TrackDetail({ trackId }) {
                     {track.rounds.map((round, i) => (
                         <div key={i} className={`ct-round ct-round-${round.type}`}>
                             <div className="ct-round-num">{i + 1}</div>
-                            <div>
+                            <div style={{ flex: 1 }}>
                                 <h4>{round.name}</h4>
                                 <p>{round.desc}</p>
                             </div>
+                            {round.type === 'test' ? (
+                                <Link to={`/coding-round?company=${track.id}&role=${encodeURIComponent(track.name)}`} className="ct-syl-link" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                    Start Coding Exam →
+                                </Link>
+                            ) : (
+                                <Link to={`/company-interview?company=${track.id}&stage=${encodeURIComponent(round.name)}`} className="ct-syl-link" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                    Voice Interview →
+                                </Link>
+                            )}
                         </div>
                     ))}
                 </div>
