@@ -2,7 +2,7 @@ import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { optionalAuth } from '../../middleware/auth.ts';
 import { customInterviewLimiter, customInterviewSubmissionLimiter } from '../../middleware/apiRateLimiter.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { evaluateFresherAnswer, generateExecutiveSummary } from '../../services/interviewAnswerEvaluator.js';
 import {
   isInterviewLinkExpired,
   verifyInterviewInviteeEmail,
@@ -334,6 +334,14 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
       decision = 'review_needed';
     }
 
+    const executiveSummary = generateExecutiveSummary({
+      overallScore: serverOverallScore,
+      passingScore,
+      decision,
+      integrity,
+      breakdown,
+    });
+
     const submissionPayload = {
       question_set_id: questionSet.id,
       attempt_id: attemptId,
@@ -348,6 +356,7 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
         breakdown,
         passingScore,
         decision,
+        executiveSummary,
       },
       overall_score: serverOverallScore,
       duration: sanitizedDuration,
@@ -386,6 +395,7 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
         overallScore: serverOverallScore,
         passingScore,
         decision,
+        executiveSummary,
         integrity: {
           rating: integrity.integrityRating,
           score: integrity.integrityScore,
@@ -539,6 +549,11 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       };
     });
 
+    const candidateScoreList = breakdown.map((b) => b.score).filter((s) => typeof s === 'number');
+    let overallScore = candidateScoreList.length > 0
+      ? Math.round(candidateScoreList.reduce((a, b) => a + b, 0) / candidateScoreList.length)
+      : 0;
+
     const passingScore = Number(questionSet.settings?.passingScore) || 70;
     let decision = 'qualified';
     if (integrity.flagged || overallScore < passingScore - 15) {
@@ -547,13 +562,23 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
       decision = 'review_needed';
     }
 
+    const executiveSummary = generateExecutiveSummary({
+      overallScore,
+      passingScore,
+      decision,
+      integrity,
+      breakdown,
+    });
+
     let scores = {
+      serverOverallScore: overallScore,
+      answerCount: candidateAnswers.length,
       integrity,
       breakdown,
       passingScore,
       decision,
+      executiveSummary,
     };
-    let overallScore = 0;
     if (candidateAnswers.length > 0) {
       try {
         const evaluation = await evaluateFresherAnswer({
@@ -650,6 +675,7 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
         overallScore,
         passingScore,
         decision,
+        executiveSummary,
         integrity: {
           rating: integrity.integrityRating,
           score: integrity.integrityScore,
@@ -669,6 +695,136 @@ router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAu
     res.status(500).json({ error: 'Failed to save submission' });
   }
 });
+
+/**
+ * Evaluates candidate turn for probing mode:
+ * When probingMode is active and expectedTopics are partially or wholly omitted,
+ * generates a targeted follow-up probing question.
+ */
+export function generateProbingFollowUp({
+  question = '',
+  userAnswer = '',
+  expectedTopics = [],
+  probingMode = false,
+  stage = 'Technical',
+} = {}) {
+  const answerText = String(userAnswer || '').trim();
+  const topics = Array.isArray(expectedTopics) ? expectedTopics : [];
+  const topicEval = matchExpectedTopics(answerText, topics);
+  const evaluation = evaluateFresherAnswer(answerText, stage);
+
+  const hasMissed = topicEval.missedTopics.length > 0;
+  const isShort = answerText.split(/\s+/).filter(Boolean).length < 25;
+  const shouldProbe = Boolean(probingMode) && answerText.length > 10 && (hasMissed || isShort);
+
+  let probingQuestion = null;
+  if (shouldProbe) {
+    const targetTopic = topicEval.missedTopics[0] || (topics.length > 0 ? topics[0] : 'the practical trade-offs');
+    probingQuestion = `You touched on key aspects. Could you elaborate specifically on ${targetTopic} in your approach?`;
+  }
+
+  return {
+    score: evaluation.score,
+    rubric: evaluation.rubric,
+    strengths: evaluation.strengths,
+    improvements: evaluation.improvements,
+    feedbackSummary: evaluation.feedbackSummary,
+    topicEvaluation: topicEval,
+    coveredTopics: topicEval.coveredTopics,
+    missedTopics: topicEval.missedTopics,
+    coverageRatio: topicEval.coverageRatio,
+    isProbe: shouldProbe,
+    followUpQuestion: probingQuestion,
+    needsProbing: shouldProbe,
+  };
+}
+
+// ─── Turn Evaluation with Adaptive Probing ───
+async function handleTurnEvaluation(req, res) {
+  try {
+    const code = req.params.code || req.params.token;
+    const {
+      attemptId,
+      questionIndex = 0,
+      userAnswer = '',
+      answer = '',
+      currentQuestion = '',
+      code: candidateCode = '',
+    } = req.body;
+
+    const answerText = String(userAnswer || answer || '').trim();
+
+    const { data: questionSet } = await findQuestionSetByCodeOrInvite(code);
+    if (!questionSet) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const probingMode = Boolean(questionSet.settings?.probingMode);
+    const questions = Array.isArray(questionSet.questions) ? questionSet.questions : [];
+    const questionItem = questions[questionIndex] || questions.find((q) =>
+      (typeof q === 'string' ? q : q.question || q.text) === currentQuestion
+    ) || null;
+
+    const expectedTopics = typeof questionItem === 'object' && Array.isArray(questionItem?.expectedTopics)
+      ? questionItem.expectedTopics
+      : (Array.isArray(questionItem?.topics) ? questionItem.topics : []);
+
+    const probingResult = generateProbingFollowUp({
+      question: typeof questionItem === 'string' ? questionItem : (questionItem?.question || currentQuestion),
+      userAnswer: answerText,
+      expectedTopics,
+      probingMode,
+      stage: questionSet.interview_type || 'Technical',
+    });
+
+    if (attemptId) {
+      try {
+        const { data: attempt } = await supabaseAdmin
+          .from('admin_interview_attempts')
+          .select('id, responses')
+          .eq('id', attemptId)
+          .maybeSingle();
+
+        if (attempt) {
+          const currentResponses = Array.isArray(attempt.responses) ? attempt.responses : [];
+          const updatedResponses = [
+            ...currentResponses,
+            {
+              role: 'candidate',
+              status: answerText ? 'answered' : 'skipped',
+              questionIndex,
+              question: typeof questionItem === 'string' ? questionItem : (questionItem?.question || currentQuestion),
+              content: answerText,
+              code: candidateCode || undefined,
+              isProbe: probingResult.isProbe,
+              timestamp: new Date().toISOString(),
+            },
+          ];
+          await supabaseAdmin
+            .from('admin_interview_attempts')
+            .update({ responses: updatedResponses })
+            .eq('id', attemptId);
+        }
+      } catch (_dbErr) {
+        // Non-blocking attempt record
+      }
+    }
+
+    res.json({
+      success: true,
+      probingMode,
+      ...probingResult,
+    });
+  } catch (error) {
+    console.error('Turn evaluation error:', error);
+    res.status(500).json({ error: 'Failed to evaluate turn' });
+  }
+}
+
+router.post('/question-set/:code/turn', customInterviewLimiter, optionalAuth, handleTurnEvaluation);
+router.post('/question-set/:code/evaluate-turn', customInterviewLimiter, optionalAuth, handleTurnEvaluation);
+router.post('/token/:token/turn', customInterviewLimiter, optionalAuth, handleTurnEvaluation);
+router.post('/token/:token/evaluate-turn', customInterviewLimiter, optionalAuth, handleTurnEvaluation);
 
 export default router;
 

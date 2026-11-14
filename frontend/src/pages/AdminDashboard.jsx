@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import './AdminDashboard.css';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
+import { QUESTION_SET_TEMPLATES } from '../data/questionSetTemplates.js';
+import CandidateReviewDossier from '../components/interview/CandidateReviewDossier.jsx';
 
 const adminApi = {
   get: async (url, config = {}) => {
@@ -153,6 +155,7 @@ export default function AdminDashboard() {
   const [attemptsLoading, setAttemptsLoading] = useState(false);
   const [expandedSubmissionId, setExpandedSubmissionId] = useState(null);
   const [printingSubmission, setPrintingSubmission] = useState(null);
+  const [viewingDossier, setViewingDossier] = useState(null);
   const [submissionDecisionFilter, setSubmissionDecisionFilter] = useState('all');
   const [editingReviewNotes, setEditingReviewNotes] = useState({});
   const [savingReviewId, setSavingReviewId] = useState(null);
@@ -198,6 +201,16 @@ export default function AdminDashboard() {
   const [bulkCsvText, setBulkCsvText] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkError, setBulkError] = useState('');
+
+  // AI JD Generation Modal state
+  const [showAiGenModal, setShowAiGenModal] = useState(false);
+  const [aiJdText, setAiJdText] = useState('');
+  const [aiRoleTitle, setAiRoleTitle] = useState('');
+  const [aiInterviewType, setAiInterviewType] = useState('technical');
+  const [aiDifficulty, setAiDifficulty] = useState('medium');
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenError, setAiGenError] = useState('');
 
   const LIMIT = 15;
 
@@ -586,79 +599,285 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleParseBulkUpload = (rawText) => {
-    setBulkError('');
-    if (!rawText || !rawText.trim()) return;
+  // ─── 1-Click Load Template Handler ───
+  const handleLoadTemplate = (templateId) => {
+    if (!templateId) return;
+    const template = QUESTION_SET_TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+
+    const hasQuestions = setForm.questions.some(q => q.question && q.question.trim());
+    if (hasQuestions) {
+      const confirmReplace = window.confirm(
+        `Load preset "${template.title}"? This will populate the form with ${template.questions.length} curated questions.`
+      );
+      if (!confirmReplace) return;
+    }
+
+    setSetForm(prev => ({
+      ...prev,
+      title: prev.title.trim() ? prev.title : template.title,
+      description: prev.description.trim() ? prev.description : template.description,
+      interviewType: template.interviewType || prev.interviewType,
+      difficulty: template.difficulty || prev.difficulty,
+      roleName: template.roleName || prev.roleName,
+      customInstructions: template.customInstructions || prev.customInstructions,
+      probingMode: template.probingMode ?? prev.probingMode,
+      passingScore: template.passingScore ?? prev.passingScore,
+      questions: template.questions.map(q => ({
+        question: q.question,
+        context: q.context || '',
+        expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics.join(', ') : (q.expectedTopics || ''),
+        timeLimit: q.timeLimit || 90,
+      })),
+    }));
+
+    setSuccess(`Loaded "${template.title}" preset (${template.questions.length} questions).`);
+  };
+
+  // ─── AI Question Generation from Job Description ───
+  const openAiGenModal = () => {
+    setAiJdText('');
+    setAiRoleTitle(setForm.roleName || '');
+    setAiInterviewType(setForm.interviewType || 'technical');
+    setAiDifficulty(setForm.difficulty || 'medium');
+    setAiQuestionCount(5);
+    setAiGenError('');
+    setShowAiGenModal(true);
+  };
+
+  const handleGenerateFromJd = async (e) => {
+    e?.preventDefault();
+    if (!aiJdText.trim()) {
+      setAiGenError('Please paste a job description');
+      return;
+    }
+
+    setAiGenerating(true);
+    setAiGenError('');
 
     try {
-      if (rawText.trim().startsWith('[') || rawText.trim().startsWith('{')) {
-        const parsed = JSON.parse(rawText);
-        const items = Array.isArray(parsed) ? parsed : (parsed.questions || []);
-        if (items.length === 0) throw new Error('No questions found in JSON array');
-        const formatted = items.map(item => ({
+      const res = await adminApi.post(buildAdminApiUrl('/admin/question-sets/generate-from-jd'), {
+        jobDescription: aiJdText.trim(),
+        roleName: aiRoleTitle.trim() || undefined,
+        interviewType: aiInterviewType,
+        difficulty: aiDifficulty,
+        questionCount: Number(aiQuestionCount) || 5,
+      });
+
+      const data = res.data;
+      if (!data || !Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error('No questions could be generated from the provided job description');
+      }
+
+      const formattedQuestions = data.questions.map(q => ({
+        question: q.question || '',
+        context: q.context || '',
+        expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics.join(', ') : (q.expectedTopics || ''),
+        timeLimit: Number(q.timeLimit) || 120,
+      }));
+
+      setEditingSet(null);
+      setSetForm({
+        ...initialSetForm,
+        title: data.suggestedTitle || (aiRoleTitle ? `${aiRoleTitle} Assessment` : 'Role Assessment'),
+        description: `Tailored interview assessment generated from job description for ${data.roleName || aiRoleTitle || 'Candidate'}.`,
+        interviewType: data.interviewType || aiInterviewType,
+        difficulty: data.difficulty || aiDifficulty,
+        roleName: data.roleName || aiRoleTitle || '',
+        probingMode: true,
+        questions: formattedQuestions,
+      });
+
+      setShowAiGenModal(false);
+      setShowSetModal(true);
+      setSuccess(`Generated ${formattedQuestions.length} tailored questions from Job Description! Review and customize below.`);
+    } catch (err) {
+      console.error('AI question generation error:', err);
+      setAiGenError(err.response?.data?.error || err.message || 'Failed to generate questions from JD');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // ─── CSV / JSON Bulk Upload Validation & Parsing ───
+  const validateAndParseCsvQuestions = useCallback((rawText) => {
+    if (!rawText || !rawText.trim()) {
+      return { rows: [], stats: { total: 0, valid: 0, warningsCount: 0, totalSeconds: 0, estimatedDuration: '0s' } };
+    }
+
+    let rawItems = [];
+    const text = rawText.trim();
+
+    // Try parsing as JSON array
+    if (text.startsWith('[') || text.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        const arr = Array.isArray(parsed) ? parsed : (parsed.questions || []);
+        rawItems = arr.map(item => ({
           question: typeof item === 'string' ? item : (item.question || item.text || ''),
           context: item.context || '',
           expectedTopics: Array.isArray(item.expectedTopics) ? item.expectedTopics.join(', ') : (item.expectedTopics || item.topics || ''),
-          timeLimit: item.timeLimit || item.time_limit || 60,
-        })).filter(q => q.question);
-
-        setSetForm(prev => ({
-          ...prev,
-          questions: [...prev.questions.filter(q => q.question.trim()), ...formatted]
+          timeLimit: Number(item.timeLimit || item.time_limit || 60),
         }));
-        setShowBulkUpload(false);
-        setBulkCsvText('');
-        return;
+      } catch {
+        // Fallback to CSV parsing below
       }
-
-      const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length === 0) throw new Error('File is empty');
-
-      const firstLine = lines[0].toLowerCase();
-      const hasHeader = firstLine.includes('question');
-      const dataLines = hasHeader ? lines.slice(1) : lines;
-
-      const newQuestions = dataLines.map(line => {
-        const cols = [];
-        let cur = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"' && line[i + 1] === '"') {
-            cur += '"';
-            i++;
-          } else if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            cols.push(cur.trim());
-            cur = '';
-          } else {
-            cur += char;
-          }
-        }
-        cols.push(cur.trim());
-
-        return {
-          question: cols[0] || '',
-          context: cols[1] || '',
-          expectedTopics: cols[2] || '',
-          timeLimit: Number(cols[3]) || 60,
-        };
-      }).filter(q => q.question);
-
-      if (newQuestions.length === 0) {
-        throw new Error('No valid questions found in CSV');
-      }
-
-      setSetForm(prev => ({
-        ...prev,
-        questions: [...prev.questions.filter(q => q.question.trim()), ...newQuestions]
-      }));
-      setShowBulkUpload(false);
-      setBulkCsvText('');
-    } catch (err) {
-      setBulkError(err.message || 'Failed to parse questions');
     }
+
+    // Parse CSV lines
+    if (rawItems.length === 0) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) {
+        const firstLine = lines[0].toLowerCase();
+        const hasHeader = firstLine.includes('question') || firstLine.includes('topic');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        rawItems = dataLines.map(line => {
+          const cols = [];
+          let cur = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"' && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              cols.push(cur.trim());
+              cur = '';
+            } else {
+              cur += char;
+            }
+          }
+          cols.push(cur.trim());
+
+          return {
+            question: cols[0] || '',
+            context: cols[1] || '',
+            expectedTopics: cols[2] || '',
+            timeLimit: Number(cols[3]) || 60,
+          };
+        });
+      }
+    }
+
+    let warningsCount = 0;
+    let totalSeconds = 0;
+
+    const rows = rawItems.map((item, idx) => {
+      const warnings = [];
+      const qText = (item.question || '').trim();
+      const isValid = Boolean(qText);
+
+      if (!qText) {
+        warnings.push('Question text missing');
+      } else if (qText.length < 15) {
+        warnings.push('Brief question (<15 chars)');
+      }
+
+      const topics = (item.expectedTopics || '').trim();
+      if (!topics) {
+        warnings.push('Missing expected topics');
+      }
+
+      const tLimit = Number(item.timeLimit) || 60;
+      if (tLimit < 30) {
+        warnings.push('Time limit <30s');
+      } else if (tLimit > 300) {
+        warnings.push('Time limit >5 min');
+      }
+
+      if (isValid) {
+        warningsCount += warnings.length;
+        totalSeconds += tLimit;
+      }
+
+      return {
+        index: idx + 1,
+        question: qText,
+        context: (item.context || '').trim(),
+        expectedTopics: topics,
+        timeLimit: tLimit,
+        warnings,
+        isValid,
+      };
+    });
+
+    const validRows = rows.filter(r => r.isValid);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const estimatedDuration = minutes > 0
+      ? (seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes} min`)
+      : `${seconds}s`;
+
+    return {
+      rows,
+      stats: {
+        total: rows.length,
+        valid: validRows.length,
+        warningsCount,
+        totalSeconds,
+        estimatedDuration,
+      }
+    };
+  }, []);
+
+  const csvPreview = useMemo(() => {
+    return validateAndParseCsvQuestions(bulkCsvText);
+  }, [bulkCsvText, validateAndParseCsvQuestions]);
+
+  const handleApplyBulkAppend = () => {
+    setBulkError('');
+    const validRows = csvPreview.rows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      setBulkError('No valid questions found to append');
+      return;
+    }
+
+    const newQuestions = validRows.map(r => ({
+      question: r.question,
+      context: r.context,
+      expectedTopics: r.expectedTopics,
+      timeLimit: r.timeLimit,
+    }));
+
+    setSetForm(prev => ({
+      ...prev,
+      questions: [
+        ...prev.questions.filter(q => q.question && q.question.trim()),
+        ...newQuestions
+      ]
+    }));
+
+    setSuccess(`Appended ${validRows.length} questions from upload.`);
+    setShowBulkUpload(false);
+    setBulkCsvText('');
+  };
+
+  const handleApplyBulkReplace = () => {
+    setBulkError('');
+    const validRows = csvPreview.rows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      setBulkError('No valid questions found to import');
+      return;
+    }
+
+    const newQuestions = validRows.map(r => ({
+      question: r.question,
+      context: r.context,
+      expectedTopics: r.expectedTopics,
+      timeLimit: r.timeLimit,
+    }));
+
+    setSetForm(prev => ({
+      ...prev,
+      questions: newQuestions
+    }));
+
+    setSuccess(`Replaced question list with ${validRows.length} imported questions.`);
+    setShowBulkUpload(false);
+    setBulkCsvText('');
   };
 
   const handleFileUpload = (e) => {
@@ -667,8 +886,7 @@ export default function AdminDashboard() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = evt.target.result;
-      setBulkCsvText(text);
-      handleParseBulkUpload(text);
+      setBulkCsvText(text || '');
     };
     reader.readAsText(file);
   };
@@ -1576,6 +1794,20 @@ export default function AdminDashboard() {
                 onChange={e => { setQuestionSetSearch(e.target.value); setQuestionSetPage(1); }}
               />
             </div>
+            <button
+              className="admin-btn-secondary"
+              onClick={openAiGenModal}
+              style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(168,85,247,0.2) 100%)',
+                borderColor: 'rgba(168,85,247,0.4)',
+                color: '#e9d5ff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Sparkles size={16} /> Generate with AI
+            </button>
             <button className="admin-btn-primary" onClick={openCreateSet}>
               <Plus size={16} /> Create Question Set
             </button>
@@ -1800,6 +2032,57 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleSaveQuestionSet} className="admin-job-form" style={{ padding: '20px 24px 24px' }}>
+              {/* 1-Click Load Template Presets */}
+              <div style={{
+                background: 'rgba(99,102,241,0.08)',
+                border: '1px solid rgba(99,102,241,0.22)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                marginBottom: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ⚡ 1-Click Templates:
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                    Industry-standard presets
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {QUESTION_SET_TEMPLATES.map(tpl => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      className="admin-btn-sm"
+                      onClick={() => handleLoadTemplate(tpl.id)}
+                      style={{
+                        fontSize: '11px',
+                        padding: '5px 11px',
+                        background: 'rgba(255,255,255,0.07)',
+                        color: '#e0e7ff',
+                        border: '1px solid rgba(255,255,255,0.18)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                      title={`Load ${tpl.title} (${tpl.questions.length} questions)`}
+                    >
+                      {tpl.id === 'frontend-react' && '⚛️ React Frontend'}
+                      {tpl.id === 'backend-nodejs' && '🟢 Node.js Backend'}
+                      {tpl.id === 'system-design' && '📐 System Design'}
+                      {tpl.id === 'behavioral-star' && '🤝 Behavioral STAR'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group" style={{ flex: 2 }}>
                   <label>Title *</label>
@@ -2075,7 +2358,15 @@ export default function AdminDashboard() {
                       Candidates will be asked these exact questions sequentially.
                     </p>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="admin-btn-sm"
+                      onClick={openAiGenModal}
+                      style={{ background: 'rgba(168,85,247,0.14)', color: '#d8b4fe', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Sparkles size={14} /> AI from JD
+                    </button>
                     <button
                       type="button"
                       className="admin-btn-sm"
@@ -2104,12 +2395,12 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Bulk upload area */}
+                {/* Bulk upload area with inline preview table validator */}
                 {showBulkUpload && (
                   <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(99,102,241,0.4)', borderRadius: '12px', padding: '16px', marginBottom: '18px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <span style={{ fontSize: '13px', fontWeight: '700', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <FileUp size={15} /> Upload CSV or JSON
+                        <FileUp size={15} /> Upload CSV or JSON Questions
                       </span>
                       <input
                         type="file"
@@ -2119,28 +2410,129 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '0 0 10px' }}>
-                      Paste CSV format: <code>question, context, expected_topics, time_limit</code> or standard JSON array.
+                      Format: <code>question, context, expected_topics, time_limit</code> or JSON array. Table validates and estimates duration automatically.
                     </p>
                     <textarea
                       rows={3}
                       value={bulkCsvText}
                       onChange={e => setBulkCsvText(e.target.value)}
                       placeholder={`What is virtualization?, Cloud computing context, VMs containers hardware, 60\nHow does Docker handle networking?, Docker network drivers, bridge host overlay, 90`}
-                      style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }}
+                      style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace', marginBottom: '10px' }}
                     />
                     {bulkError && (
-                      <div style={{ color: '#fca5a5', fontSize: '12px', marginTop: '6px' }}>
+                      <div style={{ color: '#fca5a5', fontSize: '12px', marginBottom: '10px' }}>
                         {bulkError}
                       </div>
                     )}
-                    <button
-                      type="button"
-                      className="admin-btn-primary"
-                      onClick={() => handleParseBulkUpload(bulkCsvText)}
-                      style={{ marginTop: '8px', padding: '6px 14px', fontSize: '12px' }}
-                    >
-                      Parse & Append Questions
-                    </button>
+
+                    {/* Inline Validator Metrics Summary Bar */}
+                    {csvPreview.rows.length > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        background: 'rgba(15,23,42,0.6)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        marginBottom: '12px',
+                        flexWrap: 'wrap'
+                      }}>
+                        <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <strong>Questions:</strong> <span style={{ color: '#38bdf8' }}>{csvPreview.stats.total} total</span> ({csvPreview.stats.valid} valid)
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <strong>Est. Duration:</strong> <span style={{ color: '#4ade80' }}>⏱️ {csvPreview.stats.estimatedDuration}</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <strong>Warnings:</strong> {csvPreview.stats.warningsCount > 0 ? (
+                            <span style={{ color: '#fbbf24' }}>⚠️ {csvPreview.stats.warningsCount} warning{csvPreview.stats.warningsCount > 1 ? 's' : ''}</span>
+                          ) : (
+                            <span style={{ color: '#4ade80' }}>✓ 0 warnings (Clean)</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline Preview Table */}
+                    {csvPreview.rows.length > 0 && (
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                              <th style={{ padding: '6px 8px', width: '32px' }}>#</th>
+                              <th style={{ padding: '6px 8px' }}>Question Text</th>
+                              <th style={{ padding: '6px 8px' }}>Context / Hint</th>
+                              <th style={{ padding: '6px 8px' }}>Expected Topics</th>
+                              <th style={{ padding: '6px 8px', width: '60px' }}>Time</th>
+                              <th style={{ padding: '6px 8px', width: '140px' }}>Validation Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {csvPreview.rows.map(row => (
+                              <tr key={row.index} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: row.isValid ? 'transparent' : 'rgba(239,68,68,0.05)' }}>
+                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.5)' }}>{row.index}</td>
+                                <td style={{ padding: '6px 8px', color: row.isValid ? '#e2e8f0' : '#f87171', fontWeight: 500, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {row.question || '<Empty Question>'}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.5)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {row.context || '—'}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: 'rgba(255,255,255,0.6)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {row.expectedTopics || '—'}
+                                </td>
+                                <td style={{ padding: '6px 8px', color: '#93c5fd' }}>
+                                  {row.timeLimit}s
+                                </td>
+                                <td style={{ padding: '6px 8px' }}>
+                                  {!row.isValid ? (
+                                    <span style={{ color: '#ef4444', fontSize: '10px' }}>❌ Missing text</span>
+                                  ) : row.warnings.length > 0 ? (
+                                    <span style={{ color: '#f59e0b', fontSize: '10px' }} title={row.warnings.join(', ')}>
+                                      ⚠️ {row.warnings[0]}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#10b981', fontSize: '10px' }}>✓ Valid</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="admin-btn-primary"
+                        onClick={handleApplyBulkAppend}
+                        disabled={csvPreview.stats.valid === 0}
+                        style={{ padding: '6px 14px', fontSize: '12px' }}
+                      >
+                        Append {csvPreview.stats.valid > 0 ? `${csvPreview.stats.valid} ` : ''}Questions
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-btn-secondary"
+                        onClick={handleApplyBulkReplace}
+                        disabled={csvPreview.stats.valid === 0}
+                        style={{ padding: '6px 14px', fontSize: '12px' }}
+                      >
+                        Replace All with {csvPreview.stats.valid > 0 ? `${csvPreview.stats.valid} ` : ''}Questions
+                      </button>
+                      {bulkCsvText && (
+                        <button
+                          type="button"
+                          className="admin-btn-secondary"
+                          onClick={() => { setBulkCsvText(''); setBulkError(''); }}
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -2247,6 +2639,146 @@ export default function AdminDashboard() {
                 </button>
                 <button type="submit" className="admin-btn-primary" disabled={loading}>
                   {loading ? 'Saving...' : (editingSet ? 'Update Question Set' : 'Create Question Set')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ GENERATE FROM JOB DESCRIPTION (AI) MODAL ═══ */}
+      {showAiGenModal && (
+        <div className="admin-modal-overlay" onClick={() => !aiGenerating && setShowAiGenModal(false)}>
+          <div className="admin-modal" style={{ maxWidth: '680px', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={18} color="#fff" />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '18px' }}>Generate Assessment with AI</h2>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                    Paste a Job Description to extract competencies and generate tailored questions.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="admin-modal-close"
+                onClick={() => !aiGenerating && setShowAiGenModal(false)}
+                disabled={aiGenerating}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleGenerateFromJd} style={{ padding: '20px 24px 24px' }}>
+              {aiGenError && (
+                <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#fca5a5', fontSize: '13px' }}>
+                  {aiGenError}
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Job Description *</span>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>Paste requirements or role summary</span>
+                </label>
+                <textarea
+                  rows={6}
+                  required
+                  value={aiJdText}
+                  onChange={e => setAiJdText(e.target.value)}
+                  placeholder={`e.g.\nRole: Senior Full Stack Engineer (React + Node)\nResponsibilities:\n- Build scalable frontend microfrontends in React and TypeScript\n- Architect robust REST and GraphQL APIs in Node.js\n- Optimize PostgreSQL queries and Redis caching layer\n- Maintain CI/CD pipelines and Kubernetes workloads\nRequirements:\n- 5+ years experience in React, TypeScript, Node.js\n- Strong understanding of event loops, distributed caching, and ACID transactions`}
+                  style={{ width: '100%', fontSize: '12px', fontFamily: 'monospace' }}
+                />
+              </div>
+
+              <div className="form-row" style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
+                <div className="form-group" style={{ flex: 1.5, marginBottom: 0 }}>
+                  <label>Target Role Title (optional)</label>
+                  <input
+                    type="text"
+                    value={aiRoleTitle}
+                    onChange={e => setAiRoleTitle(e.target.value)}
+                    placeholder="e.g. Senior Frontend Engineer (or auto-infer)"
+                  />
+                </div>
+
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label>Interview Type</label>
+                  <select
+                    value={aiInterviewType}
+                    onChange={e => setAiInterviewType(e.target.value)}
+                  >
+                    <option value="technical">Technical</option>
+                    <option value="system-design">System Design</option>
+                    <option value="behavioral">Behavioral (STAR)</option>
+                    <option value="coding">Coding & Algorithms</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row" style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label>Target Difficulty</label>
+                  <select
+                    value={aiDifficulty}
+                    onChange={e => setAiDifficulty(e.target.value)}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label>Question Count</label>
+                  <select
+                    value={aiQuestionCount}
+                    onChange={e => setAiQuestionCount(Number(e.target.value))}
+                  >
+                    <option value={3}>3 Questions (~6-9 mins)</option>
+                    <option value={5}>5 Questions (~10-15 mins)</option>
+                    <option value={7}>7 Questions (~15-20 mins)</option>
+                    <option value={10}>10 Questions (~20-30 mins)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="admin-modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={() => setShowAiGenModal(false)}
+                  disabled={aiGenerating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-btn-primary"
+                  disabled={aiGenerating || !aiJdText.trim()}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    borderColor: '#818cf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 18px',
+                  }}
+                >
+                  {aiGenerating ? (
+                    <>
+                      <Loader2 size={16} className="spin" />
+                      <span>Analyzing JD & Generating Questions...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Generate Assessment</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -3033,6 +3565,29 @@ export default function AdminDashboard() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setViewingDossier(sub);
+                              }}
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(168,85,247,0.2) 100%)',
+                                border: '1px solid rgba(168,85,247,0.4)',
+                                color: '#e9d5ff',
+                                borderRadius: '8px',
+                                padding: '5px 10px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontWeight: '600',
+                              }}
+                              title="View Executive Summary & Topic Breakdown Dossier"
+                            >
+                              <Sparkles size={13} /> Dossier
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handlePrintReport(sub);
                               }}
                               style={{
@@ -3072,6 +3627,19 @@ export default function AdminDashboard() {
                         {/* Expanded conversation */}
                         {isExpanded && (
                           <div style={{ padding: '0 18px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.15)' }}>
+                            {/* AI 3-Bullet Executive Summary if present */}
+                            {sub.scores?.executiveSummary && (
+                              <div style={{ marginTop: '16px', marginBottom: '18px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '10px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#a5b4fc', fontWeight: '800', letterSpacing: '0.5px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Sparkles size={14} /> AI Executive Summary
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: '#e2e8f0', lineHeight: '1.5' }}>
+                                  <div><strong style={{ color: '#86efac' }}>Key Strengths:</strong> {sub.scores.executiveSummary.keyStrengths || (Array.isArray(sub.scores.executiveSummary.bullets) && sub.scores.executiveSummary.bullets[0]?.replace(/^Key Strengths:\s*/i, ''))}</div>
+                                  <div><strong style={{ color: '#fde047' }}>Growth Areas:</strong> {sub.scores.executiveSummary.growthAreas || (Array.isArray(sub.scores.executiveSummary.bullets) && sub.scores.executiveSummary.bullets[1]?.replace(/^Growth Areas:\s*/i, ''))}</div>
+                                  <div><strong style={{ color: '#93c5fd' }}>Hiring Recommendation:</strong> {sub.scores.executiveSummary.hiringRecommendation || (Array.isArray(sub.scores.executiveSummary.bullets) && sub.scores.executiveSummary.bullets[2]?.replace(/^Hiring Recommendation:\s*/i, ''))}</div>
+                                </div>
+                              </div>
+                            )}
                             {/* Proctoring Visual Telemetry Snapshots */}
                             {Array.isArray(sub.scores?.integrity?.snapshots) && sub.scores.integrity.snapshots.length > 0 && (
                               <div style={{ marginTop: '16px', marginBottom: '20px' }}>
@@ -3475,6 +4043,15 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Standalone Candidate Review Dossier Dialog */}
+      {viewingDossier && (
+        <CandidateReviewDossier
+          submission={viewingDossier}
+          questionSet={activeSetForSubmissions}
+          onClose={() => setViewingDossier(null)}
+        />
       )}
 
       {/* Personalized Candidate Invites Modal */}

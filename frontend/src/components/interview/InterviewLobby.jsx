@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import PreFlightCheck from './PreFlightCheck';
 import {
     ArrowLeft, ArrowRight, CheckCircle, Sparkles, Users,
     FileText, Search, Star, Code2, MessageSquare, X,
@@ -101,144 +102,8 @@ const COMPANY_TABS = [
  *  - onResumeFileChange   (e) => void
  */
 
-// ─── Device Preflight Component (Camera, Mic & Sound) ───
-const DevicePreflightCheck = memo(function DevicePreflightCheck({
-    cameraCheckStatus = 'not_checked',
-    onCheckCamera,
-    cameraStream,
-    micCheckStatus = 'not_checked',
-    onCheckMicrophone,
-    micLevel = 0,
-    speakerCheckStatus = 'not_checked',
-    onTestSpeaker,
-    preflightError,
-}) {
-    const videoRef = React.useRef(null);
-
-    React.useEffect(() => {
-        if (videoRef.current && cameraStream) {
-            videoRef.current.srcObject = cameraStream;
-        }
-    }, [cameraStream]);
-
-    const isMicReady = String(micCheckStatus).startsWith('ready:');
-    const isCameraReady = cameraCheckStatus === 'ready';
-
-    return (
-        <div className="ai-preflight-container">
-            <div className="ai-preflight-header">
-                <Sparkles size={16} className="ai-preflight-icon" />
-                <div>
-                    <h4 className="ai-preflight-title">Device & Readiness Check</h4>
-                    <p className="ai-preflight-subtitle">Confirm your camera and microphone are working before entering</p>
-                </div>
-            </div>
-
-            {preflightError && (
-                <div className="ai-preflight-error-banner" role="alert">
-                    <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-                    <span>{preflightError}</span>
-                </div>
-            )}
-
-            <div className="ai-preflight-grid">
-                {/* Camera Card */}
-                <div className={`ai-preflight-card ${isCameraReady ? 'is-ready' : cameraCheckStatus === 'denied' ? 'is-denied' : ''}`}>
-                    <div className="ai-preflight-card-top">
-                        <div className="ai-preflight-card-label">
-                            <Video size={14} />
-                            <span>Camera Preview</span>
-                        </div>
-                        <span className={`ai-preflight-status-pill ${isCameraReady ? 'ready' : cameraCheckStatus === 'denied' ? 'denied' : ''}`}>
-                            {isCameraReady ? '✓ Working' : cameraCheckStatus === 'denied' ? 'Denied' : cameraCheckStatus === 'checking' ? 'Checking...' : 'Not Checked'}
-                        </span>
-                    </div>
-
-                    <div className="ai-preflight-video-wrap">
-                        {cameraStream ? (
-                            <video ref={videoRef} autoPlay playsInline muted className="ai-preflight-video" />
-                        ) : (
-                            <div className="ai-preflight-video-placeholder">
-                                <VideoOff size={22} style={{ opacity: 0.5 }} />
-                                <span>{cameraCheckStatus === 'denied' ? 'Camera blocked in browser' : 'Click test to preview camera'}</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={onCheckCamera}
-                        className="ai-preflight-action-btn"
-                        disabled={cameraCheckStatus === 'checking'}
-                    >
-                        <Video size={13} /> {isCameraReady ? 'Retest Camera' : 'Test Camera'}
-                    </button>
-                </div>
-
-                {/* Microphone Card */}
-                <div className={`ai-preflight-card ${isMicReady ? 'is-ready' : micCheckStatus === 'denied' ? 'is-denied' : ''}`}>
-                    <div className="ai-preflight-card-top">
-                        <div className="ai-preflight-card-label">
-                            <Mic size={14} />
-                            <span>Microphone Level</span>
-                        </div>
-                        <span className={`ai-preflight-status-pill ${isMicReady ? 'ready' : micCheckStatus === 'denied' ? 'denied' : ''}`}>
-                            {isMicReady ? '✓ Working' : micCheckStatus === 'denied' ? 'Denied' : micCheckStatus === 'checking' ? 'Checking...' : 'Not Checked'}
-                        </span>
-                    </div>
-
-                    <div className="ai-preflight-mic-info">
-                        <span className="ai-preflight-device-name">
-                            {isMicReady ? micCheckStatus.slice(6) : micCheckStatus === 'denied' ? 'Microphone blocked in browser' : 'Verify mic capture & volume'}
-                        </span>
-
-                        {/* Live volume equalizer meter */}
-                        <div className="ai-preflight-volume-bar-wrap">
-                            {[...Array(10)].map((_, i) => (
-                                <span
-                                    key={i}
-                                    className={`ai-preflight-volume-tick ${micLevel > (i + 1) * 0.08 ? 'active' : ''}`}
-                                />
-                            ))}
-                        </div>
-
-                        <span className="ai-preflight-mic-hint">
-                            {micLevel > 0.05 ? '🎙️ Voice detected!' : (isMicReady ? 'Speak to test volume' : 'Click test to verify mic')}
-                        </span>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={onCheckMicrophone}
-                        className="ai-preflight-action-btn"
-                        disabled={micCheckStatus === 'checking'}
-                    >
-                        <Mic size={13} /> {isMicReady ? 'Retest Mic' : 'Test Microphone'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Speaker Sound Check Row */}
-            <div className="ai-preflight-speaker-row">
-                <div className="ai-preflight-speaker-left">
-                    <Volume2 size={16} />
-                    <div>
-                        <strong>Speaker & Sound Check</strong>
-                        <span>{speakerCheckStatus === 'ready' ? 'Sound ready! You will hear interviewer questions clearly.' : 'Test your audio output before starting.'}</span>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={onTestSpeaker}
-                    className="ai-preflight-speaker-btn"
-                    disabled={speakerCheckStatus === 'testing'}
-                >
-                    <Volume2 size={13} /> {speakerCheckStatus === 'ready' ? 'Retest sound' : 'Test speakers'}
-                </button>
-            </div>
-        </div>
-    );
-});
+// ─── Device Preflight Component alias ───
+const DevicePreflightCheck = PreFlightCheck;
 
 function InterviewLobby({
     setupStep, setSetupStep,
@@ -330,6 +195,22 @@ function InterviewLobby({
         }
     }, [scheduledStartTime]);
 
+    const formattedScheduledDateUtc = React.useMemo(() => {
+        if (!scheduledStartTime) return '';
+        try {
+            return new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'UTC',
+                hour12: false,
+            }).format(new Date(scheduledStartTime)) + ' UTC';
+        } catch {
+            return new Date(scheduledStartTime).toUTCString();
+        }
+    }, [scheduledStartTime]);
+
     const googleCalendarUrl = React.useMemo(() => {
         if (!scheduledStartTime) return null;
         try {
@@ -340,6 +221,22 @@ function InterviewLobby({
             const joinUrl = typeof window !== 'undefined' ? window.location.href : '';
             const details = `Private Interview Session: ${customQuestionSet?.title || 'PrepLoop Assessment'}\nRole: ${customQuestionSet?.settings?.roleName || 'Candidate'}\nJoin Link: ${joinUrl}`;
             return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(customQuestionSet?.title || 'Private Interview')}&dates=${dates}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(joinUrl)}`;
+        } catch {
+            return null;
+        }
+    }, [scheduledStartTime, scheduledDurationMins, customQuestionSet?.title, customQuestionSet?.settings?.roleName]);
+
+    const outlookCalendarUrl = React.useMemo(() => {
+        if (!scheduledStartTime) return null;
+        try {
+            const start = new Date(scheduledStartTime);
+            const end = new Date(start.getTime() + (scheduledDurationMins || 45) * 60 * 1000);
+            const joinUrl = typeof window !== 'undefined' ? window.location.href : '';
+            const subject = encodeURIComponent(customQuestionSet?.title || 'PrepLoop Private Interview');
+            const body = encodeURIComponent(`Private Interview Assessment: ${customQuestionSet?.title || 'PrepLoop Assessment'}\nRole: ${customQuestionSet?.settings?.roleName || 'Candidate'}\nJoin Link: ${joinUrl}`);
+            const startStr = encodeURIComponent(start.toISOString());
+            const endStr = encodeURIComponent(end.toISOString());
+            return `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&startdt=${startStr}&enddt=${endStr}&subject=${subject}&body=${body}&location=${encodeURIComponent(joinUrl)}`;
         } catch {
             return null;
         }
@@ -532,7 +429,7 @@ function InterviewLobby({
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
                                     {customQuestionSet.scheduledAt && (
                                         <span style={{ color: '#38bdf8', fontSize: '12px', background: 'rgba(56,189,248,.1)', border: '1px solid rgba(56,189,248,.25)', padding: '6px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                            <Calendar size={13} /> Scheduled: {formattedScheduledDate} ({scheduledDurationMins}m)
+                                            <Calendar size={13} /> Scheduled: {formattedScheduledDate} ({candidateTimezone}) · {formattedScheduledDateUtc} ({scheduledDurationMins}m)
                                         </span>
                                     )}
                                     {customQuestionSet.expiresAt && <span style={{ color: '#fbbf24', fontSize: '12px', background: 'rgba(251,191,36,.08)', padding: '6px 9px', borderRadius: '8px' }}>Link expires {new Date(customQuestionSet.expiresAt).toLocaleString()}</span>}
@@ -549,8 +446,14 @@ function InterviewLobby({
                                     <div style={{ color: '#fff', fontSize: '30px', fontWeight: '800', fontFamily: 'monospace', letterSpacing: '1px', margin: '6px 0 8px' }}>
                                         {formattedCountdown}
                                     </div>
-                                    <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '13px', lineHeight: '1.5' }}>
-                                        This private interview is scheduled for <strong>{formattedScheduledDate}</strong> ({candidateTimezone}).
+                                    <div style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '13px', lineHeight: '1.6' }}>
+                                        <div>This private interview is scheduled for:</div>
+                                        <div style={{ fontWeight: '700', color: '#fff', fontSize: '14px', marginTop: '3px' }}>
+                                            📍 Local Time: <strong>{formattedScheduledDate}</strong> ({candidateTimezone})
+                                        </div>
+                                        <div style={{ color: '#7dd3fc', fontSize: '13px', marginTop: '2px' }}>
+                                            🌐 Universal Time: <strong>{formattedScheduledDateUtc}</strong>
+                                        </div>
                                     </div>
                                     <div style={{ color: '#93c5fd', fontSize: '12px', marginTop: '6px' }}>
                                         Please complete your camera, microphone, and speaker preflight checks below while waiting. The interview will unlock automatically at the scheduled time.
@@ -580,6 +483,30 @@ function InterviewLobby({
                                                 <Calendar size={13} /> Google Calendar
                                             </a>
                                         )}
+                                        {outlookCalendarUrl && (
+                                            <a
+                                                href={outlookCalendarUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '6px 14px',
+                                                    borderRadius: '8px',
+                                                    background: 'rgba(99, 102, 241, 0.15)',
+                                                    border: '1px solid rgba(99, 102, 241, 0.35)',
+                                                    color: '#a5b4fc',
+                                                    fontSize: '12px',
+                                                    fontWeight: '600',
+                                                    textDecoration: 'none',
+                                                    cursor: 'pointer',
+                                                }}
+                                                title="Add this scheduled session to your Outlook Calendar"
+                                            >
+                                                <Calendar size={13} /> Outlook Calendar
+                                            </a>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={handleDownloadIcs}
@@ -589,9 +516,9 @@ function InterviewLobby({
                                                 gap: '6px',
                                                 padding: '6px 14px',
                                                 borderRadius: '8px',
-                                                background: 'rgba(99, 102, 241, 0.15)',
-                                                border: '1px solid rgba(99, 102, 241, 0.35)',
-                                                color: '#a5b4fc',
+                                                background: 'rgba(255, 255, 255, 0.08)',
+                                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                color: '#e4e4e7',
                                                 fontSize: '12px',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
@@ -605,10 +532,27 @@ function InterviewLobby({
                             )}
 
                             {isScheduleOpen && (
-                                <div style={{ background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <CheckCircle size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
-                                    <div style={{ fontSize: '13px', color: '#86efac' }}>
-                                        <strong>Session Open:</strong> Scheduled for {new Date(scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({candidateTimezone}, {scheduledDurationMins} min fixed session). You may begin now.
+                                <div style={{ background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <CheckCircle size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
+                                        <div style={{ fontSize: '13px', color: '#86efac' }}>
+                                            <strong>Session Open:</strong> Scheduled for {formattedScheduledDate} ({candidateTimezone}) · {formattedScheduledDateUtc} ({scheduledDurationMins} min fixed session). You may begin now.
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '8px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                        {googleCalendarUrl && (
+                                            <a href={googleCalendarUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#7dd3fc', textDecoration: 'underline' }}>
+                                                Add to Google Calendar
+                                            </a>
+                                        )}
+                                        {outlookCalendarUrl && (
+                                            <a href={outlookCalendarUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#a5b4fc', textDecoration: 'underline' }}>
+                                                Add to Outlook
+                                            </a>
+                                        )}
+                                        <button type="button" onClick={handleDownloadIcs} style={{ background: 'none', border: 'none', padding: 0, fontSize: '11px', color: '#e4e4e7', textDecoration: 'underline', cursor: 'pointer' }}>
+                                            Download .ics
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -710,7 +654,7 @@ function InterviewLobby({
                             )}
 
                             <div style={{ marginBottom: '18px' }}>
-                                <DevicePreflightCheck
+                                <PreFlightCheck
                                     cameraCheckStatus={cameraCheckStatus}
                                     onCheckCamera={onCheckCamera}
                                     cameraStream={cameraStream}
@@ -720,6 +664,7 @@ function InterviewLobby({
                                     speakerCheckStatus={speakerCheckStatus}
                                     onTestSpeaker={handleTestSpeaker}
                                     preflightError={preflightError}
+                                    onClearPreflightError={onClearPreflightError}
                                 />
                             </div>
 
@@ -1300,17 +1245,18 @@ function InterviewLobby({
                         {/* ─── Step 5: Review & Start ─── */}
                         {setupStep === 5 && (
                             <div className="ai-wizard-step-body">
-                                <DevicePreflightCheck
-                                        cameraCheckStatus={cameraCheckStatus}
-                                        onCheckCamera={onCheckCamera}
-                                        cameraStream={cameraStream}
-                                        micCheckStatus={micCheckStatus}
-                                        onCheckMicrophone={onCheckMicrophone}
-                                        micLevel={micLevel}
-                                        speakerCheckStatus={speakerCheckStatus}
-                                        onTestSpeaker={handleTestSpeaker}
-                                        preflightError={preflightError}
-                                    />
+                                <PreFlightCheck
+                                    cameraCheckStatus={cameraCheckStatus}
+                                    onCheckCamera={onCheckCamera}
+                                    cameraStream={cameraStream}
+                                    micCheckStatus={micCheckStatus}
+                                    onCheckMicrophone={onCheckMicrophone}
+                                    micLevel={micLevel}
+                                    speakerCheckStatus={speakerCheckStatus}
+                                    onTestSpeaker={handleTestSpeaker}
+                                    preflightError={preflightError}
+                                    onClearPreflightError={onClearPreflightError}
+                                />
                                 <div className="ai-wizard-review">
                                     <div className="ai-wizard-review-row">
                                         <span className="ai-wizard-review-label">Experience</span>

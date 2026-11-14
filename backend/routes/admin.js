@@ -1,9 +1,11 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin, invalidateUserRole } from '../middleware/auth.ts';
-import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
+import { normalizeInterviewLimits, generateInterviewToken, toDbQuestionSetLimits } from '../utils/privateInterviewAccess.js';
 import { dispatchCandidateInvitations, dispatchInterviewWebhook } from '../utils/interviewMailer.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { getGroqClient } from '../utils/groqClient.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const adminLogger = createLogger('admin-audit');
@@ -338,6 +340,307 @@ const generateShareCode = () => generateInterviewToken();
 const VALID_INTERVIEW_TYPES = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed', 'hr'];
 const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'];
 
+/**
+ * Heuristic fallback question generator when Groq is unavailable or unconfigured.
+ * Parses the JD text for skills, role title, and tech stack markers.
+ */
+function generateFallbackQuestionsFromJd({ jobDescription, roleName, interviewType, difficulty, count = 5 }) {
+  const jdLower = (jobDescription || '').toLowerCase();
+  let detectedRole = roleName;
+  if (!detectedRole) {
+    if (jdLower.includes('frontend') || jdLower.includes('react') || jdLower.includes('ui engineer')) {
+      detectedRole = 'Frontend React Engineer';
+    } else if (jdLower.includes('backend') || jdLower.includes('node') || jdLower.includes('api engineer')) {
+      detectedRole = 'Backend Node.js Engineer';
+    } else if (jdLower.includes('architect') || jdLower.includes('system design') || jdLower.includes('distributed')) {
+      detectedRole = 'Systems Architect';
+    } else if (jdLower.includes('devops') || jdLower.includes('sre') || jdLower.includes('cloud')) {
+      detectedRole = 'DevOps / Cloud Engineer';
+    } else if (jdLower.includes('fullstack') || jdLower.includes('full stack')) {
+      detectedRole = 'Full Stack Engineer';
+    } else {
+      detectedRole = 'Software Engineer';
+    }
+  }
+
+  const suggestedTitle = `${detectedRole} Assessment`;
+  const candidatePool = [];
+
+  // Frontend React pool
+  if (jdLower.includes('react') || jdLower.includes('frontend') || jdLower.includes('ui') || jdLower.includes('javascript') || jdLower.includes('css')) {
+    candidatePool.push(
+      {
+        question: "How does React's Reconciliation and Virtual DOM diffing algorithm work, specifically comparing React 16+ Fiber architecture with the legacy stack reconciler?",
+        context: 'Evaluate knowledge of incremental rendering, work loop, fiber node structure, and priority lanes.',
+        expectedTopics: ['Fiber Architecture', 'Reconciliation Algorithm', 'Priority Lanes', 'Work Loop', 'Commit Phase'],
+        timeLimit: 120,
+      },
+      {
+        question: 'Explain the differences between useCallback, useMemo, and React.memo. When can over-memoizing actually hurt frontend performance?',
+        context: 'Look for practical memory overhead considerations and dependency array stability.',
+        expectedTopics: ['useMemo', 'useCallback', 'React.memo', 'Memory Overhead', 'Dependency Arrays'],
+        timeLimit: 90,
+      },
+      {
+        question: 'How would you diagnose and resolve a severe performance drop causing main-thread stuttering during high-frequency user input in a React application?',
+        context: 'Check for profiling techniques, debounce/throttle, useTransition, useDeferredValue, virtualization.',
+        expectedTopics: ['React DevTools Profiler', 'useTransition', 'useDeferredValue', 'Virtualization', 'Debounce / Throttle'],
+        timeLimit: 120,
+      }
+    );
+  }
+
+  // Backend Node.js & Distributed pool
+  if (jdLower.includes('node') || jdLower.includes('backend') || jdLower.includes('api') || jdLower.includes('microservices') || jdLower.includes('express')) {
+    candidatePool.push(
+      {
+        question: 'Walk through the phases of the Node.js Event Loop (Timers, Pending Callbacks, Poll, Check, Close). Where do process.nextTick and Promise microtasks execute?',
+        context: 'Focus on libuv thread pool vs single-threaded loop and microtask starvation.',
+        expectedTopics: ['Event Loop Phases', 'libuv', 'process.nextTick', 'Microtask Queue', 'Timers & setImmediate'],
+        timeLimit: 120,
+      },
+      {
+        question: 'Explain Node.js Streams and backpressure. How do you stream a 10GB file upload without exceeding server memory limits?',
+        context: 'Evaluate pipe, pipeline, stream backpressure signals, highWaterMark, and chunked transfer.',
+        expectedTopics: ['Streams', 'Backpressure', 'pipeline() utility', 'highWaterMark', 'Buffer Management'],
+        timeLimit: 120,
+      },
+      {
+        question: 'How do you design database transactions with proper ACID guarantees and row-level locking to prevent race conditions during high-concurrency balance updates?',
+        context: 'Check knowledge of SELECT FOR UPDATE, optimistic concurrency control, transaction isolation levels.',
+        expectedTopics: ['ACID Properties', 'SELECT FOR UPDATE', 'Optimistic Locking', 'Isolation Levels', 'Idempotency'],
+        timeLimit: 120,
+      }
+    );
+  }
+
+  // System Design & Scalability pool
+  if (jdLower.includes('system design') || jdLower.includes('distributed') || jdLower.includes('scale') || jdLower.includes('architecture') || jdLower.includes('redis') || jdLower.includes('kafka')) {
+    candidatePool.push(
+      {
+        question: 'Design a distributed rate limiter capable of handling 500,000 requests per second across multiple data centers with sub-5ms overhead.',
+        context: 'Look for token bucket/sliding window, Redis + Lua scripts, or local memory synchronization trade-offs.',
+        expectedTopics: ['Token Bucket', 'Sliding Window', 'Redis Lua Scripts', 'Distributed Concurrency', 'Race Conditions'],
+        timeLimit: 150,
+      },
+      {
+        question: 'Discuss the CAP theorem and PACELC trade-offs when choosing between Cassandra, DynamoDB, PostgreSQL, and CockroachDB for real-time transactional data.',
+        context: 'Assess consistency models: strong vs eventual, quorum reads/writes, two-phase commits.',
+        expectedTopics: ['CAP Theorem', 'PACELC', 'Eventual vs Strong Consistency', 'Quorum Reads/Writes', '2PC'],
+        timeLimit: 150,
+      },
+      {
+        question: 'How do you architect an idempotent payment processing pipeline utilizing message queues (Kafka/RabbitMQ) that guarantees exactly-once processing semantics?',
+        context: 'Probe outbox pattern, consumer offset management, deduplication keys, dead letter queues.',
+        expectedTopics: ['Transactional Outbox', 'Idempotency Keys', 'Dead Letter Queues', 'At-least-once Delivery'],
+        timeLimit: 150,
+      }
+    );
+  }
+
+  // Behavioral / STAR pool
+  if (interviewType === 'behavioral' || jdLower.includes('behavioral') || jdLower.includes('leadership') || jdLower.includes('ownership') || jdLower.includes('culture')) {
+    candidatePool.push(
+      {
+        question: 'Tell me about a time when you strongly disagreed with a senior engineer or tech lead architectural decision. What was the situation, how did you present your case, and what was the outcome?',
+        context: 'Look for data-driven disagreement, respectful communication, disagree-and-commit, and STAR structure.',
+        expectedTopics: ['Constructive Conflict', 'Data-Driven Persuasion', 'Disagree and Commit', 'STAR Method'],
+        timeLimit: 120,
+      },
+      {
+        question: 'Describe a catastrophic production incident or critical bug that you led the resolution of. How did you triage, resolve it, and implement preventive measures?',
+        context: 'Assess blameless post-mortem mindset, calmness under pressure, root cause analysis (5 Whys).',
+        expectedTopics: ['Incident Triage', 'Blameless Post-Mortem', 'Root Cause Analysis', 'Monitoring & Alerting'],
+        timeLimit: 120,
+      },
+      {
+        question: 'Can you share an experience where you had to lead a project with ambiguous requirements and tight deadlines? How did you align stakeholders and prioritize scope?',
+        context: 'Check communication across disciplines, MVP scoping, agile iterations, risk management.',
+        expectedTopics: ['Stakeholder Management', 'Ambiguity Resolution', 'MVP Scoping', 'Prioritization'],
+        timeLimit: 120,
+      }
+    );
+  }
+
+  // Universal fallback questions if pool is smaller than required count
+  const universalQuestions = [
+    {
+      question: `Given the requirements for the ${detectedRole} position, walk through how you would architect a robust, production-ready feature from specification through CI/CD deployment.`,
+      context: 'Evaluate software engineering lifecycle, testing strategies, telemetry, and observability.',
+      expectedTopics: ['Architecture & Design', 'Unit & Integration Tests', 'CI/CD Pipelines', 'Observability & Metrics'],
+      timeLimit: 120,
+    },
+    {
+      question: 'How do you identify, profile, and resolve latency bottlenecks and performance regressions in high-traffic production services?',
+      context: 'Assess profiling tools, flame graphs, database explain plans, caching layers, and asynchronous offloading.',
+      expectedTopics: ['Profiling & Flame Graphs', 'Database Query Optimization', 'Caching Strategies', 'Async Processing'],
+      timeLimit: 120,
+    },
+    {
+      question: 'What strategies and security best practices do you incorporate to defend APIs against common vulnerabilities (e.g. injection, broken auth, SSRF, IDOR)?',
+      context: 'Examine OWASP Top 10 awareness, input validation schemas, token management, rate limiting.',
+      expectedTopics: ['OWASP Top 10', 'Authentication & Authorization', 'Input Sanitization', 'Rate Limiting', 'IDOR Prevention'],
+      timeLimit: 120,
+    },
+    {
+      question: 'Describe an instance where you optimized an inefficient algorithm or data structure to significantly reduce CPU or memory consumption in a deployed system.',
+      context: 'Look for Big-O time and space complexity analysis, real-world benchmarks, and algorithmic trade-offs.',
+      expectedTopics: ['Time Complexity', 'Space Complexity', 'Benchmarking', 'Data Structures', 'Algorithmic Optimization'],
+      timeLimit: 120,
+    },
+    {
+      question: 'How do you structure automated tests (unit, integration, end-to-end) to balance fast feedback loops in CI with high regression confidence?',
+      context: 'Look for test pyramid principles, mock isolation, contract testing, and flaky test mitigation.',
+      expectedTopics: ['Testing Pyramid', 'Unit vs Integration Tests', 'Mocking & Fixtures', 'CI Pipeline Speed', 'Flaky Test Remediation'],
+      timeLimit: 120,
+    }
+  ];
+
+  for (const uq of universalQuestions) {
+    if (candidatePool.length >= count) break;
+    if (!candidatePool.some(q => q.question === uq.question)) {
+      candidatePool.push(uq);
+    }
+  }
+
+  return {
+    suggestedTitle,
+    roleName: detectedRole,
+    questions: candidatePool.slice(0, count),
+  };
+}
+
+// ─── Generate Question Set from Job Description ─────────────────
+router.post('/question-sets/generate-from-jd', async (req, res) => {
+  try {
+    const {
+      jobDescription,
+      jd,
+      role,
+      roleName,
+      interviewType = 'technical',
+      difficulty = 'medium',
+      count = 5,
+      questionCount,
+    } = req.body || {};
+
+    const rawJd = (typeof jobDescription === 'string' && jobDescription.trim())
+      ? jobDescription.trim()
+      : (typeof jd === 'string' ? jd.trim() : '');
+
+    if (!rawJd) {
+      return res.status(400).json({ error: 'Job description is required' });
+    }
+
+    const targetRole = (typeof roleName === 'string' && roleName.trim())
+      ? roleName.trim()
+      : (typeof role === 'string' && role.trim() ? role.trim() : '');
+
+    const targetCount = Math.min(15, Math.max(1, parseInt(questionCount || count, 10) || 5));
+    const targetType = VALID_INTERVIEW_TYPES.includes(interviewType) ? interviewType : 'technical';
+    const targetDifficulty = VALID_DIFFICULTIES.includes(difficulty) ? difficulty : 'medium';
+
+    let generatedQuestions = [];
+    let suggestedTitle = targetRole ? `${targetRole} Technical Assessment` : 'Role Assessment';
+    let detectedRole = targetRole || 'Software Engineer';
+
+    const groq = getGroqClient();
+
+    if (groq) {
+      try {
+        const completion = await aiCallWithRetry({
+          operation: () => groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert technical recruiter and senior hiring bar-raiser.
+Analyze the provided Job Description (JD) and generate ${targetCount} high-signal, rigorous interview questions.
+Each question must test practical engineering depth, design trade-offs, or real-world problem solving.
+Return ONLY a valid JSON object matching this schema:
+{
+  "suggestedTitle": "Assessment Title",
+  "roleName": "Target Role Title",
+  "interviewType": "${targetType}",
+  "difficulty": "${targetDifficulty}",
+  "questions": [
+    {
+      "question": "Clear, direct question prompt",
+      "context": "Grading tips, context or key considerations for the interviewer",
+      "expectedTopics": ["Topic 1", "Topic 2", "Topic 3"],
+      "timeLimit": 120
+    }
+  ]
+}`
+              },
+              {
+                role: 'user',
+                content: `Job Description:\n${rawJd}\n\nTarget Role: ${targetRole || 'Infer from JD'}\nType: ${targetType}\nDifficulty: ${targetDifficulty}\nQuestion Count: ${targetCount}`
+              }
+            ],
+            temperature: 0.3,
+            response_format: { type: 'json_object' }
+          }),
+          timeoutMs: 15000,
+          maxRetries: 2,
+          serviceName: 'groq'
+        });
+
+        const rawContent = completion?.choices?.[0]?.message?.content || '';
+        const cleanedContent = rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+        const parsed = JSON.parse(cleanedContent);
+
+        if (Array.isArray(parsed?.questions) && parsed.questions.length > 0) {
+          generatedQuestions = parsed.questions;
+          if (parsed.suggestedTitle) suggestedTitle = String(parsed.suggestedTitle).trim();
+          if (parsed.roleName) detectedRole = String(parsed.roleName).trim();
+        }
+      } catch (aiError) {
+        adminLogger.warn('Groq JD question generation failed, falling back to heuristic generator', {
+          error: aiError.message,
+        });
+      }
+    }
+
+    // Heuristic generator fallback if Groq unavailable or failed
+    if (!generatedQuestions || generatedQuestions.length === 0) {
+      const fallbackResult = generateFallbackQuestionsFromJd({
+        jobDescription: rawJd,
+        roleName: targetRole,
+        interviewType: targetType,
+        difficulty: targetDifficulty,
+        count: targetCount,
+      });
+      generatedQuestions = fallbackResult.questions;
+      if (!targetRole && fallbackResult.roleName) detectedRole = fallbackResult.roleName;
+      if (fallbackResult.suggestedTitle) suggestedTitle = fallbackResult.suggestedTitle;
+    }
+
+    // Sanitize question items to ensure clean format
+    const validatedQuestions = generatedQuestions.slice(0, targetCount).map((q, idx) => ({
+      question: typeof q?.question === 'string' && q.question.trim() ? q.question.trim() : `Assessment Question ${idx + 1}`,
+      context: typeof q?.context === 'string' ? q.context.trim() : '',
+      expectedTopics: Array.isArray(q?.expectedTopics)
+        ? q.expectedTopics.map(t => String(t).trim()).filter(Boolean)
+        : (typeof q?.expectedTopics === 'string' ? q.expectedTopics.split(',').map(t => t.trim()).filter(Boolean) : []),
+      timeLimit: Number(q?.timeLimit) >= 30 && Number(q?.timeLimit) <= 600 ? Number(q.timeLimit) : 120,
+    })).filter(q => q.question);
+
+    return res.json({
+      success: true,
+      suggestedTitle,
+      roleName: detectedRole,
+      interviewType: targetType,
+      difficulty: targetDifficulty,
+      questionCount: validatedQuestions.length,
+      questions: validatedQuestions,
+    });
+  } catch (error) {
+    adminLogger.error('Generate questions from JD failed', { error: error.message });
+    return res.status(500).json({ error: error.message || 'Failed to generate questions from job description' });
+  }
+});
+
 // ─── Create Question Set ─────────────────────────────────────────
 router.post('/question-sets', async (req, res) => {
   try {
@@ -402,7 +705,15 @@ router.post('/question-sets', async (req, res) => {
       mergedSettings.scheduledDurationMinutes = accessLimits.scheduled_duration_minutes;
     }
 
-    const insertPayload = {
+    const dbLimits = toDbQuestionSetLimits(accessLimits);
+
+    const allowedInsertColumns = new Set([
+      'admin_id', 'title', 'description', 'share_code', 'interview_type', 'difficulty',
+      'requires_login', 'is_active', 'questions', 'settings', 'passcode_hash',
+      'expires_at', 'max_attempts', 'allowed_emails', 'scheduled_at', 'scheduled_duration_minutes'
+    ]);
+
+    const rawPayload = {
       admin_id: req.user.id,
       title: title.trim(),
       description: typeof description === 'string' && description.trim() ? description.trim() : null,
@@ -412,8 +723,15 @@ router.post('/question-sets', async (req, res) => {
       requires_login: requiresLogin,
       questions: validatedQuestions,
       settings: mergedSettings,
-      ...accessLimits,
+      ...dbLimits,
     };
+
+    const insertPayload = {};
+    for (const [key, value] of Object.entries(rawPayload)) {
+      if (allowedInsertColumns.has(key)) {
+        insertPayload[key] = value;
+      }
+    }
 
     let data;
     try {
@@ -425,9 +743,18 @@ router.post('/question-sets', async (req, res) => {
       if (res.error) throw res.error;
       data = res.data;
     } catch (insertError) {
-      // Fallback if scheduled columns are not yet migrated: insert without the new columns and rely on settings
-      if (insertError.message && (insertError.message.includes('scheduled_at') || insertError.message.includes('scheduled_duration_minutes'))) {
-        const { scheduled_at: _sa, scheduled_duration_minutes: _sdm, ...safePayload } = insertPayload;
+      // Fallback if scheduled or allowed_emails columns are not yet migrated: insert without the new columns and rely on settings
+      const unmigratedScheduled = insertError.message && (insertError.message.includes('scheduled_at') || insertError.message.includes('scheduled_duration_minutes'));
+      const unmigratedAllowedEmails = insertError.message && insertError.message.includes('allowed_emails');
+      if (unmigratedScheduled || unmigratedAllowedEmails) {
+        const safePayload = { ...insertPayload };
+        if (unmigratedScheduled) {
+          delete safePayload.scheduled_at;
+          delete safePayload.scheduled_duration_minutes;
+        }
+        if (unmigratedAllowedEmails) {
+          delete safePayload.allowed_emails;
+        }
         const res = await supabaseAdmin
           .from('admin_question_sets')
           .insert(safePayload)
@@ -452,9 +779,9 @@ router.post('/question-sets', async (req, res) => {
     });
   } catch (error) {
     console.error('Create question set error:', error);
-    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
+    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email|Title)/i.test(error.message || '')
       ? error.message
-      : 'Failed to create question set';
+      : (error.message && !error.message.includes('schema cache') && !error.message.includes('column') ? error.message : 'Failed to create question set');
     res.status(400).json({ error: message });
   }
 });
@@ -628,8 +955,8 @@ router.put('/question-sets/:id', async (req, res) => {
     }
     if (allowedEmails !== undefined) {
       const accessLimits = normalizeInterviewLimits({ allowedEmails }, { isUpdate: true });
-      Object.assign(updates, accessLimits);
       if (accessLimits.allowed_emails !== undefined) {
+        updates.allowed_emails = accessLimits.allowed_emails;
         mergedSettings.allowedEmails = accessLimits.allowed_emails;
       }
     }
@@ -638,10 +965,15 @@ router.put('/question-sets/:id', async (req, res) => {
     if (clearPasscode === true) {
       updates.passcode_hash = null;
     } else if (passcode !== undefined) {
-      Object.assign(updates, normalizeInterviewLimits({ passcode }, { isUpdate: true }));
+      const passLimits = normalizeInterviewLimits({ passcode }, { isUpdate: true });
+      if (passLimits.passcode_hash !== undefined) {
+        updates.passcode_hash = passLimits.passcode_hash;
+      }
     }
     if (expiresAt !== undefined || maxAttempts !== undefined) {
-      Object.assign(updates, normalizeInterviewLimits({ expiresAt, maxAttempts }, { isUpdate: true }));
+      const expLimits = normalizeInterviewLimits({ expiresAt, maxAttempts }, { isUpdate: true });
+      if (expLimits.expires_at !== undefined) updates.expires_at = expLimits.expires_at;
+      if (expLimits.max_attempts !== undefined) updates.max_attempts = expLimits.max_attempts;
     }
     if (scheduledAt !== undefined || scheduledDurationMinutes !== undefined) {
       const scheduleLimits = normalizeInterviewLimits({ scheduledAt, scheduledDurationMinutes }, { isUpdate: true });
@@ -675,19 +1007,41 @@ router.put('/question-sets/:id', async (req, res) => {
       });
     }
 
+    const allowedUpdateColumns = new Set([
+      'title', 'description', 'interview_type', 'difficulty', 'requires_login',
+      'is_active', 'questions', 'settings', 'passcode_hash', 'expires_at',
+      'max_attempts', 'allowed_emails', 'scheduled_at', 'scheduled_duration_minutes',
+      'updated_at'
+    ]);
+    const sanitizedUpdates = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedUpdateColumns.has(key)) {
+        sanitizedUpdates[key] = value;
+      }
+    }
+
     let data;
     try {
       const res = await supabaseAdmin
         .from('admin_question_sets')
-        .update(updates)
+        .update(sanitizedUpdates)
         .eq('id', req.params.id)
         .select()
         .single();
       if (res.error) throw res.error;
       data = res.data;
     } catch (updateError) {
-      if (updateError.message && (updateError.message.includes('scheduled_at') || updateError.message.includes('scheduled_duration_minutes'))) {
-        const { scheduled_at: _sa, scheduled_duration_minutes: _sdm, ...safeUpdates } = updates;
+      const unmigratedScheduled = updateError.message && (updateError.message.includes('scheduled_at') || updateError.message.includes('scheduled_duration_minutes'));
+      const unmigratedAllowedEmails = updateError.message && updateError.message.includes('allowed_emails');
+      if (unmigratedScheduled || unmigratedAllowedEmails) {
+        const safeUpdates = { ...sanitizedUpdates };
+        if (unmigratedScheduled) {
+          delete safeUpdates.scheduled_at;
+          delete safeUpdates.scheduled_duration_minutes;
+        }
+        if (unmigratedAllowedEmails) {
+          delete safeUpdates.allowed_emails;
+        }
         const res = await supabaseAdmin
           .from('admin_question_sets')
           .update(safeUpdates)
@@ -712,9 +1066,9 @@ router.put('/question-sets/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Update question set error:', error);
-    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
+    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email|Title)/i.test(error.message || '')
       ? error.message
-      : 'Failed to update question set';
+      : (error.message && !error.message.includes('schema cache') && !error.message.includes('column') ? error.message : 'Failed to update question set');
     res.status(400).json({ error: message });
   }
 });
@@ -1112,4 +1466,5 @@ router.get('/interview-metrics', async (req, res) => {
   }
 });
 
+export { generateFallbackQuestionsFromJd };
 export default router;

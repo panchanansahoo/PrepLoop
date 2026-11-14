@@ -101,6 +101,21 @@ export function normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, all
   return result;
 }
 
+/**
+ * Strips non-column camelCase aliases from normalized limits,
+ * returning only valid admin_question_sets database column keys.
+ */
+export function toDbQuestionSetLimits(limits = {}) {
+  const dbLimits = {};
+  if (limits.passcode_hash !== undefined) dbLimits.passcode_hash = limits.passcode_hash;
+  if (limits.expires_at !== undefined) dbLimits.expires_at = limits.expires_at;
+  if (limits.max_attempts !== undefined) dbLimits.max_attempts = limits.max_attempts;
+  if (limits.allowed_emails !== undefined) dbLimits.allowed_emails = limits.allowed_emails;
+  if (limits.scheduled_at !== undefined) dbLimits.scheduled_at = limits.scheduled_at;
+  if (limits.scheduled_duration_minutes !== undefined) dbLimits.scheduled_duration_minutes = limits.scheduled_duration_minutes;
+  return dbLimits;
+}
+
 export function verifyInterviewPasscode(passcode, storedHash) {
   if (!storedHash) return true;
   if (typeof passcode !== 'string' || passcode.length < PASSCODE_MIN_LENGTH || passcode.length > PASSCODE_MAX_LENGTH) {
@@ -240,35 +255,6 @@ export function matchExpectedTopics(candidateAnswer = '', expectedTopics = []) {
   return { coveredTopics, missedTopics, coverageRatio };
 }
 
-/**
- * Calculates integrity telemetry metrics based on candidate session behavior (tab switches, clipboard pastes).
- * @param {number|object} rawInput - Number of tab switches or an object { tabSwitchCount, pasteCount }
- * @param {number} [rawPastes=0] - Number of clipboard pastes
- * @returns {{ tabSwitchCount: number, pasteCount: number, integrityRating: 'clean'|'moderate'|'flagged', integrityScore: number, flagged: boolean }}
- */
-export function evaluateAssessmentIntegrity(rawInput = 0, rawPastes = 0) {
-  let rawSwitches = rawInput;
-  let pastes = rawPastes;
-  if (typeof rawInput === 'object' && rawInput !== null) {
-    rawSwitches = rawInput.tabSwitchCount ?? rawInput.tabSwitches ?? 0;
-    pastes = rawInput.pasteCount ?? rawInput.pastes ?? 0;
-  }
-  const parsedSwitches = Number(rawSwitches);
-  const parsedPastes = Number(pastes);
-  const tabSwitchCount = Number.isFinite(parsedSwitches) ? Math.max(0, Math.min(999, Math.round(parsedSwitches))) : 0;
-  const pasteCount = Number.isFinite(parsedPastes) ? Math.max(0, Math.min(999, Math.round(parsedPastes))) : 0;
+export { evaluateAssessmentIntegrity } from '../services/interviewAnswerEvaluator.js';
 
-  const totalInfractions = tabSwitchCount + pasteCount;
-  const isFlagged = tabSwitchCount > 2 || pasteCount > 3 || totalInfractions >= 4;
-  const integrityRating = totalInfractions === 0 ? 'clean' : (!isFlagged ? 'moderate' : 'flagged');
-  const integrityScore = Math.max(0, 100 - (tabSwitchCount * 15) - (pasteCount * 10));
-
-  return {
-    tabSwitchCount,
-    pasteCount,
-    integrityRating,
-    integrityScore,
-    flagged: isFlagged,
-  };
-}
 

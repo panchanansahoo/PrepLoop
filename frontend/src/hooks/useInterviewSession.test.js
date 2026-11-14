@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useVoiceAI } from "./useVoiceAI";
 import useInterviewSession, { INTERVIEW_LIFECYCLE } from "./useInterviewSession";
 
-const memoryStorage = (() => {
+const createMemoryStorage = () => {
   let store = {};
   return {
     clear: () => {
@@ -19,10 +19,18 @@ const memoryStorage = (() => {
       store[key] = String(value);
     },
   };
-})();
+};
+
+const memoryStorage = createMemoryStorage();
+const memorySessionStorage = createMemoryStorage();
 
 Object.defineProperty(globalThis, "localStorage", {
   value: memoryStorage,
+  configurable: true,
+});
+
+Object.defineProperty(globalThis, "sessionStorage", {
+  value: memorySessionStorage,
   configurable: true,
 });
 
@@ -104,6 +112,7 @@ describe("useInterviewSession", () => {
       getAuthHeaders: vi.fn(() => ({})),
     });
     localStorage.clear();
+    sessionStorage.clear();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -571,5 +580,56 @@ describe("useInterviewSession", () => {
       if (origImpl) vi.mocked(useVoiceAI).mockImplementation(origImpl);
       vi.useRealTimers();
     }
+  });
+
+  it("recovers active interview session, attemptId, and questionIndex from sessionStorage on reload", () => {
+    const mockActiveSession = {
+      attemptId: "att_test_recovery_999",
+      questionIndex: 4,
+      currentQuestion: "Tell me about a complex architecture problem you solved.",
+      totalQuestions: 6,
+      conversation: [
+        { role: "interviewer", text: "Welcome" },
+        { role: "candidate", text: "Hi" },
+        { role: "interviewer", text: "Tell me about a complex architecture problem you solved." },
+      ],
+      elapsed: 420,
+      interviewType: "technical",
+      interviewerGender: "female",
+      code: "print('hello')",
+      language: "python",
+      notes: "System design thoughts",
+      timestamp: Date.now() - 10000,
+      isActive: true,
+    };
+
+    sessionStorage.setItem("preploop_active_interview_session", JSON.stringify(mockActiveSession));
+
+    const { result } = renderHook(() => useInterviewSession());
+
+    expect(result.current.state.phase).toBe("interview");
+    expect(result.current.state.questionIndex).toBe(4);
+    expect(result.current.state.attemptId).toBe("att_test_recovery_999");
+    expect(result.current.state.currentQuestion).toBe("Tell me about a complex architecture problem you solved.");
+    expect(result.current.state.totalQuestions).toBe(6);
+    expect(result.current.state.elapsed).toBe(420);
+    expect(result.current.state.isSessionRecovered).toBe(true);
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+  });
+
+  it("clears sessionStorage active session recovery when clearSavedSession is invoked", () => {
+    sessionStorage.setItem("preploop_active_interview_session", JSON.stringify({
+      attemptId: "att_123",
+      questionIndex: 2,
+      isActive: true,
+      timestamp: Date.now(),
+    }));
+
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.clearSavedSession();
+    });
+
+    expect(sessionStorage.getItem("preploop_active_interview_session")).toBeNull();
   });
 });

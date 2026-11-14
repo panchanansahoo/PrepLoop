@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeInterviewLimits,
+  toDbQuestionSetLimits,
   getInterviewScheduleStatus,
   isInterviewLinkExpired,
   verifyInterviewPasscode,
@@ -13,7 +14,9 @@ import {
   buildCandidateInviteEmail,
   dispatchCandidateInvitations,
   dispatchInterviewWebhook,
+  formatSlackWebhookPayload,
 } from '../../utils/interviewMailer.js';
+import { generateProbingFollowUp } from '../../routes/interview/customSets.js';
 
 describe('Private Interview Session & Schedule Time Conformance', () => {
   it('normalizes scheduledAt and scheduledDurationMinutes properly', () => {
@@ -43,6 +46,26 @@ describe('Private Interview Session & Schedule Time Conformance', () => {
     const result = normalizeInterviewLimits({});
     expect(result.scheduled_duration_minutes).toBe(45);
     expect(result.scheduledDurationMinutes).toBe(45);
+  });
+
+  it('toDbQuestionSetLimits strips camelCase aliases and keeps only snake_case DB columns', () => {
+    const limits = normalizeInterviewLimits({
+      passcode: 'SecretPass123',
+      allowedEmails: ['candidate@example.com'],
+      scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+      scheduledDurationMinutes: 60,
+    });
+
+    const dbLimits = toDbQuestionSetLimits(limits);
+    expect(dbLimits).toHaveProperty('passcode_hash');
+    expect(dbLimits).toHaveProperty('allowed_emails', ['candidate@example.com']);
+    expect(dbLimits).toHaveProperty('scheduled_at');
+    expect(dbLimits).toHaveProperty('scheduled_duration_minutes', 60);
+
+    // Verify non-column camelCase keys are strictly stripped to prevent PostgREST schema cache errors
+    expect(dbLimits).not.toHaveProperty('allowedEmails');
+    expect(dbLimits).not.toHaveProperty('scheduledAt');
+    expect(dbLimits).not.toHaveProperty('scheduledDurationMinutes');
   });
 
   it('identifies upcoming scheduled interview when current time is before session', () => {
@@ -338,6 +361,126 @@ describe('Private Interview Session & Schedule Time Conformance', () => {
         expect(result.success).toBe(false);
         expect(result.error).toMatch(/SSRF defense policy/i);
       }
+    });
+
+    describe('formatSlackWebhookPayload (Stage 4 Enhanced Slack/ATS Integration)', () => {
+      it('creates Slack-compatible Block Kit message card with score pill, decision tag, and review URL', () => {
+        const payload = {
+          candidateName: 'Jane Smith',
+          candidateEmail: 'jane@example.com',
+          questionSetTitle: 'Backend Node.js Assessment',
+          overallScore: 88,
+          passingScore: 70,
+          decision: 'qualified',
+          durationSeconds: 1800,
+          attemptId: 'att-12345',
+          reviewUrl: 'https://preploop.com/admin/question-sets?attemptId=att-12345',
+          integrity: { flagged: false, tabSwitchCount: 0, pasteCount: 0 },
+          executiveSummary: {
+            bullets: [
+              'Key Strengths: Strong API design and concurrency knowledge.',
+              'Growth Areas: Could expand on database sharding trade-offs.',
+              'Hiring Recommendation: Strong Hire / Advance to onsite interview.',
+            ],
+          },
+        };
+
+        const card = formatSlackWebhookPayload(payload);
+
+        expect(card).toBeDefined();
+        expect(card.text).toContain('QUALIFIED');
+        expect(card.text).toContain('88%');
+        expect(card.blocks).toBeInstanceOf(Array);
+        expect(card.blocks.length).toBeGreaterThanOrEqual(4);
+
+        // Header block
+        expect(card.blocks[0].type).toBe('header');
+        expect(card.blocks[0].text.text).toContain('Jane Smith');
+
+        // Fields in section: Score pill & decision tag
+        const sectionBlock = card.blocks[1];
+        expect(sectionBlock.type).toBe('section');
+        const sectionText = JSON.stringify(sectionBlock.fields);
+        expect(sectionText).toContain('88 / 100');
+        expect(sectionText).toContain('QUALIFIED');
+        expect(sectionText).toContain('30 mins');
+
+        // Executive summary section
+        const summaryBlock = card.blocks.find((b) => b.text && b.text.text && b.text.text.includes('Executive Summary'));
+        expect(summaryBlock).toBeDefined();
+        expect(summaryBlock.text.text).toContain('Key Strengths:');
+        expect(summaryBlock.text.text).toContain('Hiring Recommendation:');
+
+        // Actions button with deep link
+        const actionsBlock = card.blocks.find((b) => b.type === 'actions');
+        expect(actionsBlock).toBeDefined();
+        expect(actionsBlock.elements[0].url).toBe('https://preploop.com/admin/question-sets?attemptId=att-12345');
+
+        // Attachment color
+        expect(card.attachments[0].color).toBe('#22c55e');
+      });
+
+      it('adapts color and emoji for review_needed and rejected decisions', () => {
+        const reviewNeededCard = formatSlackWebhookPayload({
+          overallScore: 65,
+          decision: 'review_needed',
+        });
+        expect(reviewNeededCard.text).toContain('REVIEW NEEDED');
+        expect(reviewNeededCard.attachments[0].color).toBe('#f59e0b');
+
+        const rejectedCard = formatSlackWebhookPayload({
+          overallScore: 40,
+          decision: 'rejected',
+        });
+        expect(rejectedCard.text).toContain('REJECTED');
+        expect(rejectedCard.attachments[0].color).toBe('#ef4444');
+      });
+    });
+
+    describe('generateProbingFollowUp (Stage 3A AI Probing Mode)', () => {
+      it('generates targeted follow-up probing question when key expectedTopics are omitted', () => {
+        const result = generateProbingFollowUp({
+          question: 'How do you design an API gateway for microservices?',
+          userAnswer: 'I will use an API gateway to route requests to backend services with load balancing.',
+          expectedTopics: ['rate limiting', 'jwt authentication', 'circuit breaker'],
+          probingMode: true,
+          stage: 'Technical',
+        });
+
+        expect(result.isProbe).toBe(true);
+        expect(result.needsProbing).toBe(true);
+        expect(typeof result.followUpQuestion).toBe('string');
+        expect(result.followUpQuestion.toLowerCase()).toMatch(/rate limiting|jwt authentication|circuit breaker/i);
+        expect(result.topicEvaluation.missedTopics.length).toBeGreaterThan(0);
+      });
+
+      it('does not probe when probingMode is disabled', () => {
+        const result = generateProbingFollowUp({
+          question: 'What is CORS?',
+          userAnswer: 'CORS is cross-origin resource sharing.',
+          expectedTopics: ['headers', 'preflight OPTIONS request', 'security'],
+          probingMode: false,
+        });
+
+        expect(result.isProbe).toBe(false);
+        expect(result.followUpQuestion).toBeNull();
+      });
+
+      it('does not probe when candidate covers all expected topics thoroughly', () => {
+        const result = generateProbingFollowUp({
+          question: 'Explain React state management',
+          userAnswer: `
+            In our team project, I implemented state management using Redux and Context API.
+            We needed centralized caching and predictability. I used actions, reducers, and selectors.
+            As a result, we reduced unnecessary re-renders by 40% and maintained high performance.
+          `,
+          expectedTopics: ['context', 'reducers', 'actions'],
+          probingMode: true,
+        });
+
+        expect(result.topicEvaluation.missedTopics).toHaveLength(0);
+        expect(result.isProbe).toBe(false);
+      });
     });
   });
 });

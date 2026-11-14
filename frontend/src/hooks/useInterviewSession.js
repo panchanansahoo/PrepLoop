@@ -43,6 +43,8 @@ export const INTERVIEW_LIFECYCLE = {
   ERROR: "error",
 };
 
+export const AI_ACTIVE_SESSION_STORAGE_KEY = "preploop_active_interview_session";
+
 const STAGE_API_MAP = {
   coding: "DSA / Coding",
   dsa: "DSA / Coding",
@@ -236,6 +238,8 @@ export function useInterviewSession(options = {}) {
   const allAdminQuestionsRef = useRef([]);
   const customQuestionSetRef = useRef(null);
   const customAttemptIdRef = useRef(null);
+  const sessionRecoveredRef = useRef(false);
+  const [isSessionRecovered, setIsSessionRecovered] = useState(false);
   const questionBankIdsRef = useRef([]);
   const currentQuestionIdRef = useRef(null);
   const submissionSentRef = useRef(false);
@@ -1036,6 +1040,90 @@ export function useInterviewSession(options = {}) {
     };
   }, [_user?.id]);
 
+  // ─── SessionStorage State Recovery: Preserves active attemptId, questionIndex, and reconnects on refresh ───
+  useEffect(() => {
+    if (sessionRecoveredRef.current) return;
+    try {
+      if (typeof window === "undefined" || !window.sessionStorage) return;
+      const storageKey = questionSetCode
+        ? `${AI_ACTIVE_SESSION_STORAGE_KEY}_${questionSetCode}`
+        : AI_ACTIVE_SESSION_STORAGE_KEY;
+      let raw = window.sessionStorage.getItem(storageKey);
+      if (!raw && questionSetCode) {
+        raw = window.sessionStorage.getItem(AI_ACTIVE_SESSION_STORAGE_KEY);
+      }
+      if (raw) {
+        const active = JSON.parse(raw);
+        const isFresh = Boolean(active && active.timestamp && (Date.now() - active.timestamp < 3 * 60 * 60 * 1000));
+        if (active && active.isActive && isFresh) {
+          sessionRecoveredRef.current = true;
+          setIsSessionRecovered(true);
+
+          if (active.attemptId) {
+            customAttemptIdRef.current = active.attemptId;
+          }
+          if (active.questionIndex !== undefined) {
+            setQuestionIndex(active.questionIndex);
+            questionIndexRef.current = active.questionIndex;
+          }
+          if (active.currentQuestion) {
+            setCurrentQuestion(active.currentQuestion);
+          }
+          if (active.totalQuestions) {
+            setTotalQuestions(active.totalQuestions);
+          }
+          if (Array.isArray(active.conversation) && active.conversation.length > 0) {
+            setConversation(active.conversation);
+          }
+          if (active.elapsed) {
+            setElapsed(active.elapsed);
+          }
+          if (active.interviewType) {
+            setInterviewType(active.interviewType);
+          }
+          if (active.interviewerGender) {
+            setInterviewerGender(active.interviewerGender);
+          }
+          if (active.code) {
+            setCode(active.code);
+          }
+          if (active.language) {
+            setLanguage(active.language);
+          }
+          if (active.notes) {
+            setNotes(active.notes);
+          }
+          if (active.stagePlan) {
+            setStagePlan(active.stagePlan);
+          }
+          if (active.stageLabel) {
+            setStageLabel(active.stageLabel);
+          }
+          if (Array.isArray(active.questionBank)) {
+            questionBankIdsRef.current = active.questionBank;
+          }
+          if (active.currentQuestionId) {
+            currentQuestionIdRef.current = active.currentQuestionId;
+          }
+          if (active.sessionKey) {
+            checkpointKeyRef.current = active.sessionKey;
+          }
+
+          setPhase("interview");
+          phaseRef.current = "interview";
+          updateLifecycle(INTERVIEW_LIFECYCLE.ACTIVE, "session_recovered");
+
+          // Reconnect smoothly: reopen voice listening / handoff to candidate
+          setTimeout(() => {
+            handoffToCandidate();
+          }, 650);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to recover session from sessionStorage:", e);
+    }
+  }, [questionSetCode, handoffToCandidate, updateLifecycle]);
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(AI_INTERVIEW_SESSION_KEY);
@@ -1085,6 +1173,42 @@ export function useInterviewSession(options = {}) {
           timestamp: Date.now(),
         }),
       );
+
+      // AI-Active: Persist active interview state to sessionStorage for seamless refresh/reload recovery
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        const activeSessionData = {
+          attemptId: customAttemptIdRef.current,
+          questionIndex,
+          currentQuestion,
+          elapsed,
+          totalQuestions,
+          conversation: checkpointConversation,
+          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
+          interviewType,
+          interviewerGender,
+          code: typeof code === 'string' ? code.slice(0, 50000) : code,
+          language,
+          notes: typeof notes === 'string' ? notes.slice(0, 10000) : notes,
+          stagePlan,
+          stageLabel,
+          questionSetCode: questionSetCode || undefined,
+          questionBank: questionBankIdsRef.current,
+          currentQuestionId: currentQuestionIdRef.current,
+          sessionKey: checkpointKeyRef.current,
+          timestamp: Date.now(),
+          isActive: true,
+        };
+        window.sessionStorage.setItem(
+          AI_ACTIVE_SESSION_STORAGE_KEY,
+          JSON.stringify(activeSessionData),
+        );
+        if (questionSetCode) {
+          window.sessionStorage.setItem(
+            `${AI_ACTIVE_SESSION_STORAGE_KEY}_${questionSetCode}`,
+            JSON.stringify(activeSessionData),
+          );
+        }
+      }
 
       if (_user?.id && checkpointKeyRef.current) {
         const payload = {
@@ -1138,6 +1262,10 @@ export function useInterviewSession(options = {}) {
       window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
       window.localStorage.removeItem(`${AI_INTERVIEW_SESSION_KEY}:key`);
       window.sessionStorage.removeItem("preploop_active_transcript");
+      window.sessionStorage.removeItem(AI_ACTIVE_SESSION_STORAGE_KEY);
+      if (questionSetCode) {
+        window.sessionStorage.removeItem(`${AI_ACTIVE_SESSION_STORAGE_KEY}_${questionSetCode}`);
+      }
       if (checkpointTimerRef.current) clearTimeout(checkpointTimerRef.current);
       if (_user?.id && checkpointKeyRef.current) {
         authFetch(`/api/company-interview/checkpoints/${checkpointKeyRef.current}`, {
@@ -1145,9 +1273,12 @@ export function useInterviewSession(options = {}) {
         }).catch(() => {});
       }
     } catch { /* empty */ }
-  }, [_user?.id]);
+  }, [_user?.id, questionSetCode]);
 
   const restoreSession = useCallback((session) => {
+    if (session.attemptId) {
+      customAttemptIdRef.current = session.attemptId;
+    }
     setConversation(session.conversation || []);
     setQuestionIndex(session.questionIndex || 1);
     setCurrentQuestion(session.currentQuestion || "");
@@ -1277,8 +1408,9 @@ export function useInterviewSession(options = {}) {
   handleSpeculativeCandidateAnswerRef.current = handleSpeculativeCandidateAnswer;
 
   useEffect(() => {
+    if (sessionRecoveredRef.current || phase === 'interview') return;
     setTotalQuestions(13);
-  }, [experienceLevel]);
+  }, [experienceLevel, phase]);
 
   const [resultTab, setResultTab] = useState("overview");
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -2195,9 +2327,17 @@ export function useInterviewSession(options = {}) {
       }
       if (data.attemptId) {
         customAttemptIdRef.current = data.attemptId;
-        if (typeof sessionStorage !== 'undefined' && questionSetCode) {
+        if (typeof sessionStorage !== 'undefined') {
           try {
-            sessionStorage.setItem(`attempt_${questionSetCode}`, data.attemptId);
+            if (questionSetCode) {
+              sessionStorage.setItem(`attempt_${questionSetCode}`, data.attemptId);
+            }
+            const activeRaw = sessionStorage.getItem(AI_ACTIVE_SESSION_STORAGE_KEY);
+            if (activeRaw) {
+              const activeParsed = JSON.parse(activeRaw);
+              activeParsed.attemptId = data.attemptId;
+              sessionStorage.setItem(AI_ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(activeParsed));
+            }
           } catch { /* empty */ }
         }
       }
@@ -3618,6 +3758,8 @@ export function useInterviewSession(options = {}) {
       candidateEmail,
       candidateName,
       submissionStatus,
+      attemptId: customAttemptIdRef.current,
+      isSessionRecovered,
       interviewerMood,
       realisticJitter,
       whiteboardSnapshot,

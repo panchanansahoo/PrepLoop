@@ -103,6 +103,7 @@ const AIJobCopilot = lazyWithRecovery(() => import('./pages/AIJobCopilot'));
 const HRLogin = lazyWithRecovery(() => import('./pages/HRLogin'));
 const HRDashboard = lazyWithRecovery(() => import('./pages/HRDashboard'));
 const AIInterviewPage = lazyWithRecovery(() => import('./pages/AIInterviewPage'));
+const CandidateFeedbackPortal = lazyWithRecovery(() => import('./pages/CandidateFeedbackPortal'));
 const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest'));
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
 const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
@@ -219,6 +220,7 @@ function AppContent() {
   // Public pages that don't show sidebar
   const PUBLIC_PATHS = new Set(['/', '/app', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
   const isPublicPortfolioRoute = location.pathname.startsWith('/u/');
+  const isCandidateFeedbackRoute = location.pathname.startsWith('/candidate-feedback');
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/dsa-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview' || location.pathname === '/app';
   const isVisualizerRoute = location.pathname === '/visualizer';
@@ -228,7 +230,7 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/') || isPublicPortfolioRoute;
+  let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/') || isPublicPortfolioRoute || isCandidateFeedbackRoute;
   // If the user is logged in and on the Job Updates or Library page, treat it as an internal dashboard page
   if ((location.pathname === '/job-updates' || location.pathname === '/library') && user) {
     isPublicPage = false;
@@ -364,6 +366,8 @@ function AppContent() {
                 <Route path="/company-track/:id" element={<CompanyTrack />} />
                 <Route path="/learning-hub" element={<LearningHub />} />
                 <Route path="/real-interview" element={<RealInterview />} />
+                <Route path="/candidate-feedback" element={<CandidateFeedbackPortal />} />
+                <Route path="/candidate-feedback/:token" element={<CandidateFeedbackPortal />} />
                 <Route path="/notes-bookmarks" element={<NotesBookmarks />} />
                 <Route path="/timed-practice" element={<TimedPractice />} />
 

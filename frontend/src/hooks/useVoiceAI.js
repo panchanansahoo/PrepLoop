@@ -41,8 +41,10 @@ const TTS_PLAYBACK_GUARD_MS = 30000;
 
 // Interrupt detection (calibrated for natural conversational barge-in without echo false-positives)
 const INTERRUPT_LEVEL = 0.08;
-const INTERRUPT_DURATION = 250; // Sustained speech for 250ms triggers clean barge-in
-const INTERRUPT_GRACE_PERIOD_MS = 1200; // Ignore interrupts during the first 1.2s of playback
+const BARGE_IN_VAD_DURATION_MS = 100; // 100ms sustained vocalization triggers instantaneous barge-in
+const BARGE_IN_GRACE_PERIOD_MS = 250; // 250ms buffer settling to eliminate speaker transient click echo
+const INTERRUPT_DURATION = BARGE_IN_VAD_DURATION_MS;
+const INTERRUPT_GRACE_PERIOD_MS = BARGE_IN_GRACE_PERIOD_MS;
 
 // Endpoints
 const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || undefined;
@@ -361,6 +363,8 @@ export function useVoiceAI({
   persona = null,
   question = "",
   enableInterrupt = true,
+  onBargeIn = null,
+  onInterrupt = null,
   getAuthHeaders = null,
   isPaused = false,
   pacingMode = "realistic",
@@ -1175,7 +1179,7 @@ export function useVoiceAI({
     }
   }, [onAnswer, submitAnswer, transcriptListener]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async ({ isBargeIn = false } = {}) => {
     // Only skip if already actively listening
     if (activeRef.current && stateRef.current === "listening") {
       return;
@@ -1196,7 +1200,9 @@ export function useVoiceAI({
     setTranscript("");
     setInterimText("");
     setFinalTranscript("");
-    setInterruptDetected(false);
+    if (!isBargeIn) {
+      setInterruptDetected(false);
+    }
     setSilenceCountdown(0);
 
     if (ttsAbortRef.current) {
@@ -1667,7 +1673,73 @@ export function useVoiceAI({
       interruptTimerRef.current = null;
     }
     setState("idle");
-  }, []);
+  }, [stopImmediateBackchannel]);
+
+  /**
+   * Conversational full-duplex 'barge-in' interruption.
+   * When candidate speech starts while AI audio is playing, immediately
+   * cancel audio playback and switch smoothly to listening mode.
+   */
+  const bargeIn = useCallback(({ force = false } = {}) => {
+    const isAiSpeaking = stateRef.current === "speaking" || stateRef.current === "loading";
+    const hasActiveAudio = Boolean(audioRef.current?.src);
+    if (!force && !isAiSpeaking && !hasActiveAudio) {
+      return false;
+    }
+    logVoiceDebug("conversational barge-in triggered: canceling playback and transitioning to listening");
+
+    if (ttsAbortRef.current) {
+      try { ttsAbortRef.current.abort(); } catch {}
+      ttsAbortRef.current = null;
+    }
+
+    if (currentGainNodeRef.current && audioCtxRef.current) {
+      try {
+        const ctx = audioCtxRef.current;
+        const gain = currentGainNodeRef.current.gain;
+        gain.cancelScheduledValues(ctx.currentTime);
+        gain.setValueAtTime(gain.value, ctx.currentTime);
+        gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+        setTimeout(() => {
+          try { currentSourceNodeRef.current?.stop(); } catch {}
+          currentSourceNodeRef.current = null;
+          currentGainNodeRef.current = null;
+        }, 45);
+      } catch {}
+    } else if (audioRef.current) {
+      const a = audioRef.current;
+      try {
+        a.pause();
+        a.currentTime = 0;
+        if (a.src && a.src.startsWith("blob:")) {
+          URL.revokeObjectURL(a.src);
+        }
+        a.src = "";
+      } catch {}
+    }
+
+    stopImmediateBackchannel();
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+    setOutputAudioEl(null);
+
+    setInterruptDetected(true);
+    if (interruptTimerRef.current) {
+      clearTimeout(interruptTimerRef.current);
+      interruptTimerRef.current = null;
+    }
+
+    try { onBargeIn?.(); } catch {}
+    try { onInterrupt?.(); } catch {}
+
+    // Smoothly transition immediately to listening mode
+    stateRef.current = "listening";
+    setState("listening");
+    start({ isBargeIn: true });
+    return true;
+  }, [onBargeIn, onInterrupt, start, stopImmediateBackchannel]);
 
   useEffect(() => {
     if (!enableInterrupt) {
@@ -1678,18 +1750,17 @@ export function useVoiceAI({
       return;
     }
 
-    if (state !== "speaking") {
+    if (state !== "speaking" && state !== "loading") {
       if (interruptTimerRef.current) {
         clearTimeout(interruptTimerRef.current);
         interruptTimerRef.current = null;
       }
-      setInterruptDetected(false);
       return;
     }
 
-    // Ignore interrupts during the initial playback grace window to prevent laptop speaker echo feedback
+    // Ignore interrupts during the brief buffer settling grace window to prevent speaker click echo
     const elapsedSpeaking = Date.now() - speakingStartedAtRef.current;
-    if (elapsedSpeaking < INTERRUPT_GRACE_PERIOD_MS) {
+    if (elapsedSpeaking < BARGE_IN_GRACE_PERIOD_MS) {
       if (interruptTimerRef.current) {
         clearTimeout(interruptTimerRef.current);
         interruptTimerRef.current = null;
@@ -1701,16 +1772,14 @@ export function useVoiceAI({
     // Dynamic acoustic barge-in threshold:
     // If outputLevel > 0.04 (speaker playing audio into room), candidate must vocalize above speaker echo envelope
     const dynamicThreshold = outputLevel > 0.04
-      ? Math.max(INTERRUPT_LEVEL, outputLevel * 0.70 + 0.05)
+      ? Math.max(INTERRUPT_LEVEL, outputLevel * 0.70 + 0.04)
       : INTERRUPT_LEVEL;
     const isLoud = level > dynamicThreshold;
     if (isLoud) {
       if (!interruptTimerRef.current) {
         interruptTimerRef.current = setTimeout(() => {
-          setInterruptDetected(true);
-          interrupt();
-          setTimeout(() => start(), 100);
-        }, INTERRUPT_DURATION);
+          bargeIn();
+        }, BARGE_IN_VAD_DURATION_MS);
       }
     } else {
       if (interruptTimerRef.current) {
@@ -1718,7 +1787,7 @@ export function useVoiceAI({
         interruptTimerRef.current = null;
       }
     }
-  }, [enableInterrupt, state, inputLevel, inputBars, interrupt, start]);
+  }, [enableInterrupt, state, inputLevel, outputLevel, bargeIn]);
 
   const pickBrowserVoice = useCallback(
     (gender) => {
@@ -2536,6 +2605,7 @@ export function useVoiceAI({
     retryTranscription,
     hasPendingTranscription: Boolean(pendingWhisperBlobRef.current),
     interrupt,
+    bargeIn,
     speak,
     speakGaplessSequence,
     playImmediateBackchannel,
@@ -2573,6 +2643,7 @@ export function useVoiceAI({
     submitAnswer,
     retryTranscription,
     interrupt,
+    bargeIn,
     speak,
     prefetch,
     cleanup,
