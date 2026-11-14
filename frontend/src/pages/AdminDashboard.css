@@ -285,25 +285,45 @@
   color: var(--text-secondary, rgba(255, 255, 255, 0.3));
 }
 
-.admin-select {
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.admin-select,
+.admin-modal select,
+.admin-job-form select,
+.admin-modal-select {
+  padding: 8px 36px 8px 14px;
+  background-color: #12131a;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.7)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  color: var(--text-primary, #fff);
+  color: #ffffff;
+  color-scheme: dark;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   transition: border-color 0.2s;
 }
 
-.admin-select:focus {
+.admin-select:focus,
+.admin-modal select:focus,
+.admin-job-form select:focus,
+.admin-modal-select:focus {
   border-color: var(--accent, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-.admin-select option {
-  background: #111;
+.admin-select option,
+.admin-modal select option,
+.admin-job-form select option,
+.admin-modal-select option {
+  background-color: #161822;
+  color: #ffffff;
+  padding: 8px 12px;
 }
 
 .admin-btn-icon {

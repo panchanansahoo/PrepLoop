@@ -166,4 +166,94 @@ describe('InterviewLobby component', () => {
         fireEvent.click(icsBtn);
         expect(createObjectURLMock).toHaveBeenCalledTimes(1);
     });
+
+    it('formats candidate instructions politely and displays PrepLoop Assessment fallback for company', () => {
+        const customQuestionSet = {
+            id: 'qs_behavioral',
+            title: 'Behavioral Leadership & Engineering Collaboration (STAR)',
+            description: 'STAR behavioral evaluation',
+            questionCount: 5,
+            difficulty: 'medium',
+            settings: {
+                roleName: 'Senior Software Engineer',
+                customInstructions: 'Probe candidates for concrete STAR storytelling: clear ownership (use of I vs we), measurable outcomes.',
+            },
+        };
+
+        render(
+            <MemoryRouter>
+                <InterviewLobby
+                    {...defaultProps}
+                    questionSetCode="TOKEN_STAR"
+                    customQuestionSet={customQuestionSet}
+                />
+            </MemoryRouter>
+        );
+
+        // Header shows "Candidate Guidance & Focus Areas"
+        expect(screen.getByText(/Candidate Guidance & Focus Areas/i)).toBeInTheDocument();
+
+        // Third person "Probe candidates for" is rewritten to polite candidate guidance
+        expect(screen.getByText(/Please focus on concrete STAR storytelling/i)).toBeInTheDocument();
+
+        // Company fallback is "PrepLoop Assessment" instead of "Assigned"
+        expect(screen.getByText('PrepLoop Assessment')).toBeInTheDocument();
+
+        // Begin interview button is visible and enabled when mic is ready
+        const beginBtn = screen.getByRole('button', { name: /Begin Interview/i });
+        expect(beginBtn).toBeInTheDocument();
+        expect(beginBtn).not.toBeDisabled();
+    });
+
+    it('prompts user to complete microphone check on Begin Interview button when mic is not ready', () => {
+        const customQuestionSet = {
+            id: 'qs_test',
+            title: 'Frontend React Assessment',
+            questionCount: 3,
+            difficulty: 'easy',
+            settings: { companyName: 'Acme Corp', roleName: 'Frontend Dev' },
+        };
+
+        render(
+            <MemoryRouter>
+                <InterviewLobby
+                    {...defaultProps}
+                    micCheckStatus="not_checked"
+                    questionSetCode="TOKEN_MIC"
+                    customQuestionSet={customQuestionSet}
+                />
+            </MemoryRouter>
+        );
+
+        // Button should guide the candidate instead of being confusingly disabled
+        const micCheckPromptBtn = screen.getByRole('button', { name: /Complete Microphone Check to Begin/i });
+        expect(micCheckPromptBtn).toBeInTheDocument();
+        expect(micCheckPromptBtn).toBeDisabled();
+    });
+
+    it('shows expired warning banner and disables Start button when link is expired', () => {
+        const customQuestionSet = {
+            id: 'qs_expired',
+            title: 'Backend Node Assessment',
+            expiresAt: '2020-01-01T00:00:00.000Z',
+            questionCount: 4,
+            difficulty: 'hard',
+            settings: { companyName: 'Acme Corp', roleName: 'Backend Dev' },
+        };
+
+        render(
+            <MemoryRouter>
+                <InterviewLobby
+                    {...defaultProps}
+                    questionSetCode="TOKEN_EXP"
+                    customQuestionSet={customQuestionSet}
+                />
+            </MemoryRouter>
+        );
+
+        expect(screen.getByText(/Invitation Link Expired:/i)).toBeInTheDocument();
+        const expiredBtn = screen.getByRole('button', { name: /Interview Link Expired/i });
+        expect(expiredBtn).toBeInTheDocument();
+        expect(expiredBtn).toBeDisabled();
+    });
 });

@@ -12,7 +12,7 @@ export const QUESTION_SET_TEMPLATES = [
     interviewType: 'technical',
     difficulty: 'medium',
     roleName: 'Frontend React Engineer',
-    customInstructions: 'Assess candidate understanding of React concurrent features, hooks lifecycle, re-render avoidance, virtual DOM reconciliation, and modern state architectures. Look for concrete code examples and mental models.',
+    customInstructions: 'Discuss modern React architecture (React 18/19), concurrent features, state management trade-offs, render performance, and TypeScript contracts. Provide concrete code examples and articulate technical trade-offs.',
     probingMode: true,
     passingScore: 70,
     questions: [
@@ -55,7 +55,7 @@ export const QUESTION_SET_TEMPLATES = [
     interviewType: 'technical',
     difficulty: 'medium',
     roleName: 'Backend Node.js Engineer',
-    customInstructions: 'Probe for core Node.js runtime mechanics, libuv threading, stream backpressure, error handling boundaries, and database query optimization.',
+    customInstructions: 'Walk through your backend design decisions clearly, explaining Node.js event loop mechanics, concurrency, stream backpressure, database transaction isolation, and microservice resilience in production.',
     probingMode: true,
     passingScore: 70,
     questions: [
@@ -98,7 +98,7 @@ export const QUESTION_SET_TEMPLATES = [
     interviewType: 'system-design',
     difficulty: 'hard',
     roleName: 'Systems Architect',
-    customInstructions: 'Evaluate candidate ability to drive architectural trade-offs, estimate scale/throughput, decompose monoliths, design resilient databases, and implement rate limiters/caching.',
+    customInstructions: 'Clarify system requirements and constraints, estimate throughput and storage, and justify architectural trade-offs between consistency, availability, scalability, and latency across each component.',
     probingMode: true,
     passingScore: 75,
     questions: [
@@ -135,7 +135,7 @@ export const QUESTION_SET_TEMPLATES = [
     interviewType: 'behavioral',
     difficulty: 'medium',
     roleName: 'Senior / Staff Software Engineer',
-    customInstructions: 'Probe candidates for concrete STAR storytelling: clear ownership (use of I vs we), measurable outcomes, constructive conflict handling, and accountability for failures.',
+    customInstructions: 'Structure your responses using the STAR framework (Situation, Task, Action, Result). Highlight your individual ownership ("I" vs "we"), concrete actions taken, measurable outcomes, and constructive handling of setbacks.',
     probingMode: true,
     passingScore: 70,
     questions: [

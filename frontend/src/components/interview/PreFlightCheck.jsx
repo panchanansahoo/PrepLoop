@@ -82,6 +82,7 @@ const PreFlightCheck = memo(function PreFlightCheck({
     useEffect(() => {
         if (videoRef.current && cameraStream) {
             videoRef.current.srcObject = cameraStream;
+            videoRef.current.play?.().catch(() => {});
         }
     }, [cameraStream]);
 
@@ -351,7 +352,14 @@ const PreFlightCheck = memo(function PreFlightCheck({
 
                         <div className="ai-preflight-video-wrap">
                             {cameraStream ? (
-                                <video ref={videoRef} autoPlay playsInline muted className="ai-preflight-video" />
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    onLoadedMetadata={() => videoRef.current?.play?.().catch(() => {})}
+                                    className="ai-preflight-video"
+                                />
                             ) : (
                                 <div className="ai-preflight-video-placeholder">
                                     <VideoOff size={22} style={{ opacity: 0.5 }} />

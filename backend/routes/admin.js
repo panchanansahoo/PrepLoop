@@ -650,6 +650,7 @@ router.post('/question-sets', async (req, res) => {
       questions = [], settings = {}, passcode = '', expiresAt = null, maxAttempts = null,
       allowedEmails = [], role = '', roleName = '',
       scheduledAt = null, scheduledDurationMinutes = 45,
+      autoDispatchInvites, customInviteMessage, baseUrl,
     } = req.body;
 
     if (typeof title !== 'string' || !title.trim()) {
@@ -689,7 +690,17 @@ router.post('/question-sets', async (req, res) => {
     });
 
     const shareCode = generateShareCode();
-    const accessLimits = normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, allowedEmails, scheduledAt, scheduledDurationMinutes });
+    const candidateEmailsInput = req.body.allowedEmails !== undefined
+      ? req.body.allowedEmails
+      : (req.body.allowed_emails !== undefined ? req.body.allowed_emails : allowedEmails);
+    const accessLimits = normalizeInterviewLimits({
+      passcode,
+      expiresAt,
+      maxAttempts,
+      allowedEmails: candidateEmailsInput,
+      scheduledAt,
+      scheduledDurationMinutes
+    });
     const mergedSettings = { ...settings };
     const rawRoleName = typeof roleName === 'string' && roleName.trim() ? roleName : (typeof role === 'string' ? role : '');
     if (rawRoleName.trim()) {
@@ -767,7 +778,59 @@ router.post('/question-sets', async (req, res) => {
       }
     }
 
+    // Auto-dispatch candidate invitations if enabled and candidate emails exist
+    const candidateEmails = (Array.isArray(data.allowed_emails) && data.allowed_emails.length > 0)
+      ? data.allowed_emails
+      : (Array.isArray(data.settings?.allowedEmails) && data.settings.allowedEmails.length > 0
+        ? data.settings.allowedEmails
+        : (Array.isArray(accessLimits.allowed_emails) ? accessLimits.allowed_emails : []));
+
+    const isAutoDispatchExplicit = autoDispatchInvites !== undefined && autoDispatchInvites !== null;
+    const resolvedAutoDispatch = isAutoDispatchExplicit
+      ? (autoDispatchInvites === true || autoDispatchInvites === 'true' || autoDispatchInvites === 1 || autoDispatchInvites === '1')
+      : candidateEmails.length > 0;
+
+    let dispatchResults = null;
+    if (resolvedAutoDispatch && candidateEmails.length > 0) {
+      try {
+        const hostOrigin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+        const targetBaseUrl = baseUrl || hostOrigin || 'https://preploop.com';
+        const organizerName = req.user?.user_metadata?.full_name || req.user?.email || 'PrepLoop Recruiting';
+
+        dispatchResults = await dispatchCandidateInvitations({
+          questionSet: {
+            ...data,
+            allowed_emails: (Array.isArray(data.allowed_emails) && data.allowed_emails.length > 0) ? data.allowed_emails : candidateEmails,
+          },
+          candidateEmails: (Array.isArray(data.allowed_emails) && data.allowed_emails.length > 0) ? data.allowed_emails : candidateEmails,
+          customMessage: typeof customInviteMessage === 'string' ? customInviteMessage : '',
+          baseUrl: targetBaseUrl,
+          organizerName,
+        });
+      } catch (dispatchErr) {
+        adminLogger.warn('Auto dispatch candidate invitations failed during question-set creation', {
+          questionSetId: data.id,
+          error: dispatchErr.message,
+        });
+        dispatchResults = {
+          total: candidateEmails.length,
+          sent: 0,
+          simulated: 0,
+          failed: candidateEmails.length,
+          error: dispatchErr.message,
+          results: [],
+        };
+      }
+    }
+
     const { passcode_hash: _passcodeHash, ...safeQuestionSet } = data;
+    if (dispatchResults?.candidateInvites) {
+      safeQuestionSet.settings = {
+        ...(safeQuestionSet.settings || {}),
+        candidateInvites: dispatchResults.candidateInvites,
+      };
+    }
+
     res.status(201).json({
       questionSet: {
         ...safeQuestionSet,
@@ -776,6 +839,7 @@ router.post('/question-sets', async (req, res) => {
       },
       shareCode: data.share_code,
       token: data.share_code,
+      dispatchResults,
     });
   } catch (error) {
     console.error('Create question set error:', error);
@@ -906,13 +970,14 @@ router.put('/question-sets/:id', async (req, res) => {
       requiresLogin, isActive, questions, settings,
       passcode, clearPasscode, expiresAt, maxAttempts,
       allowedEmails, role, roleName,
-      scheduledAt, scheduledDurationMinutes
+      scheduledAt, scheduledDurationMinutes,
+      autoDispatchInvites, customInviteMessage, baseUrl, reDispatchAll,
     } = req.body;
 
     // Verify existence
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, passcode_hash, settings')
+      .select('id, passcode_hash, settings, allowed_emails, title, description, share_code, scheduled_at, scheduled_duration_minutes')
       .eq('id', req.params.id)
       .single();
 
@@ -953,8 +1018,11 @@ router.put('/question-sets/:id', async (req, res) => {
       const rawRoleName = typeof roleName === 'string' && roleName.trim() ? roleName : (typeof role === 'string' ? role : '');
       mergedSettings.roleName = rawRoleName.trim();
     }
-    if (allowedEmails !== undefined) {
-      const accessLimits = normalizeInterviewLimits({ allowedEmails }, { isUpdate: true });
+    const allowedEmailsInput = req.body.allowedEmails !== undefined
+      ? req.body.allowedEmails
+      : (req.body.allowed_emails !== undefined ? req.body.allowed_emails : allowedEmails);
+    if (allowedEmailsInput !== undefined) {
+      const accessLimits = normalizeInterviewLimits({ allowedEmails: allowedEmailsInput }, { isUpdate: true });
       if (accessLimits.allowed_emails !== undefined) {
         updates.allowed_emails = accessLimits.allowed_emails;
         mergedSettings.allowedEmails = accessLimits.allowed_emails;
@@ -1055,14 +1123,79 @@ router.put('/question-sets/:id', async (req, res) => {
       }
     }
 
+    // Auto-dispatch candidate invitations for newly added emails or when reDispatchAll is true
+    const existingEmails = Array.isArray(existing.allowed_emails)
+      ? existing.allowed_emails
+      : (Array.isArray(existing.settings?.allowedEmails) ? existing.settings.allowedEmails : []);
+
+    const updatedEmails = Array.isArray(data.allowed_emails)
+      ? data.allowed_emails
+      : (Array.isArray(data.settings?.allowedEmails)
+        ? data.settings.allowedEmails
+        : (updates.allowed_emails !== undefined ? updates.allowed_emails : existingEmails));
+
+    const existingSet = new Set(existingEmails.map(e => String(e || '').trim().toLowerCase()).filter(Boolean));
+    const allCleanUpdatedEmails = [...new Set(updatedEmails.map(e => String(e || '').trim().toLowerCase()).filter(Boolean))];
+    const newEmails = allCleanUpdatedEmails.filter(e => !existingSet.has(e));
+
+    const isReDispatch = Boolean(reDispatchAll === true || reDispatchAll === 'true' || reDispatchAll === 1 || reDispatchAll === '1');
+    const targetCandidateEmails = isReDispatch ? allCleanUpdatedEmails : newEmails;
+
+    const isAutoDispatchExplicit = autoDispatchInvites !== undefined && autoDispatchInvites !== null;
+    const isAutoDispatchEnabled = isAutoDispatchExplicit
+      ? (autoDispatchInvites === true || autoDispatchInvites === 'true' || autoDispatchInvites === 1 || autoDispatchInvites === '1')
+      : null;
+
+    const shouldAutoDispatch = isAutoDispatchExplicit
+      ? isAutoDispatchEnabled
+      : (targetCandidateEmails.length > 0 && (allowedEmailsInput !== undefined || isReDispatch));
+
+    let dispatchResults = null;
+    if (shouldAutoDispatch && targetCandidateEmails.length > 0) {
+      try {
+        const hostOrigin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+        const targetBaseUrl = baseUrl || hostOrigin || 'https://preploop.com';
+        const organizerName = req.user?.user_metadata?.full_name || req.user?.email || 'PrepLoop Recruiting';
+
+        dispatchResults = await dispatchCandidateInvitations({
+          questionSet: { ...existing, ...data },
+          candidateEmails: targetCandidateEmails,
+          customMessage: typeof customInviteMessage === 'string' ? customInviteMessage : '',
+          baseUrl: targetBaseUrl,
+          organizerName,
+        });
+      } catch (dispatchErr) {
+        adminLogger.warn('Auto dispatch candidate invitations failed during question-set update', {
+          questionSetId: req.params.id,
+          error: dispatchErr.message,
+        });
+        dispatchResults = {
+          total: targetCandidateEmails.length,
+          sent: 0,
+          simulated: 0,
+          failed: targetCandidateEmails.length,
+          error: dispatchErr.message,
+          results: [],
+        };
+      }
+    }
+
     const { passcode_hash: passcodeHash, ...safeQuestionSet } = data;
+    if (dispatchResults?.candidateInvites) {
+      safeQuestionSet.settings = {
+        ...(safeQuestionSet.settings || {}),
+        candidateInvites: dispatchResults.candidateInvites,
+      };
+    }
+
     res.json({
       questionSet: {
         ...safeQuestionSet,
         has_passcode: Boolean(passcodeHash),
         scheduledAt: data.scheduled_at || data.settings?.scheduledAt || null,
         scheduledDurationMinutes: data.scheduled_duration_minutes || data.settings?.scheduledDurationMinutes || 45,
-      }
+      },
+      dispatchResults,
     });
   } catch (error) {
     console.error('Update question set error:', error);

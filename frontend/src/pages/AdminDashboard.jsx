@@ -193,11 +193,18 @@ export default function AdminDashboard() {
     webhookUrl: '',
     webhookSecret: '',
     probingMode: false,
+    autoDispatchInvites: true,
+    customInviteMessage: '',
     questions: [
       { question: '', context: '', expectedTopics: '', timeLimit: 60 }
     ],
   };
   const [setForm, setSetForm] = useState(initialSetForm);
+  const candidateEmailsCount = useMemo(() => {
+    return setForm.allowedEmails
+      ? setForm.allowedEmails.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean).length
+      : 0;
+  }, [setForm.allowedEmails]);
   const [bulkCsvText, setBulkCsvText] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkError, setBulkError] = useState('');
@@ -287,9 +294,9 @@ export default function AdminDashboard() {
   }, [buildAdminApiUrl, jobPage, jobSearch]);
 
   // ─── Fetch Question Sets ───
-  const fetchQuestionSets = useCallback(async () => {
+  const fetchQuestionSets = useCallback(async (preserveMessages = false) => {
     setLoading(true);
-    clearMessages();
+    if (!preserveMessages) clearMessages();
     try {
       const res = await adminApi.get(buildAdminApiUrl('/admin/question-sets'), {
         params: {
@@ -471,6 +478,8 @@ export default function AdminDashboard() {
       webhookUrl: qs.settings?.webhookUrl || '',
       webhookSecret: qs.settings?.webhookSecret || '',
       probingMode: Boolean(qs.settings?.probingMode),
+      autoDispatchInvites: Boolean(qs.settings?.autoDispatchInvites ?? true),
+      customInviteMessage: qs.settings?.customInviteMessage || '',
       questions: questionsArr.length > 0 ? questionsArr : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }],
     });
     setShowBulkUpload(false);
@@ -538,6 +547,8 @@ export default function AdminDashboard() {
       webhookUrl: qs.settings?.webhookUrl || '',
       webhookSecret: qs.settings?.webhookSecret || '',
       probingMode: Boolean(qs.settings?.probingMode),
+      autoDispatchInvites: Boolean(qs.settings?.autoDispatchInvites ?? true),
+      customInviteMessage: qs.settings?.customInviteMessage || '',
       questions: questionsArr.length > 0 ? questionsArr : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }],
     });
     setShowBulkUpload(false);
@@ -936,6 +947,9 @@ export default function AdminDashboard() {
       role: setForm.roleName?.trim() || '',
       roleName: setForm.roleName?.trim() || '',
       questions: cleanedQuestions,
+      autoDispatchInvites: Boolean(setForm.autoDispatchInvites),
+      customInviteMessage: setForm.customInviteMessage?.trim() || '',
+      baseUrl: typeof window !== 'undefined' ? window.location.origin : '',
       settings: {
         companyName: setForm.companyName?.trim() || '',
         roleName: setForm.roleName?.trim() || '',
@@ -947,21 +961,37 @@ export default function AdminDashboard() {
         webhookUrl: setForm.webhookUrl?.trim() || '',
         webhookSecret: setForm.webhookSecret?.trim() || '',
         probingMode: Boolean(setForm.probingMode),
+        autoDispatchInvites: Boolean(setForm.autoDispatchInvites),
+        customInviteMessage: setForm.customInviteMessage?.trim() || '',
       }
     };
 
     setLoading(true);
     try {
       if (editingSet) {
-        await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${editingSet.id}`), payload);
-        setSuccess('Question set updated successfully');
+        const res = await adminApi.put(buildAdminApiUrl(`/admin/question-sets/${editingSet.id}`), payload);
+        const dispatchResults = res?.data?.dispatchResults;
+        if (dispatchResults?.sent > 0) {
+          setSuccess(`Question set created and invitation emails sent to ${dispatchResults.sent} candidate(s)!`);
+        } else if (dispatchResults?.isSimulated) {
+          setSuccess(`Question set created! Single-use invite tokens generated for ${dispatchResults.total} candidate(s) (email simulation mode).`);
+        } else {
+          setSuccess('Question set updated successfully');
+        }
       } else {
         const res = await adminApi.post(buildAdminApiUrl('/admin/question-sets'), payload);
-        const token = res.data.token || res.data.questionSet.share_code;
-        setSuccess(`Question set created! Candidate join link: ${window.location.origin}/ai-interview?token=${token}`);
+        const token = res?.data?.token || res?.data?.questionSet?.share_code;
+        const dispatchResults = res?.data?.dispatchResults;
+        if (dispatchResults?.sent > 0) {
+          setSuccess(`Question set created and invitation emails sent to ${dispatchResults.sent} candidate(s)!`);
+        } else if (dispatchResults?.isSimulated) {
+          setSuccess(`Question set created! Single-use invite tokens generated for ${dispatchResults.total} candidate(s) (email simulation mode).`);
+        } else {
+          setSuccess(`Question set created! Candidate join link: ${window.location.origin}/ai-interview?token=${token}`);
+        }
       }
       setShowSetModal(false);
-      fetchQuestionSets();
+      fetchQuestionSets(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save question set');
     } finally {
@@ -994,7 +1024,7 @@ export default function AdminDashboard() {
     try {
       await adminApi.delete(buildAdminApiUrl(`/admin/question-sets/${id}`));
       setSuccess('Question set deleted successfully');
-      fetchQuestionSets();
+      fetchQuestionSets(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete question set');
     }
@@ -1428,10 +1458,11 @@ export default function AdminDashboard() {
               value={userRoleFilter}
               onChange={e => { setUserRoleFilter(e.target.value); setUserPage(1); }}
               className="admin-select"
+              style={{ colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
             >
-              <option value="">All Roles</option>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="" style={{ backgroundColor: '#161822', color: '#ffffff' }}>All Roles</option>
+              <option value="user" style={{ backgroundColor: '#161822', color: '#ffffff' }}>User</option>
+              <option value="admin" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Admin</option>
             </select>
             <button className="admin-btn-icon" onClick={fetchUsers} title="Refresh">
               <RefreshCw size={16} />
@@ -1515,9 +1546,10 @@ export default function AdminDashboard() {
               value={contentType}
               onChange={e => { setContentType(e.target.value); setContentPage(1); }}
               className="admin-select"
+              style={{ colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
             >
-              <option value="posts">Posts</option>
-              <option value="replies">Replies</option>
+              <option value="posts" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Posts</option>
+              <option value="replies" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Replies</option>
             </select>
             <button className="admin-btn-icon" onClick={fetchContent} title="Refresh">
               <RefreshCw size={16} />
@@ -1683,22 +1715,32 @@ export default function AdminDashboard() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Category</label>
-                  <select value={jobForm.category} onChange={e => setJobForm({...jobForm, category: e.target.value})}>
-                    <option value="fresher">Fresher</option>
-                    <option value="off-campus">Off-Campus</option>
-                    <option value="internship">Internship</option>
-                    <option value="campus-drive">Campus Drive</option>
-                    <option value="announcement">Announcement</option>
+                  <select
+                    className="admin-select"
+                    value={jobForm.category}
+                    onChange={e => setJobForm({...jobForm, category: e.target.value})}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
+                  >
+                    <option value="fresher" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Fresher</option>
+                    <option value="off-campus" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Off-Campus</option>
+                    <option value="internship" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Internship</option>
+                    <option value="campus-drive" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Campus Drive</option>
+                    <option value="announcement" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Announcement</option>
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Job Type</label>
-                  <select value={jobForm.job_type} onChange={e => setJobForm({...jobForm, job_type: e.target.value})}>
-                    <option value="full-time">Full-Time</option>
-                    <option value="part-time">Part-Time</option>
-                    <option value="internship">Internship</option>
-                    <option value="contract">Contract</option>
-                    <option value="remote">Remote</option>
+                  <select
+                    className="admin-select"
+                    value={jobForm.job_type}
+                    onChange={e => setJobForm({...jobForm, job_type: e.target.value})}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
+                  >
+                    <option value="full-time" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Full-Time</option>
+                    <option value="part-time" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Part-Time</option>
+                    <option value="internship" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Internship</option>
+                    <option value="contract" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Contract</option>
+                    <option value="remote" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Remote</option>
                   </select>
                 </div>
               </div>
@@ -2097,14 +2139,16 @@ export default function AdminDashboard() {
                 <div className="form-group" style={{ flex: 1 }}>
                   <label>Interview Type</label>
                   <select
+                    className="admin-select"
                     value={setForm.interviewType}
                     onChange={e => setSetForm({ ...setForm, interviewType: e.target.value })}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value="technical">Technical</option>
-                    <option value="behavioral">Behavioral</option>
-                    <option value="system-design">System Design</option>
-                    <option value="coding">Coding / DSA</option>
-                    <option value="hr">HR</option>
+                    <option value="technical" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Technical</option>
+                    <option value="behavioral" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Behavioral</option>
+                    <option value="system-design" style={{ backgroundColor: '#161822', color: '#ffffff' }}>System Design</option>
+                    <option value="coding" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Coding / DSA</option>
+                    <option value="hr" style={{ backgroundColor: '#161822', color: '#ffffff' }}>HR</option>
                   </select>
                 </div>
               </div>
@@ -2141,12 +2185,14 @@ export default function AdminDashboard() {
                 <div className="form-group">
                   <label>Difficulty</label>
                   <select
+                    className="admin-select"
                     value={setForm.difficulty}
                     onChange={e => setSetForm({ ...setForm, difficulty: e.target.value })}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="easy" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Easy</option>
+                    <option value="medium" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Medium</option>
+                    <option value="hard" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Hard</option>
                   </select>
                 </div>
               </div>
@@ -2184,15 +2230,17 @@ export default function AdminDashboard() {
                     Fixed Session Duration
                   </label>
                   <select
+                    className="admin-select"
                     value={setForm.scheduledDurationMinutes}
                     onChange={e => setSetForm({ ...setForm, scheduledDurationMinutes: Number(e.target.value) || 45 })}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="45">45 minutes (Standard)</option>
-                    <option value="60">60 minutes (1 hour)</option>
-                    <option value="90">90 minutes</option>
-                    <option value="120">120 minutes (2 hours)</option>
+                    <option value="15" style={{ backgroundColor: '#161822', color: '#ffffff' }}>15 minutes</option>
+                    <option value="30" style={{ backgroundColor: '#161822', color: '#ffffff' }}>30 minutes</option>
+                    <option value="45" style={{ backgroundColor: '#161822', color: '#ffffff' }}>45 minutes (Standard)</option>
+                    <option value="60" style={{ backgroundColor: '#161822', color: '#ffffff' }}>60 minutes (1 hour)</option>
+                    <option value="90" style={{ backgroundColor: '#161822', color: '#ffffff' }}>90 minutes</option>
+                    <option value="120" style={{ backgroundColor: '#161822', color: '#ffffff' }}>120 minutes (2 hours)</option>
                   </select>
                   <span style={{ color: 'rgba(255,255,255,.5)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
                     Scheduled interview window length.
@@ -2267,9 +2315,73 @@ export default function AdminDashboard() {
                   onChange={e => setSetForm({ ...setForm, allowedEmails: e.target.value })}
                   placeholder="e.g. candidate1@company.com, candidate2@company.com"
                 />
-                <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px' }}>
+                <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px', display: 'block', marginBottom: '10px' }}>
                   Restricts access strictly to these email addresses. Leave blank for unlisted open access.
                 </span>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid rgba(255, 255, 255, 0.07)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#f1f5f9', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(setForm.autoDispatchInvites)}
+                      onChange={e => setSetForm({ ...setForm, autoDispatchInvites: e.target.checked })}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#6366f1' }}
+                    />
+                    <span>Automatically send invitation emails to candidate allowlist upon saving</span>
+                  </label>
+
+                  {candidateEmailsCount > 0 && (
+                    <div
+                      className="candidate-invite-callout"
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: setForm.autoDispatchInvites ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                        border: setForm.autoDispatchInvites ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        fontSize: '12px',
+                        lineHeight: '1.5',
+                        color: setForm.autoDispatchInvites ? '#a5b4fc' : 'rgba(255, 255, 255, 0.6)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <span>📨 {candidateEmailsCount} candidate(s) will automatically receive personalized join links and calendar invites.</span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#cbd5e1' }}>
+                      Custom invitation message for candidates
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={setForm.customInviteMessage || ''}
+                      onChange={e => setSetForm({ ...setForm, customInviteMessage: e.target.value })}
+                      placeholder="Add an optional custom invitation message for candidates (e.g. Please join this assessment for our engineering team)..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        color: '#fff',
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="form-group">
@@ -2708,13 +2820,15 @@ export default function AdminDashboard() {
                 <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                   <label>Interview Type</label>
                   <select
+                    className="admin-select"
                     value={aiInterviewType}
                     onChange={e => setAiInterviewType(e.target.value)}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value="technical">Technical</option>
-                    <option value="system-design">System Design</option>
-                    <option value="behavioral">Behavioral (STAR)</option>
-                    <option value="coding">Coding & Algorithms</option>
+                    <option value="technical" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Technical</option>
+                    <option value="system-design" style={{ backgroundColor: '#161822', color: '#ffffff' }}>System Design</option>
+                    <option value="behavioral" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Behavioral (STAR)</option>
+                    <option value="coding" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Coding & Algorithms</option>
                   </select>
                 </div>
               </div>
@@ -2723,25 +2837,29 @@ export default function AdminDashboard() {
                 <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                   <label>Target Difficulty</label>
                   <select
+                    className="admin-select"
                     value={aiDifficulty}
                     onChange={e => setAiDifficulty(e.target.value)}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="easy" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Easy</option>
+                    <option value="medium" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Medium</option>
+                    <option value="hard" style={{ backgroundColor: '#161822', color: '#ffffff' }}>Hard</option>
                   </select>
                 </div>
 
                 <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                   <label>Question Count</label>
                   <select
+                    className="admin-select"
                     value={aiQuestionCount}
                     onChange={e => setAiQuestionCount(Number(e.target.value))}
+                    style={{ width: '100%', colorScheme: 'dark', backgroundColor: '#12131a', color: '#ffffff' }}
                   >
-                    <option value={3}>3 Questions (~6-9 mins)</option>
-                    <option value={5}>5 Questions (~10-15 mins)</option>
-                    <option value={7}>7 Questions (~15-20 mins)</option>
-                    <option value={10}>10 Questions (~20-30 mins)</option>
+                    <option value={3} style={{ backgroundColor: '#161822', color: '#ffffff' }}>3 Questions (~6-9 mins)</option>
+                    <option value={5} style={{ backgroundColor: '#161822', color: '#ffffff' }}>5 Questions (~10-15 mins)</option>
+                    <option value={7} style={{ backgroundColor: '#161822', color: '#ffffff' }}>7 Questions (~15-20 mins)</option>
+                    <option value={10} style={{ backgroundColor: '#161822', color: '#ffffff' }}>10 Questions (~20-30 mins)</option>
                   </select>
                 </div>
               </div>

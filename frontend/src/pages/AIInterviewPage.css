@@ -786,6 +786,56 @@
   margin: 0;
 }
 
+/* Setup nav button aliases to ensure robust cross-lobby button styling */
+.ai-setup-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ai-text-secondary);
+}
+
+.ai-setup-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ai-setup-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-setup-nav-btn--prev {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e4e4e7;
+}
+
+.ai-setup-nav-btn--prev:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.ai-setup-nav-btn--next {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+}
+
+.ai-setup-nav-btn--next:hover {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  box-shadow: 0 6px 24px rgba(124, 58, 237, 0.45);
+}
+
 /* CTA Button ΓÇö inherits .ai-wizard-nav-btn--next sizing, just adds subtle glow */
 .ai-setup-start-btn {
   box-shadow: 0 0 16px rgba(124, 58, 237, 0.25);

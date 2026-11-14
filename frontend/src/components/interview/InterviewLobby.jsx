@@ -105,6 +105,17 @@ const COMPANY_TABS = [
 // ─── Device Preflight Component alias ───
 const DevicePreflightCheck = PreFlightCheck;
 
+// ─── Format Candidate Guidance ───
+function formatCandidateGuidance(rawText) {
+    if (!rawText || typeof rawText !== 'string') return '';
+    let text = rawText.trim();
+    text = text.replace(/^probe\s+candidates?\s+(for|on)\s+/i, 'Please focus on ');
+    text = text.replace(/^assess\s+candidates?\s+(on|for|understanding\s+of)\s+/i, 'Be prepared to discuss ');
+    text = text.replace(/^evaluate\s+candidates?\s+(ability\s+to|on|for)\s+/i, 'Demonstrate your approach to ');
+    text = text.replace(/^look\s+for\s+/i, 'We recommend highlighting ');
+    return text;
+}
+
 function InterviewLobby({
     setupStep, setSetupStep,
     experienceLevel, setExperienceLevel,
@@ -147,15 +158,15 @@ function InterviewLobby({
     cameraStream = null, micLevel = 0, preflightError = null, onClearPreflightError,
 }) {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [speakerCheckStatus, setSpeakerCheckStatus] = React.useState('not_checked');
     const [lobbyNow, setLobbyNow] = React.useState(Date.now());
 
     React.useEffect(() => {
-        if (!customQuestionSet?.scheduledAt) return;
+        if (!customQuestionSet?.scheduledAt && !customQuestionSet?.expiresAt) return;
         const timer = setInterval(() => setLobbyNow(Date.now()), 1000);
         return () => clearInterval(timer);
-    }, [customQuestionSet?.scheduledAt]);
+    }, [customQuestionSet?.scheduledAt, customQuestionSet?.expiresAt]);
 
     const scheduledStartTime = customQuestionSet?.scheduledAt ? new Date(customQuestionSet.scheduledAt).getTime() : null;
     const scheduledDurationMins = Number(customQuestionSet?.scheduledDurationMinutes) || 45;
@@ -165,6 +176,7 @@ function InterviewLobby({
     const isUpcomingSchedule = Boolean(scheduledStartTime && lobbyNow < (scheduledStartTime - earlyCheckinBufferMs));
     const isScheduleExpired = Boolean(sessionWindowEndTime && lobbyNow > sessionWindowEndTime);
     const isScheduleOpen = Boolean(scheduledStartTime && !isUpcomingSchedule && !isScheduleExpired);
+    const isLinkExpired = Boolean(customQuestionSet?.expiresAt && lobbyNow > new Date(customQuestionSet.expiresAt).getTime());
 
     const msUntilScheduled = scheduledStartTime ? Math.max(0, scheduledStartTime - lobbyNow) : 0;
     const hoursRemaining = Math.floor(msUntilScheduled / (1000 * 60 * 60));
@@ -399,28 +411,37 @@ function InterviewLobby({
                         <div className="ai-setup-glow ai-setup-glow--purple" />
                         <div className="ai-setup-glow ai-setup-glow--blue" />
 
-                        <div className="ai-setup-modal" style={{ maxWidth: '640px', padding: '36px' }}>
+                        <div className="ai-setup-modal" style={{ maxWidth: '680px', padding: '36px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '6px 12px', borderRadius: '20px', color: '#a5b4fc', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                         <Sparkles size={14} /> Candidate Assessment
                                     </div>
                                     {(customQuestionSet.token || customQuestionSet.shareCode) && (
                                         <span style={{ color: '#38bdf8', fontSize: '11px', background: 'rgba(56,189,248,.08)', border: '1px solid rgba(56,189,248,.2)', padding: '4px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
-                                            Token: {((customQuestionSet.token || customQuestionSet.shareCode).length > 16) ? `${(customQuestionSet.token || customQuestionSet.shareCode).slice(0, 8)}...` : (customQuestionSet.token || customQuestionSet.shareCode)}
+                                            Ref: {((customQuestionSet.token || customQuestionSet.shareCode).length > 16) ? `${(customQuestionSet.token || customQuestionSet.shareCode).slice(0, 8)}...` : (customQuestionSet.token || customQuestionSet.shareCode)}
                                         </span>
                                     )}
                                 </div>
-                                <button className="ai-setup-close" onClick={() => navigate('/interview-suite')} title="Close">
+                                <button
+                                    className="ai-setup-close"
+                                    onClick={() => {
+                                        if (window.confirm('Are you sure you want to leave this assessment? Your invite link remains valid until used or expired.')) {
+                                            navigate(user ? '/interview-suite' : '/');
+                                        }
+                                    }}
+                                    title="Exit Assessment"
+                                    aria-label="Exit Assessment"
+                                >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '800', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+                            <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '800', margin: '0 0 8px', letterSpacing: '-0.3px', lineHeight: 1.3 }}>
                                 {customQuestionSet.title}
                             </h1>
                             {customQuestionSet.description && (
-                                <p style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 24px' }}>
+                                <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 20px' }}>
                                     {customQuestionSet.description}
                                 </p>
                             )}
@@ -432,8 +453,41 @@ function InterviewLobby({
                                             <Calendar size={13} /> Scheduled: {formattedScheduledDate} ({candidateTimezone}) · {formattedScheduledDateUtc} ({scheduledDurationMins}m)
                                         </span>
                                     )}
-                                    {customQuestionSet.expiresAt && <span style={{ color: '#fbbf24', fontSize: '12px', background: 'rgba(251,191,36,.08)', padding: '6px 9px', borderRadius: '8px' }}>Link expires {new Date(customQuestionSet.expiresAt).toLocaleString()}</span>}
-                                    {customQuestionSet.remainingAttempts !== null && <span style={{ color: '#a5b4fc', fontSize: '12px', background: 'rgba(129,140,248,.08)', padding: '6px 9px', borderRadius: '8px' }}>{customQuestionSet.remainingAttempts} attempt{customQuestionSet.remainingAttempts === 1 ? '' : 's'} remaining</span>}
+                                    {customQuestionSet.expiresAt && (
+                                        isLinkExpired ? (
+                                            <span style={{ color: '#f87171', fontSize: '12px', background: 'rgba(239,68,68,.12)', border: '1px solid rgba(239,68,68,.3)', padding: '6px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                <AlertTriangle size={13} /> Link expired: {new Date(customQuestionSet.expiresAt).toLocaleString()}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: '#fbbf24', fontSize: '12px', background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.25)', padding: '6px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                <Clock size={13} /> Link expires: {new Date(customQuestionSet.expiresAt).toLocaleString()}
+                                            </span>
+                                        )
+                                    )}
+                                    {customQuestionSet.remainingAttempts !== null && (
+                                        <span style={{
+                                            color: customQuestionSet.remainingAttempts === 0 ? '#f87171' : '#a5b4fc',
+                                            fontSize: '12px',
+                                            background: customQuestionSet.remainingAttempts === 0 ? 'rgba(239,68,68,.12)' : 'rgba(129,140,248,.08)',
+                                            border: `1px solid ${customQuestionSet.remainingAttempts === 0 ? 'rgba(239,68,68,.3)' : 'rgba(129,140,248,.2)'}`,
+                                            padding: '6px 10px',
+                                            borderRadius: '8px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            {customQuestionSet.remainingAttempts === 0 ? 'No attempts remaining' : `${customQuestionSet.remainingAttempts} attempt${customQuestionSet.remainingAttempts === 1 ? '' : 's'} remaining`}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {isLinkExpired && (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', color: '#fca5a5', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <AlertTriangle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
+                                    <div>
+                                        <strong>Invitation Link Expired:</strong> This assessment link is past its validity period ({new Date(customQuestionSet.expiresAt).toLocaleString()}). Please contact your interview organizer to request an updated invitation.
+                                    </div>
                                 </div>
                             )}
 
@@ -582,16 +636,36 @@ function InterviewLobby({
 
                             {/* Candidate Identity Section */}
                             {user ? (
-                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <User size={15} style={{ color: '#818cf8' }} />
+                                        <User size={15} style={{ color: '#818cf8', flexShrink: 0 }} />
                                         <span style={{ fontSize: '13px', color: '#e4e4e7' }}>
                                             Taking assessment as <strong style={{ color: '#fff' }}>{user.user_metadata?.full_name || user.email}</strong>
                                         </span>
                                     </div>
-                                    <span style={{ fontSize: '11px', color: '#6ee7b7', background: 'rgba(110,231,183,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                                        Verified
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '11px', color: '#6ee7b7', background: 'rgba(110,231,183,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                                            Verified
+                                        </span>
+                                        {logout && (
+                                            <button
+                                                type="button"
+                                                onClick={logout}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#94a3b8',
+                                                    fontSize: '11px',
+                                                    textDecoration: 'underline',
+                                                    cursor: 'pointer',
+                                                    padding: 0
+                                                }}
+                                                title="Sign out to take assessment with a different email"
+                                            >
+                                                Switch account
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
@@ -670,86 +744,142 @@ function InterviewLobby({
 
                             {questionSetAccessError && !customQuestionSet.requiresPasscode && !customQuestionSet.requiresEmailAllowlist && <p role="alert" style={{ color: '#fca5a5', fontSize: '12px', margin: '10px 0 0' }}>{questionSetAccessError}</p>}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
                                     <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Company</div>
-                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.settings?.companyName || 'Assigned'}</div>
+                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {customQuestionSet.settings?.companyName?.trim() || customQuestionSet.company?.trim() || 'PrepLoop Assessment'}
+                                    </div>
                                 </div>
                                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
                                     <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Target Role</div>
-                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.settings?.roleName || 'Software Engineer'}</div>
+                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {customQuestionSet.settings?.roleName?.trim() || customQuestionSet.roleName?.trim() || 'Software Engineer'}
+                                    </div>
                                 </div>
                                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
                                     <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Questions</div>
-                                    <div style={{ color: '#818cf8', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.questionCount} Fixed Qs</div>
+                                    <div style={{ color: '#818cf8', fontWeight: '700', fontSize: '14px' }}>
+                                        {customQuestionSet.questionCount || 0} Questions
+                                    </div>
                                 </div>
                                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
                                     <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Difficulty</div>
-                                    <div style={{ color: '#34d399', fontWeight: '700', fontSize: '14px', textTransform: 'capitalize' }}>{customQuestionSet.difficulty || 'Medium'}</div>
+                                    <div style={{
+                                        color: (customQuestionSet.difficulty || '').toLowerCase() === 'easy' ? '#34d399' : (customQuestionSet.difficulty || '').toLowerCase() === 'hard' ? '#f87171' : '#fbbf24',
+                                        fontWeight: '700',
+                                        fontSize: '14px',
+                                        textTransform: 'capitalize'
+                                    }}>
+                                        {customQuestionSet.difficulty || 'Medium'}
+                                    </div>
                                 </div>
                             </div>
 
                             {customQuestionSet.settings?.customInstructions && (
-                                <div style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '12px', padding: '14px 16px', marginBottom: '24px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a5b4fc', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
-                                        <Sparkles size={15} /> Instructions from Interviewer
+                                <div style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '12px', padding: '14px 16px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a5b4fc', fontSize: '13px', fontWeight: '700' }}>
+                                            <Sparkles size={15} /> Candidate Guidance & Focus Areas
+                                        </div>
+                                        <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)' }}>From interview team</span>
                                     </div>
-                                    <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
-                                        {customQuestionSet.settings.customInstructions}
+                                    <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '13px', margin: 0, lineHeight: '1.6' }}>
+                                        {formatCandidateGuidance(customQuestionSet.settings.customInstructions)}
                                     </p>
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
-                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)', padding: '5px 11px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     <CheckCircle size={13} style={{ color: '#22c55e' }} /> AI Voice & Video Interviewer
                                 </span>
-                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)', padding: '5px 11px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     <CheckCircle size={13} style={{ color: '#22c55e' }} /> Real-time Speech & Analysis
                                 </span>
-                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)', padding: '5px 11px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     <CheckCircle size={13} style={{ color: '#22c55e' }} /> Detailed Score Breakdown
                                 </span>
                             </div>
 
-                            <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '11px', lineHeight: 1.5, margin: '14px 0 0', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
-                                🔒 <strong>Privacy &amp; Data Notice:</strong> Speech is processed using your browser's speech recognition vendor (Google/Apple/Microsoft) or Groq Whisper. Interview analysis is performed by AI providers (Groq / Google Gemini) with best-effort PII redaction. Any session audio and temporary artifacts are automatically deleted after 14 days.
-                            </div>
+                            {(() => {
+                                const isMicReady = micCheckStatus.startsWith('ready:');
+                                const isMissingPasscode = Boolean(customQuestionSet.requiresPasscode && !questionSetPasscode.trim());
+                                const isMissingEmail = Boolean(customQuestionSet.requiresEmailAllowlist && !candidateEmail.trim() && !user?.email);
+                                const hasNoAttempts = customQuestionSet.remainingAttempts === 0;
+                                const isButtonDisabled = loading || isUpcomingSchedule || isScheduleExpired || isLinkExpired || hasNoAttempts || !isMicReady || isMissingPasscode || isMissingEmail;
 
-                            <button
-                                className="ai-setup-nav-btn ai-setup-nav-btn--next"
-                                onClick={onStartInterview}
-                                disabled={loading || isUpcomingSchedule || isScheduleExpired || !micCheckStatus.startsWith('ready:') || (customQuestionSet.requiresPasscode && !questionSetPasscode.trim()) || (customQuestionSet.requiresEmailAllowlist && !candidateEmail.trim()) || customQuestionSet.remainingAttempts === 0}
-                                style={{
-                                    width: '100%',
-                                    justifyContent: 'center',
-                                    padding: '16px 24px',
-                                    fontSize: '16px',
-                                    fontWeight: '700',
-                                    borderRadius: '12px',
-                                    opacity: (isUpcomingSchedule || isScheduleExpired) ? 0.65 : 1,
-                                    cursor: (isUpcomingSchedule || isScheduleExpired) ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                {isUpcomingSchedule ? (
-                                    <>
-                                        <Clock size={18} />
-                                        Session Unlocks in {formattedCountdown}
-                                    </>
-                                ) : isScheduleExpired ? (
-                                    <>
-                                        <AlertTriangle size={18} />
-                                        Scheduled Window Concluded
-                                    </>
-                                ) : loading ? (
-                                    'Starting Interview...'
-                                ) : (
-                                    <>
-                                        Begin Interview
-                                        <ArrowRight size={18} />
-                                    </>
-                                )}
-                            </button>
+                                return (
+                                    <button
+                                        type="button"
+                                        className="ai-setup-nav-btn ai-setup-nav-btn--next"
+                                        onClick={onStartInterview}
+                                        disabled={isButtonDisabled}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '10px',
+                                            width: '100%',
+                                            padding: '16px 24px',
+                                            fontSize: '16px',
+                                            fontWeight: '700',
+                                            borderRadius: '12px',
+                                            background: isButtonDisabled
+                                                ? 'rgba(255, 255, 255, 0.08)'
+                                                : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                                            color: isButtonDisabled ? 'rgba(255, 255, 255, 0.45)' : '#ffffff',
+                                            border: isButtonDisabled ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+                                            boxShadow: isButtonDisabled ? 'none' : '0 4px 20px rgba(124, 58, 237, 0.35)',
+                                            cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            marginBottom: '14px',
+                                        }}
+                                    >
+                                        {isUpcomingSchedule ? (
+                                            <>
+                                                <Clock size={18} />
+                                                <span>Session Unlocks in {formattedCountdown}</span>
+                                            </>
+                                        ) : isScheduleExpired ? (
+                                            <>
+                                                <AlertTriangle size={18} />
+                                                <span>Scheduled Window Concluded</span>
+                                            </>
+                                        ) : isLinkExpired ? (
+                                            <>
+                                                <AlertTriangle size={18} />
+                                                <span>Interview Link Expired</span>
+                                            </>
+                                        ) : hasNoAttempts ? (
+                                            <>
+                                                <AlertTriangle size={18} />
+                                                <span>No Attempts Remaining</span>
+                                            </>
+                                        ) : loading ? (
+                                            <span>Starting Interview...</span>
+                                        ) : !isMicReady ? (
+                                            <>
+                                                <Mic size={18} />
+                                                <span>Complete Microphone Check to Begin</span>
+                                            </>
+                                        ) : isMissingPasscode ? (
+                                            <span>Enter Passcode Above to Begin</span>
+                                        ) : isMissingEmail ? (
+                                            <span>Enter Email Above to Begin</span>
+                                        ) : (
+                                            <>
+                                                <span>Begin Interview</span>
+                                                <ArrowRight size={18} />
+                                            </>
+                                        )}
+                                    </button>
+                                );
+                            })()}
+
+                            <div style={{ color: 'rgba(255,255,255,.55)', fontSize: '11px', lineHeight: 1.5, padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                                🔒 <strong>Privacy &amp; Data Notice:</strong> Speech is processed securely using your browser's speech recognition vendor or Groq Whisper. Interview analysis is performed by AI providers with best-effort PII redaction. Any session audio and temporary artifacts are automatically purged after 14 days.
+                            </div>
                         </div>
                     </div>
                 </div>
