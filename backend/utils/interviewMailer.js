@@ -243,7 +243,7 @@ export async function dispatchCandidateInvitations({
 
   const scheduledAt = questionSet.scheduled_at || questionSet.settings?.scheduledAt || null;
   const durationMinutes = questionSet.scheduled_duration_minutes || questionSet.settings?.scheduledDurationMinutes || 45;
-  const shareCode = questionSet.share_code || questionSet.token || '';
+  const _shareCode = questionSet.share_code || questionSet.token || '';
   const emailConfigured = isEmailConfigured();
 
   const existingInvites = { ...(questionSet.settings?.candidateInvites || {}) };

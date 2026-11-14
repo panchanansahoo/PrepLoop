@@ -44,6 +44,7 @@ jobs:
         run: npm run check:bundle --prefix frontend
 
       - name: Install Chromium for smoke tests
+        working-directory: frontend
         run: npx playwright install --with-deps chromium
 
       - name: Public route smoke tests

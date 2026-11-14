@@ -195,7 +195,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
         }
       }
     } else {
-      const { data: qsData, error: qsError } = await supabaseAdmin
+      const { data: qsData, error: _qsError } = await supabaseAdmin
         .from('admin_question_sets')
         .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, expires_at, max_attempts, passcode_hash, allowed_emails, scheduled_at, scheduled_duration_minutes')
         .eq('share_code', questionSetCode)
