@@ -70,6 +70,11 @@ function isOriginAllowed(origin) {
     }
   }
 
+    // Allow preploop.me and vercel.app domains
+  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*(preploop\.me|vercel\.app)(:\d+)?$/i.test(origin)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -92,6 +97,9 @@ export const corsOptions = {
     'Authorization',
     'X-Request-ID',
     'X-CSRF-Token',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
   ],
   exposedHeaders: ['X-Request-ID', 'X-RateLimit-Remaining'],
   maxAge: 86400, // 24 hours

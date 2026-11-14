@@ -4,9 +4,25 @@
  * 
  * In development, Vite proxies /api/* to localhost:5000 (see vite.config.js),
  * so API_URL can be empty string for relative URLs.
- * In production, VITE_API_URL should be set in the deployment environment.
+ * In production on preploop.me or Vercel, Vercel proxies /api/* to the backend on Render,
+ * so relative URLs ('') prevent third-party cookie blocking and CORS preflight issues.
  */
-export const API_URL = import.meta.env.VITE_API_URL || '';
+function resolveApiUrl() {
+  if (typeof window !== 'undefined') {
+    const hostname = (window.location.hostname || '').toLowerCase();
+    if (
+      hostname === 'preploop.me' ||
+      hostname === 'www.preploop.me' ||
+      hostname.endsWith('.preploop.me') ||
+      hostname.endsWith('.vercel.app')
+    ) {
+      return '';
+    }
+  }
+  return import.meta.env.VITE_API_URL || '';
+}
+
+export const API_URL = resolveApiUrl();
 
 /**
  * Build a full API endpoint URL.

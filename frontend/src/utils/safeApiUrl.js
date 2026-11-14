@@ -1,5 +1,22 @@
-const DEFAULT_API_ORIGIN = import.meta.env.VITE_API_URL
-  || (import.meta.env.PROD && typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
+function getDefaultApiOrigin() {
+  if (typeof window !== 'undefined') {
+    const hostname = (window.location.hostname || '').toLowerCase();
+    if (
+      hostname === 'preploop.me' ||
+      hostname === 'www.preploop.me' ||
+      hostname.endsWith('.preploop.me') ||
+      hostname.endsWith('.vercel.app')
+    ) {
+      return window.location.origin;
+    }
+  }
+  return (
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD && typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000')
+  );
+}
+
+const DEFAULT_API_ORIGIN = getDefaultApiOrigin();
 
 export function resolveApiOrigin(rawBaseUrl) {
   try {

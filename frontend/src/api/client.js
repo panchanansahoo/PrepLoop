@@ -73,7 +73,6 @@ apiClient.interceptors.request.use(
       if (csrfToken) {
         config.headers['X-CSRF-Token'] = csrfToken;
       }
-      config.headers['X-Requested-With'] = 'XMLHttpRequest';
     }
 
     // Add request ID for tracing
