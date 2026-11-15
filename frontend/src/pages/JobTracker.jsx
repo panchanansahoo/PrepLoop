@@ -352,8 +352,10 @@ export default function JobTracker() {
   }, [userSkills, experienceLevel, targetRole, targetLocation]);
 
   useEffect(() => {
-    fetchSkillMatchedJobs();
-  }, [fetchSkillMatchedJobs]);
+    if (viewMode === 'matches') {
+      fetchSkillMatchedJobs();
+    }
+  }, [fetchSkillMatchedJobs, viewMode]);
 
   // Save skill preferences to localStorage
   const handleToggleSkill = (skill) => {
@@ -701,10 +703,11 @@ export default function JobTracker() {
             <button
               type="button"
               onClick={() => setShowForm((v) => !v)}
+              aria-label="Add Application"
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
             >
               <Plus size={16} />
-              Add Custom Card
+              Add Application
             </button>
           </div>
         </div>
@@ -1334,9 +1337,10 @@ export default function JobTracker() {
                   <button
                     type="submit"
                     disabled={submitting}
+                    aria-label="Save Card"
                     className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors"
                   >
-                    {submitting ? 'Saving...' : 'Save Application'}
+                    {submitting ? 'Saving...' : 'Save Card'}
                   </button>
                 </div>
               </form>
