@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Check, Volume2, Mic, ArrowRight, Loader2, Sparkles, RotateCcw } from 'lucide-react';
+import { Play, Check, Volume2, Mic, ArrowRight, Loader2, Sparkles, RotateCcw, Calculator, Zap } from 'lucide-react';
 import './HeroShowcase.css';
 
 /* ── Full Python code to type out in Coding Round ── */
@@ -28,15 +28,15 @@ const BEHAVIOURAL_DIALOGUE = {
 /* ── Step Definitions Matching the Interview Loop ── */
 const LOOP_ROUNDS = [
   {
-    id: 'oa',
+    id: 'aptitude',
     number: '01',
-    badge: 'Online assessment',
-    badgeTag: 'Timed · no interviewer',
-    title: 'Online assessment',
+    badge: 'Aptitude test',
+    badgeTag: 'Speed & accuracy · 30 min',
+    title: 'Aptitude test',
     description:
-      'Timed problems with hidden test cases and no interviewer, the way most companies screen. You see which cases failed and why.',
-    linkText: 'Take a timed OA',
-    linkUrl: '/code-practice',
+      'Timed quantitative, logical reasoning, and verbal aptitude tests designed to match company screening rounds. Instant scoring with speed analysis and step-by-step solutions.',
+    linkText: 'Take an aptitude test',
+    linkUrl: '/aptitude',
   },
   {
     id: 'coding',
@@ -47,7 +47,7 @@ const LOOP_ROUNDS = [
     description:
       'Solve a problem out loud in a real code editor and run it against test cases. The interviewer asks about edge cases, complexity and testing while you write.',
     linkText: 'Practise a coding round',
-    linkUrl: '/company-interview',
+    linkUrl: '/coding-round',
   },
   {
     id: 'system-design',
@@ -58,7 +58,7 @@ const LOOP_ROUNDS = [
     description:
       'Design a system on a shared design canvas while you talk through trade-offs, bottlenecks and scaling calculations.',
     linkText: 'Practise system design',
-    linkUrl: '/system-design-simulator',
+    linkUrl: '/system-design-sim',
   },
   {
     id: 'behavioural',
@@ -90,8 +90,8 @@ export default function HeroShowcase() {
   const [demoKey, setDemoKey] = useState(0);
 
   /* ── Automated Demo States ── */
-  // Round 01: OA states
-  const [oaCasesVisible, setOaCasesVisible] = useState(0);
+  // Round 01: Aptitude states
+  const [aptStep, setAptStep] = useState(0);
 
   // Round 02: Coding states
   const [typedCodeLength, setTypedCodeLength] = useState(0);
@@ -147,14 +147,13 @@ export default function HeroShowcase() {
       return id;
     };
 
-    // ── ROUND 01: OA DEMO ──
+    // ── ROUND 01: APTITUDE TEST DEMO ──
     if (activeRound === 0) {
-      setOaCasesVisible(0);
+      setAptStep(0);
 
-      schedule(() => setOaCasesVisible(1), 350);
-      schedule(() => setOaCasesVisible(2), 700);
-      schedule(() => setOaCasesVisible(3), 1050);
-      schedule(() => setOaCasesVisible(4), 1450);
+      schedule(() => setAptStep(1), 400);
+      schedule(() => setAptStep(2), 850);
+      schedule(() => setAptStep(3), 1350);
     }
 
     // ── ROUND 02: CODING DEMO (Auto Code Writing + Run) ──
@@ -470,76 +469,97 @@ export default function HeroShowcase() {
 
               {/* Card Dynamic Body (Smooth Cross-fade) */}
               <div className="mi-card-body" key={`${activeRound}-${demoKey}`}>
-                {/* ── ROUND 01: ONLINE ASSESSMENT (Auto Evaluation Demo) ── */}
+                {/* ── ROUND 01: APTITUDE TEST (Auto Speed & Accuracy Demo) ── */}
                 {activeRound === 0 && (
-                  <div className="mi-oa-content mi-fade-in">
-                    <div className="mi-oa-subhead">
-                      <span className="mi-oa-problem">Q2 of 3 · Top k frequent elements</span>
-                      <span className="mi-oa-timer">{formatTime(secondsRemaining)}</span>
+                  <div className="mi-apt-content mi-fade-in">
+                    <div className="mi-apt-subhead">
+                      <div className="mi-apt-badge-group">
+                        <span className="mi-apt-cat-pill">
+                          <Calculator size={11} className="mi-apt-cat-icon" />
+                          Quantitative
+                        </span>
+                        <span className="mi-apt-qnum">Q14 of 25 · Speed & Distance</span>
+                      </div>
+                      <div className="mi-apt-timer-wrap">
+                        <span className="mi-apt-score-pill">+3 / -1</span>
+                        <span className="mi-apt-timer">{formatTime(secondsRemaining)}</span>
+                      </div>
                     </div>
 
-                    {/* Compact Code Preview */}
-                    <div className="mi-oa-code-panel">
-                      <div className="mi-oa-code-header">
-                        <span className="mi-oa-file-label">solution.py</span>
-                        <span className="mi-oa-lang-badge">Python 3.11</span>
-                      </div>
-                      <pre className="mi-oa-code-block">
-                        <code>{`def topKFrequent(nums, k):
-    # Sorting full map: O(N log N) -> fails large stress test
-    counts = Counter(nums)
-    return sorted(counts.keys(), key=counts.get, reverse=True)[:k]`}</code>
-                      </pre>
+                    {/* Problem Statement Card */}
+                    <div className="mi-apt-problem-card">
+                      <p className="mi-apt-problem-text">
+                        A train running at <strong>54 km/h</strong> crosses a <strong>180 m</strong> bridge in <strong>20 seconds</strong>. What is the length of the train?
+                      </p>
                     </div>
 
-                    {/* Test Suite Evaluation */}
-                    <div className="mi-oa-cases-card">
-                      <div className="mi-oa-cases-header">
-                        <span className="mi-oa-cases-title">TEST SUITE EVALUATION</span>
-                        <span className="mi-oa-pass-badge">{oaCasesVisible >= 4 ? '14 / 15 Passed' : 'Running suite...'}</span>
-                      </div>
-
-                      <div className="mi-oa-cases">
-                        <div className={`mi-oa-row ${oaCasesVisible >= 1 ? 'revealed' : 'pending'}`}>
-                          <span className="mi-oa-case-name">Case 1 · sample (k=2)</span>
-                          {oaCasesVisible >= 1 ? (
-                            <span className="mi-oa-status mi-status-pass">PASS</span>
-                          ) : (
-                            <span className="mi-eval-evaluating">evaluating...</span>
-                          )}
-                        </div>
-
-                        <div className={`mi-oa-row ${oaCasesVisible >= 2 ? 'revealed' : 'pending'}`}>
-                          <span className="mi-oa-case-name">Cases 2–8 · hidden edge cases</span>
-                          {oaCasesVisible >= 2 ? (
-                            <span className="mi-oa-status mi-status-pass">PASS</span>
-                          ) : (
-                            <span className="mi-eval-evaluating">{oaCasesVisible === 1 ? 'evaluating...' : 'queued'}</span>
-                          )}
-                        </div>
-
-                        <div className={`mi-oa-row ${oaCasesVisible >= 3 ? 'revealed' : 'pending'}`}>
-                          <span className="mi-oa-case-name">Cases 9–14 · large datasets (N=50,000)</span>
-                          {oaCasesVisible >= 3 ? (
-                            <span className="mi-oa-status mi-status-pass">PASS</span>
-                          ) : (
-                            <span className="mi-eval-evaluating">{oaCasesVisible === 2 ? 'evaluating...' : 'queued'}</span>
-                          )}
-                        </div>
-
-                        <div className={`mi-oa-fail-box ${oaCasesVisible >= 4 ? 'revealed' : 'pending'}`}>
-                          <div className="mi-oa-fail-header">
-                            <span className="mi-oa-case-name">Case 15 · hidden stress test (N=10⁶)</span>
-                            {oaCasesVisible >= 4 ? (
-                              <span className="mi-status-tle">TIME LIMIT EXCEEDED</span>
-                            ) : (
-                              <span className="mi-eval-evaluating">queued</span>
+                    {/* 2x2 Options Grid */}
+                    <div className="mi-apt-options-grid">
+                      {[
+                        { key: 'A', text: '100 m' },
+                        { key: 'B', text: '150 m' },
+                        { key: 'C', text: '120 m' },
+                        { key: 'D', text: '135 m' },
+                      ].map((opt) => {
+                        const isChosen = aptStep >= 1 && opt.key === 'C';
+                        const isCorrect = aptStep >= 2 && opt.key === 'C';
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            className={`mi-apt-opt-btn ${isChosen ? 'selected' : ''} ${isCorrect ? 'correct' : ''}`}
+                            onClick={() => setAptStep(2)}
+                          >
+                            <span className="mi-apt-opt-key">{opt.key}</span>
+                            <span className="mi-apt-opt-val">{opt.text}</span>
+                            {isCorrect && (
+                              <span className="mi-apt-opt-check">
+                                <Check size={11} strokeWidth={3} />
+                              </span>
                             )}
-                          </div>
-                          <div className="mi-oa-fail-detail">
-                            {oaCasesVisible >= 4 ? 'Execution time: 2.42 s (Limit: 2.00 s) · Hint: Use O(N log k) Min-Heap' : 'Stress test benchmark...'}
-                          </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Instant AI Evaluation & Speed Breakdown */}
+                    <div className="mi-apt-eval-card">
+                      <div className="mi-apt-eval-header">
+                        <span className="mi-apt-eval-title">INSTANT EVALUATION & SHORTCUT</span>
+                        <span className={`mi-apt-status-badge ${aptStep >= 2 ? 'correct' : 'evaluating'}`}>
+                          {aptStep >= 2 ? (
+                            <>
+                              <Check size={11} strokeWidth={3} /> Correct · +3 pts
+                            </>
+                          ) : aptStep === 1 ? (
+                            'Evaluating response...'
+                          ) : (
+                            'Awaiting candidate answer...'
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="mi-apt-steps-list">
+                        <div className={`mi-apt-step-row ${aptStep >= 3 ? 'revealed' : 'pending'}`}>
+                          <span className="mi-apt-step-num">Step 1</span>
+                          <span className="mi-apt-step-expr">Convert km/h to m/s: 54 × (5/18) = 15 m/s</span>
                         </div>
+                        <div className={`mi-apt-step-row ${aptStep >= 3 ? 'revealed' : 'pending'}`}>
+                          <span className="mi-apt-step-num">Step 2</span>
+                          <span className="mi-apt-step-expr">Total distance: 15 m/s × 20 s = 300 m</span>
+                        </div>
+                        <div className={`mi-apt-step-row ${aptStep >= 3 ? 'revealed' : 'pending'}`}>
+                          <span className="mi-apt-step-num">Step 3</span>
+                          <span className="mi-apt-step-expr">Train length: 300 m − 180 m = <strong>120 m</strong></span>
+                        </div>
+                      </div>
+
+                      <div className={`mi-apt-benchmarks-row ${aptStep >= 3 ? 'revealed' : 'pending'}`}>
+                        <div className="mi-apt-bench-item">
+                          <Zap size={11} className="mi-apt-bolt" />
+                          <span>14s taken (Target &lt; 35s)</span>
+                        </div>
+                        <div className="mi-apt-bench-tag">Top 5% Speed · 93% Accuracy</div>
                       </div>
                     </div>
                   </div>

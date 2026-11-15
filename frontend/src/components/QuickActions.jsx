@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Mic, Code2, Database, Building2, Calculator, CalendarDays, Trophy, FileText, GraduationCap, Zap } from 'lucide-react';
+import { Mic, Code2, Database, Building2, Calculator, CalendarDays, Trophy, FileText, GraduationCap, Zap, Terminal } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 const actions = [
@@ -10,6 +10,14 @@ const actions = [
         color: '#a78bfa',
         glow: 'rgba(167, 139, 250, 0.12)',
         path: '/company-interview'
+    },
+    {
+        label: 'Online Assessment',
+        description: 'Company coding OAs',
+        icon: Terminal,
+        color: '#06b6d4',
+        glow: 'rgba(6, 182, 212, 0.12)',
+        path: '/coding-round'
     },
     {
         label: 'Practice DSA',

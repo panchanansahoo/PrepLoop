@@ -632,9 +632,30 @@ router.get('/skill-match', optionalAuth, async (req, res) => {
       profileData = data;
     }
 
+    const querySignals = {};
+    if (req.query.skills) {
+      querySignals.skills = String(req.query.skills)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    if (req.query.experienceLevel || req.query.experience) {
+      querySignals.experience_level = req.query.experienceLevel || req.query.experience;
+    }
+    if (req.query.role || req.query.preferredRole) {
+      querySignals.preferred_role = req.query.role || req.query.preferredRole;
+    }
+    if (req.query.location) {
+      querySignals.location = req.query.location;
+    }
+    if (req.query.qualification) {
+      querySignals.qualification = req.query.qualification;
+    }
+
     const rawSignals = {
       ...(req.user?.user_metadata || {}),
       ...(profileData || {}),
+      ...querySignals,
     };
     const profileSignals = normalizeProfileSignals(rawSignals);
     const hasSignals = hasMeaningfulProfileSignals(profileSignals);

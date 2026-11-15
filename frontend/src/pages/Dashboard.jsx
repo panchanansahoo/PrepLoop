@@ -11,6 +11,7 @@ import ReadinessScore from '../components/ReadinessScore';
 import RecentActivity from '../components/RecentActivity';
 import SkillRadar from '../components/SkillRadar';
 import DailyChallenge from '../components/DailyChallenge';
+import OnlineAssessmentsWidget from '../components/OnlineAssessmentsWidget';
 import UpcomingContests from '../components/UpcomingContests';
 import CalendarWidget from '../components/CalendarWidget';
 import PomodoroTimer from '../components/PomodoroTimer';
@@ -18,7 +19,6 @@ import WeeklyStats from '../components/WeeklyStats';
 import SkillMatchJobs from '../components/SkillMatchJobs';
 import TodoList from '../components/TodoList';
 import LearningStreakWidget from '../components/LearningStreakWidget';
-import SpacedRepetitionWidget from '../components/SpacedRepetitionWidget';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -64,7 +64,6 @@ function getDailyQuote(date = new Date()) {
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
-    { id: 'spacedRepetition', name: 'Spaced Repetition Queue', component: SpacedRepetitionWidget, defaultVisible: true, premium: false, layout: 'full', description: 'SM-2 memory schedule for daily problem recall' },
     { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
     { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
     { id: 'quickActions', name: 'Quick Actions', component: QuickActions, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
@@ -75,6 +74,7 @@ const WIDGET_REGISTRY = [
 
     { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
     { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
+    { id: 'onlineAssessments', name: 'Online Assessments', component: OnlineAssessmentsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific timed coding assessments & campus exams' },
     { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Mini monthly calendar with date picker' },
     { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
 
@@ -91,7 +91,6 @@ function getInitialVisibility() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
-            // Merge: use saved values but add defaults for any new widgets
             return { ...defaults, ...parsed };
         }
     } catch { /* empty */ }
@@ -163,6 +162,8 @@ export default function Dashboard() {
                 return { activities: dashboardData.recentActivity };
             case 'dailyChallenge':
                 return { challengeData: dashboardData.dailyChallenge };
+            case 'onlineAssessments':
+                return {};
             case 'upcomingContests':
                 return { contests: dashboardData.upcomingContests };
             case 'pomodoroTimer':
@@ -205,10 +206,6 @@ export default function Dashboard() {
         const rows = [];
         let rowKey = 0;
 
-        // Spaced Repetition Queue (full)
-        const spacedRepetition = visible.find(w => w.id === 'spacedRepetition');
-        if (spacedRepetition) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(spacedRepetition)}</div>);
-
         // QuickStats (full)
         const quickStats = visible.find(w => w.id === 'quickStats');
         if (quickStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickStats)}</div>);
@@ -217,17 +214,21 @@ export default function Dashboard() {
         const dailyChallenge = visible.find(w => w.id === 'dailyChallenge');
         if (dailyChallenge) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(dailyChallenge)}</div>);
 
-        // Weekly Stats (right after daily challenge)
-        const weeklyStats = visible.find(w => w.id === 'weeklyStats');
-        if (weeklyStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(weeklyStats)}</div>);
-
-        // Upcoming Contests (right after Weekly Stats)
+        // Upcoming Contests (external 3rd-party contest links: LeetCode, Codeforces, CodeChef, AtCoder, GFG)
         const upcomingContests = visible.find(w => w.id === 'upcomingContests');
         if (upcomingContests) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(upcomingContests)}</div>);
+
+        // Online Assessments (native PrepLoop company assessment suite)
+        const onlineAssessments = visible.find(w => w.id === 'onlineAssessments');
+        if (onlineAssessments) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(onlineAssessments)}</div>);
 
         // QuickActions (full)
         const quickActions = visible.find(w => w.id === 'quickActions');
         if (quickActions) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickActions)}</div>);
+
+        // Weekly Stats / Weekly Progress (moved down to Quick Actions)
+        const weeklyStats = visible.find(w => w.id === 'weeklyStats');
+        if (weeklyStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(weeklyStats)}</div>);
 
         // Skill-Matched Jobs (right after QuickActions)
         const skillMatchJobs = visible.find(w => w.id === 'skillMatchJobs');
@@ -261,8 +262,8 @@ export default function Dashboard() {
             );
         }
 
-        // Remaining full-width widgets (exclude quickStats, spacedRepetition, quickActions, dailyChallenge, upcomingContests, weeklyStats, skillMatchJobs)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'spacedRepetition' && w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
+        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, onlineAssessments, weeklyStats, skillMatchJobs)
+        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'onlineAssessments' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
         remainingFull.forEach(w => {
             rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
         });

@@ -365,27 +365,74 @@
 }
 
 /* ═══════════════════════════════════════════════
-   ROUND 01: ONLINE ASSESSMENT (Auto Eval Demo)
+   ROUND 01: APTITUDE TEST (Auto Speed & Accuracy Demo)
    ═══════════════════════════════════════════════ */
-.mi-oa-content {
+.mi-apt-content {
   display: flex;
   flex-direction: column;
   gap: 10px;
   height: 100%;
 }
 
-.mi-oa-subhead {
+.mi-apt-subhead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  color: #44403c;
-  font-weight: 600;
-  padding-bottom: 2px;
+  gap: 8px;
 }
 
-.mi-oa-timer {
+.mi-apt-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mi-apt-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #0284c7;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+.mi-apt-cat-icon {
+  color: #0284c7;
+}
+
+.mi-apt-qnum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #57534e;
+  font-weight: 600;
+}
+
+.mi-apt-timer-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mi-apt-score-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.mi-apt-timer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
   font-weight: 700;
   color: #1c1917;
   background: #f0ebe0;
@@ -394,62 +441,131 @@
   border: 1px solid #ded5c5;
 }
 
-/* Code Preview */
-.mi-oa-code-panel {
-  background: #19181e;
+/* Problem Card */
+.mi-apt-problem-card {
+  background: #ffffff;
+  border: 1px solid #e7e2d6;
   border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid #332f38;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.mi-oa-code-header {
+.mi-apt-problem-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #292524;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mi-apt-problem-text strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* 2x2 Options Grid */
+.mi-apt-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mi-apt-opt-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  background: #ffffff;
+  border: 1.5px solid #e2dbcd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  position: relative;
 }
 
-.mi-oa-file-label {
+.mi-apt-opt-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.mi-apt-opt-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10.5px;
-  color: #a8a29e;
-  font-weight: 500;
+  font-weight: 700;
+  color: #475569;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
 }
 
-.mi-oa-lang-badge {
+.mi-apt-opt-val {
+  flex: 1;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  padding: 1px 6px;
-  border-radius: 4px;
 }
 
-.mi-oa-code-block {
-  margin: 0;
-  padding: 8px 12px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  color: #f1f5f9;
-  background: transparent;
-  overflow-x: auto;
+.mi-apt-opt-btn.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-/* Test Suite Evaluation */
-.mi-oa-cases-card {
+.mi-apt-opt-btn.selected .mi-apt-opt-key {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.mi-apt-opt-btn.correct {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #15803d;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  animation: miPopBadge 0.3s ease;
+}
+
+.mi-apt-opt-btn.correct .mi-apt-opt-key {
+  background: #22c55e;
+  color: #ffffff;
+  border-color: #22c55e;
+}
+
+.mi-apt-opt-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #ffffff;
+  animation: miPopBadge 0.3s ease;
+}
+
+/* Evaluation & Shortcut Card */
+.mi-apt-eval-card {
   background: #f5f1e8;
   border: 1px solid #ded6c5;
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  transition: all 0.3s ease;
 }
 
-.mi-oa-cases-header {
+.mi-apt-eval-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -457,67 +573,122 @@
   border-bottom: 1px dashed #ded6c5;
 }
 
-.mi-oa-cases-title {
+.mi-apt-eval-title {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #57534e;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.mi-oa-pass-badge {
+.mi-apt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   font-weight: 700;
-  color: #15803d;
-}
-
-.mi-oa-cases {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.mi-oa-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
-  color: #44403c;
-  padding: 3px 6px;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.mi-oa-row.pending {
-  opacity: 0.45;
-}
-
-.mi-oa-row.revealed {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.mi-eval-evaluating {
-  font-size: 10.5px;
-  color: #a8a29e;
-  font-style: italic;
-}
-
-.mi-oa-status {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-size: 10.5px;
-  padding: 2px 7px;
+  padding: 1px 7px;
   border-radius: 99px;
+  transition: all 0.25s ease;
 }
 
-.mi-status-pass {
+.mi-apt-status-badge.correct {
   background: #f0fdf4;
   color: #15803d;
   border: 1px solid #bbf7d0;
   animation: miPopBadge 0.3s ease;
+}
+
+.mi-apt-status-badge.evaluating {
+  color: #78716c;
+  font-style: italic;
+  font-size: 10.5px;
+}
+
+.mi-apt-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mi-apt-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #44403c;
+  padding: 2px 6px;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.mi-apt-step-row.pending {
+  opacity: 0.4;
+}
+
+.mi-apt-step-row.revealed {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.mi-apt-step-num {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #78716c;
+  background: #e7e2d6;
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.mi-apt-step-expr {
+  flex: 1;
+  color: #292524;
+}
+
+.mi-apt-benchmarks-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: #fff8f0;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  transition: all 0.3s ease;
+}
+
+.mi-apt-benchmarks-row.pending {
+  opacity: 0.4;
+}
+
+.mi-apt-benchmarks-row.revealed {
+  opacity: 1;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.04);
+}
+
+.mi-apt-bench-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.mi-apt-bolt {
+  color: #ea580c;
+}
+
+.mi-apt-bench-tag {
+  background: #ffedd5;
+  color: #c2410c;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-weight: 700;
+  font-size: 10px;
 }
 
 @keyframes miPopBadge {
@@ -534,40 +705,6 @@
     transform: scale(1);
     opacity: 1;
   }
-}
-
-.mi-oa-fail-box {
-  background: #fff8f0;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
-  padding: 8px 10px;
-  margin-top: 2px;
-  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.04);
-  transition: all 0.3s ease;
-}
-
-.mi-oa-fail-box.pending {
-  opacity: 0.45;
-}
-
-.mi-oa-fail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.mi-status-tle {
-  background: #fff7ed;
-  color: #ea580c;
-  border: 1px solid #fed7aa;
-  animation: miPopBadge 0.3s ease;
-}
-
-.mi-oa-fail-detail {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  color: #78716c;
-  margin-top: 4px;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1753,5 +1890,10 @@
 
   .mi-step-desc {
     font-size: 14.5px;
+  }
+
+  .mi-apt-options-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }

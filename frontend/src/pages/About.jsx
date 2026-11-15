@@ -8,7 +8,7 @@ const coreFeatures = [
     title: 'AI Code Practice',
     desc: 'Master coding problems with intelligent hints, pattern recognition, and step-by-step guidance.',
     bullets: ['500+ problems', 'Pattern-based learning', 'Intelligent hints'],
-    link: '/code-practice',
+    link: '/problems',
     bg: 'rgba(99, 102, 241, 0.15)', color: '#818cf8'
   },
 

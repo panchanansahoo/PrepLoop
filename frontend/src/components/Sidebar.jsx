@@ -47,10 +47,11 @@ const navSections = [
         category: 'Interview',
         items: [
             { path: '/interview-hub', label: 'Interview Hub', subtitle: 'All-in-one interview suite', icon: Grid3X3 },
+            { path: '/coding-round', label: 'Online Assessment', subtitle: 'HackerRank company OAs', icon: Terminal },
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
             { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
-            { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
+            { path: '/peer-interview', label: 'Peer Interview', subtitle: '1-on-1 collaborative practice', icon: Users },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
             { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },
         ]

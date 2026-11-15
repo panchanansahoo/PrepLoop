@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Video, ChevronRight, Star, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock, User, Video, ChevronRight, Star, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { authFetch } from '../utils/authFetch';
@@ -7,6 +8,7 @@ import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
 export default function RealInterview() {
+  const navigate = useNavigate();
   const { _user } = useAuth();
   const [tab, setTab] = useState('slots'); // 'slots' | 'bookings'
   const [slots, setSlots] = useState([]);
@@ -106,6 +108,44 @@ export default function RealInterview() {
 
   return (
     <div className="real-interview-page" style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+      <button
+        type="button"
+        onClick={() => {
+          if (window.history.state && window.history.state.idx > 0) {
+            navigate(-1);
+          } else {
+            navigate('/interview-hub');
+          }
+        }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 16px',
+          borderRadius: 12,
+          border: '1px solid var(--color-border, rgba(148, 163, 184, 0.16))',
+          background: 'var(--color-bg-card, rgba(15, 23, 42, 0.6))',
+          color: 'var(--color-text-secondary, #94a3b8)',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+          marginBottom: 20,
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--color-text-primary, #fff)';
+          e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+          e.currentTarget.style.transform = 'translateX(-2px)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--color-text-secondary, #94a3b8)';
+          e.currentTarget.style.borderColor = 'var(--color-border, rgba(148, 163, 184, 0.16))';
+          e.currentTarget.style.transform = 'translateX(0)';
+        }}
+      >
+        <ArrowLeft size={16} /> Back to Interview Hub
+      </button>
+
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
           Real HR Interviews

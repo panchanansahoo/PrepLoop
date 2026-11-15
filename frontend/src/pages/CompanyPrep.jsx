@@ -1,6 +1,6 @@
 import {useState, useMemo, useEffect} from 'react';
 import './CompanyPrep.css';
-import { Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle, Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight, BarChart3, Target, X, Mic, Brain, Code, MessageSquare, Calendar, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
+import { Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle, Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight, BarChart3, Target, X, Mic, Brain, Code, Code2, MessageSquare, Calendar, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES, DATA_LAST_UPDATED } from '../data/companyPrepMeta';
 import { useCompanyPrepProgress } from '../data/companyPrepProgress';
 import { Link } from 'react-router-dom';

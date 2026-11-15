@@ -226,7 +226,7 @@ function AppContent() {
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview' || location.pathname === '/app';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
-  const isCodingAssessmentRoute = location.pathname === '/coding-round' || location.pathname === '/coding-assessment';
+  const isCodingAssessmentRoute = location.pathname.startsWith('/coding-round') || location.pathname.startsWith('/coding-assessment');
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
@@ -256,7 +256,9 @@ function AppContent() {
       {/* <SkipLink /> */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* <OfflineBanner /> */}
-      <Suspense fallback={null}><AIAssistantOrb /></Suspense>
+      {!isFullScreenRoute && !isCodingAssessmentRoute && (
+        <Suspense fallback={null}><AIAssistantOrb /></Suspense>
+      )}
       {/* <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} /> */}
       {/* <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} /> */}
       {showSidebar && !isFullScreenRoute && (
@@ -315,6 +317,7 @@ function AppContent() {
                 />
 
                 <Route path="/problems" element={<ProblemExplorer />} />
+                <Route path="/code-practice" element={<Navigate to="/problems" replace />} />
                 <Route path="/quiz-arena" element={<QuizArena />} />
                 <Route path="/code-editor/:problemId" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
                 <Route path="/dsa-editor/:problemId" element={<DSACodeEditor />} />
@@ -341,6 +344,7 @@ function AppContent() {
                 <Route path="/sql-path" element={<SQLLearningPath />} />
                 <Route path="/sql-path/:topicId" element={<SQLTopicLearning />} />
                 <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
+                <Route path="/system-design-simulator" element={<Navigate to="/system-design-sim" replace />} />
                 <Route path="/company-prep" element={<CompanyPrep />} />
                 <Route path="/company-interview" element={<AIInterviewPage />} />
                 <Route path="/ai-interview" element={<AIInterviewPage />} />

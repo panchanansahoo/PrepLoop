@@ -27,7 +27,7 @@ const features = [
     color: '#a78bfa',
     title: 'Intelligent Code Studio',
     desc: 'Write production-grade code with an environment that critiques your style, efficiency, and edge cases.',
-    link: '/code-practice',
+    link: '/problems',
     tag: 'Most Used'
   },
   {

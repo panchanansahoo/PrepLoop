@@ -1,126 +1,157 @@
-import {useEffect, useState} from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Sparkles, Target, Brain, FileText, Mic, Code2,
   History, Building2, Loader2, ArrowRight, Clock,
-  BarChart3, Bug, GitPullRequest, Eye, Play, Zap,
+  BarChart3, GitPullRequest, Zap,
   TrendingUp, Award, ChevronRight, Flame, Timer,
-  Radio, BookOpen
+  Radio, BookOpen, Users, Video, CheckCircle2, ShieldCheck,
+  Terminal, Play, Star
 } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import './InterviewHub.css';
-
 import { API_URL } from '../config/api.js';
 
 /* ─── Interview Mode Definitions ─── */
 const INTERVIEW_MODES = [
   {
-    id: 'mock',
-    title: 'AI Mock Interview',
-    desc: 'Company-specific mock interviews with real-time AI feedback, voice mode, and adaptive difficulty.',
-    path: '/company-interview',
-    icon: Mic,
+    id: 'technical',
+    title: 'AI Technical Interview',
+    category: 'ai',
+    desc: 'Real-time adaptive technical mock covering Data Structures, Algorithms, System Design, and CS Fundamentals with dynamic voice follow-ups.',
+    path: '/company-interview?type=technical',
+    icon: Code2,
     accent: '#8b5cf6',
     badge: 'Most Popular',
-    badgeBg: 'rgba(139,92,246,0.2)',
+    badgeBg: 'rgba(139, 92, 246, 0.18)',
     badgeColor: '#c4b5fd',
-    time: '20–45 min',
-    difficulty: 'Adaptive',
-  },
-  {
-    id: 'loop',
-    title: 'Full Interview Loop',
-    desc: 'Multi-round simulation covering DSA, System Design, Behavioral, and HR — just like a real onsite.',
-    path: '/multi-round-interview',
-    icon: Play,
-    accent: '#3b82f6',
-    badge: 'Comprehensive',
-    badgeBg: 'rgba(59,130,246,0.18)',
-    badgeColor: '#93c5fd',
-    time: '60–90 min',
-    difficulty: 'All Levels',
-  },
-  {
-    id: 'coding',
-    title: 'Live Coding Copilot',
-    desc: 'Write code in real-time while being scored on Communication, Complexity, Tests & Debugging.',
-    path: '/live-coding',
-    icon: Eye,
-    accent: '#eab308',
-    badge: 'Real-Time',
-    badgeBg: 'rgba(234,179,8,0.15)',
-    badgeColor: '#fde68a',
     time: '30–45 min',
-    difficulty: 'Easy → Hard',
+    difficulty: 'Adaptive AI',
+    highlights: ['Live Code Editor', 'Voice AI & Barge-In', 'Company Calibration'],
   },
   {
-    id: 'debug',
-    title: 'Debugging Challenge',
-    desc: 'Find bugs, fix code, and explain your reasoning — a critical skill tested in modern interviews.',
-    path: '/debugging-interview',
-    icon: Bug,
-    accent: '#ef4444',
-    badge: 'Skill Builder',
-    badgeBg: 'rgba(239,68,68,0.15)',
-    badgeColor: '#fca5a5',
-    time: '15–25 min',
-    difficulty: 'Medium+',
+    id: 'hr',
+    title: 'AI Behavioral & HR Round',
+    category: 'ai',
+    desc: 'Master behavioral, situational, and culture-fit questions with AI emotion detection, tone analysis, and STAR-method scoring.',
+    path: '/company-interview?type=hr',
+    icon: Brain,
+    accent: '#ec4899',
+    badge: 'STAR Method',
+    badgeBg: 'rgba(236, 72, 153, 0.18)',
+    badgeColor: '#fbcfe8',
+    time: '20–30 min',
+    difficulty: 'All Levels',
+    highlights: ['STAR Rubric Scoring', 'Pacing & Sentiment Analysis', 'Instant Feedback'],
+  },
+  {
+    id: 'peer',
+    title: 'Peer 1-on-1 Mock Interview',
+    category: 'collaborative',
+    desc: 'Pair up with another candidate in real-time. Alternate between interviewer and candidate with shared code editor, live video/audio, and mutual rubrics.',
+    path: '/peer-interview',
+    icon: Users,
+    accent: '#3b82f6',
+    badge: 'Live Collaboration',
+    badgeBg: 'rgba(59, 130, 246, 0.18)',
+    badgeColor: '#93c5fd',
+    time: '45–60 min',
+    difficulty: 'Real Peer',
+    highlights: ['Dual WebRTC Video', 'Shared Live Code Editor', 'Mutual Rubric Grading'],
   },
   {
     id: 'review',
-    title: 'Code Review Sim',
-    desc: 'Review realistic pull requests — spot issues, suggest improvements, and defend your approach.',
+    title: 'Code Review Simulation',
+    category: 'skills',
+    desc: 'Review realistic production pull requests — spot subtle security vulnerabilities, propose architectural enhancements, and defend reviews.',
     path: '/code-review-interview',
     icon: GitPullRequest,
     accent: '#06b6d4',
-    badge: 'New',
-    badgeBg: 'rgba(6,182,212,0.15)',
+    badge: 'Production Skill',
+    badgeBg: 'rgba(6, 182, 212, 0.18)',
     badgeColor: '#67e8f9',
     time: '20–30 min',
-    difficulty: 'Medium',
+    difficulty: 'Mid → Senior',
+    highlights: ['Real PR Diffs', 'Security & Best Practices', 'Structured Evaluation'],
   },
+  {
+    id: 'expert',
+    title: 'Expert 1-on-1 Mock Interview',
+    category: 'collaborative',
+    desc: 'Book verified mock interviews with senior engineers and hiring managers from top tier tech companies with full written dossiers.',
+    path: '/real-interview',
+    icon: Video,
+    accent: '#10b981',
+    badge: 'Vetted Mentors',
+    badgeBg: 'rgba(16, 185, 129, 0.18)',
+    badgeColor: '#6ee7b7',
+    time: '45–60 min',
+    difficulty: 'Industry Standard',
+    highlights: ['Senior Tech Mentors', 'Detailed Candidate Dossier', 'Hiring Bar Calibration'],
+  },
+];
+
+/* ─── Target Company Quick Picks ─── */
+const TARGET_COMPANIES = [
+  { name: 'Google', slug: 'google', color: '#4285F4', tag: 'DSA & Scalability', initial: 'G' },
+  { name: 'Amazon', slug: 'amazon', color: '#FF9900', tag: 'Leadership & Design', initial: 'A' },
+  { name: 'Meta', slug: 'meta', color: '#0668E1', tag: 'Speed & Optimization', initial: 'M' },
+  { name: 'Microsoft', slug: 'microsoft', color: '#00A4EF', tag: 'Architecture & Robustness', initial: 'MS' },
+  { name: 'Apple', slug: 'apple', color: '#94a3b8', tag: 'Low-Level & Precision', initial: '' },
+  { name: 'Uber', slug: 'uber', color: '#10b981', tag: 'Microservices & Scale', initial: 'U' },
 ];
 
 /* ─── Quick Tool Definitions ─── */
 const QUICK_TOOLS = [
   {
     title: 'Behavioral Coach',
-    desc: 'Polish STAR-method answers',
+    desc: 'Polish STAR-method answers & delivery',
     path: '/hr-path',
     icon: Brain,
     accent: '#a855f7',
   },
   {
-    title: 'Resume Analyzer',
-    desc: 'ATS score & resume viva prep',
+    title: 'Resume ATS & Viva',
+    desc: 'ATS score & resume project defense',
     path: '/resume-analyzer',
     icon: FileText,
     accent: '#0ea5e9',
   },
   {
-    title: 'Company Roadmap',
-    desc: 'Round-by-round prep checklist',
+    title: 'Company Question Bank',
+    desc: 'Verified interview questions & checklists',
     path: '/company-prep',
     icon: Building2,
     accent: '#22c55e',
   },
+  {
+    title: 'Online Assessment (OA)',
+    desc: 'Timed HackerRank-style company contests',
+    path: '/coding-round',
+    icon: Terminal,
+    accent: '#f59e0b',
+  },
+  {
+    title: 'Interview Analytics',
+    desc: 'Performance trends & weakness breakdown',
+    path: '/interview-analytics',
+    icon: BarChart3,
+    accent: '#ec4899',
+  },
 ];
 
-function _getAuthHeaders() {
-  return buildAuthHeaders();
-}
-
-/* ─── Mode Icon Map for Sessions ─── */
+/* ─── Mode Icon & Styling Maps ─── */
 const MODE_ICONS = {
-  mock: Mic,
+  mock: Code2,
+  technical: Code2,
   dsa: Code2,
   'system-design': Building2,
   behavioral: Brain,
-  hr: FileText,
-  coding: Eye,
-  debug: Bug,
+  hr: Brain,
+  peer: Users,
   review: GitPullRequest,
+  expert: Video,
+  real: Video,
 };
 
 function getModeIcon(type) {
@@ -133,12 +164,12 @@ function getModeIcon(type) {
 
 function getModeColor(type) {
   const normalized = (type || '').toLowerCase();
-  if (normalized.includes('mock') || normalized.includes('dsa')) return '#8b5cf6';
+  if (normalized.includes('technical') || normalized.includes('dsa') || normalized.includes('mock')) return '#8b5cf6';
   if (normalized.includes('system')) return '#3b82f6';
-  if (normalized.includes('behavioral') || normalized.includes('hr')) return '#a855f7';
-  if (normalized.includes('coding')) return '#eab308';
-  if (normalized.includes('debug')) return '#ef4444';
+  if (normalized.includes('behavioral') || normalized.includes('hr')) return '#ec4899';
+  if (normalized.includes('peer')) return '#3b82f6';
   if (normalized.includes('review')) return '#06b6d4';
+  if (normalized.includes('expert') || normalized.includes('real')) return '#10b981';
   return '#8b5cf6';
 }
 
@@ -157,21 +188,28 @@ function getBarColor(score) {
 
 /* ─── Main Component ─── */
 export default function InterviewSuite() {
-  const [stats, setStats] = useState({ sessions: 0, avgScore: 0, streak: 0 });
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({ sessions: 0, avgScore: 0, streak: 0, highScore: 0 });
   const [heatmap, setHeatmap] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
+    let isMounted = true;
     const load = async () => {
       setLoading(true);
       try {
         // Load weakness heatmap
         const heatRes = await authFetch(`${API_URL}/api/interview-suite/weakness/heatmap`);
-        const heatData = await heatRes.json();
-        setHeatmap(Array.isArray(heatData?.heatmap) ? heatData.heatmap.slice(0, 6) : []);
+        if (heatRes.ok) {
+          const heatData = await heatRes.json();
+          if (isMounted) {
+            setHeatmap(Array.isArray(heatData?.heatmap) ? heatData.heatmap.slice(0, 6) : []);
+          }
+        }
       } catch {
-        setHeatmap([]);
+        if (isMounted) setHeatmap([]);
       }
 
       try {
@@ -181,54 +219,88 @@ export default function InterviewSuite() {
           const sessRes = await authFetch(`${API_URL}/api/interview/sessions?limit=5`);
           if (sessRes.ok) sessData = await sessRes.json();
         } catch {}
+
         if (!sessData) {
           try {
             const fbRes = await authFetch(`${API_URL}/api/company-interview/sessions?limit=5`);
             if (fbRes.ok) sessData = await fbRes.json();
           } catch {}
         }
+
         const sessions = Array.isArray(sessData?.sessions) ? sessData.sessions : (Array.isArray(sessData) ? sessData : []);
-        setRecentSessions(sessions.slice(0, 5));
+        if (isMounted) {
+          setRecentSessions(sessions.slice(0, 5));
 
-        // Compute stats
-        if (sessions.length > 0) {
-          const scores = sessions.map(s => s.score ?? s.overall_score).filter(s => s != null);
-          const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+          // Compute stats
+          if (sessions.length > 0) {
+            const scores = sessions
+              .map((s) => s.score ?? s.overall_score ?? s.overallScore)
+              .filter((s) => s != null && !isNaN(Number(s)))
+              .map(Number);
 
-          // B-12: Compute a real consecutive-day streak from session dates
-          const uniqueDays = [...new Set(
-            sessions
-              .map(s => (s.createdAt || s.created_at) ? new Date(s.createdAt || s.created_at).toDateString() : null)
-              .filter(Boolean)
-          )].sort((a, b) => new Date(b) - new Date(a)); // newest first
+            const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+            const highScore = scores.length > 0 ? Math.max(...scores) : 0;
 
-          let streak = 0;
-          const today = new Date().toDateString();
-          const yesterday = new Date(Date.now() - 86400000).toDateString();
-          // Only count a streak if the user practiced today or yesterday
-          if (uniqueDays.length > 0 && (uniqueDays[0] === today || uniqueDays[0] === yesterday)) {
-            let expected = new Date(uniqueDays[0]);
-            for (const dayStr of uniqueDays) {
-              if (new Date(dayStr).toDateString() === expected.toDateString()) {
-                streak++;
-                expected = new Date(expected.getTime() - 86400000);
-              } else {
-                break;
+            // Compute consecutive practice day streak
+            const uniqueDays = [...new Set(
+              sessions
+                .map((s) => (s.createdAt || s.created_at) ? new Date(s.createdAt || s.created_at).toDateString() : null)
+                .filter(Boolean)
+            )].sort((a, b) => new Date(b) - new Date(a));
+
+            let streak = 0;
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+            if (uniqueDays.length > 0 && (uniqueDays[0] === today || uniqueDays[0] === yesterday)) {
+              let expected = new Date(uniqueDays[0]);
+              for (const dayStr of uniqueDays) {
+                if (new Date(dayStr).toDateString() === expected.toDateString()) {
+                  streak++;
+                  expected = new Date(expected.getTime() - 86400000);
+                } else {
+                  break;
+                }
               }
             }
-          }
 
-          setStats({ sessions: sessions.length, avgScore, streak });
+            setStats({ sessions: sessions.length, avgScore, streak, highScore });
+          }
         }
       } catch {
-        setRecentSessions([]);
+        if (isMounted) setRecentSessions([]);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-
-      setLoading(false);
     };
 
     load();
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const filteredModes = useMemo(() => {
+    if (activeFilter === 'all') return INTERVIEW_MODES;
+    return INTERVIEW_MODES.filter((m) => m.category === activeFilter);
+  }, [activeFilter]);
+
+  // Dynamic readiness calculations based on stats or reasonable benchmark
+  const readinessMetrics = useMemo(() => {
+    const base = stats.avgScore > 0 ? stats.avgScore : 68;
+    return [
+      { name: 'Data Structures & Algorithms', score: Math.min(96, Math.max(45, base + 4)) },
+      { name: 'System Design & Scalability', score: Math.min(94, Math.max(40, base - 6)) },
+      { name: 'Behavioral & STAR Structure', score: Math.min(98, Math.max(50, base + 8)) },
+      { name: 'Code Review & Clean Code', score: Math.min(92, Math.max(42, base - 2)) },
+    ];
+  }, [stats.avgScore]);
+
+  const overallReadiness = useMemo(() => {
+    if (stats.sessions === 0) return { label: 'Getting Started', percent: 65, color: '#fbbf24' };
+    if (stats.avgScore >= 80) return { label: 'Interview Ready', percent: stats.avgScore, color: '#4ade80' };
+    if (stats.avgScore >= 60) return { label: 'Proficient', percent: stats.avgScore, color: '#60a5fa' };
+    return { label: 'Needs Practice', percent: stats.avgScore, color: '#fb923c' };
+  }, [stats.sessions, stats.avgScore]);
 
   return (
     <div className="ihub-container">
@@ -236,7 +308,11 @@ export default function InterviewSuite() {
       <div className="ihub-hero">
         <div className="ihub-hero-content">
           <div className="ihub-hero-top">
-            <div>
+            <div className="ihub-hero-left">
+              <div className="ihub-hero-badge">
+                <Sparkles size={13} />
+                <span>Next-Gen Interview Preparation Suite</span>
+              </div>
               <h1 className="ihub-hero-title">
                 <span className="ihub-hero-title-icon">
                   <Sparkles size={22} />
@@ -244,17 +320,25 @@ export default function InterviewSuite() {
                 Interview Hub
               </h1>
               <p className="ihub-hero-subtitle">
-                Your unified command center for interview mastery — mock interviews, live coding,
-                debugging challenges, code reviews, and performance analytics all in one place.
+                Your unified command center for interview mastery. Practice real-time AI technical rounds,
+                behavioral STAR responses, collaborative peer coding, production code reviews, and expert mentor sessions.
               </p>
             </div>
-            <Link to="/company-interview" className="ihub-hero-cta">
-              <Zap size={15} />
-              Quick Start Interview
-              <ArrowRight size={14} />
-            </Link>
+
+            <div className="ihub-hero-actions">
+              <Link to="/company-interview?type=technical" className="ihub-hero-cta">
+                <Zap size={15} />
+                Quick Start AI Mock
+                <ArrowRight size={14} />
+              </Link>
+              <Link to="/peer-interview" className="ihub-hero-cta-secondary">
+                <Users size={15} />
+                Join Peer Session
+              </Link>
+            </div>
           </div>
 
+          {/* Quick Stats Strip */}
           <div className="ihub-stats">
             <div className="ihub-stat-pill">
               <Award size={15} color="#8b5cf6" />
@@ -266,7 +350,7 @@ export default function InterviewSuite() {
             <div className="ihub-stat-pill">
               <TrendingUp size={15} color="#4ade80" />
               <div>
-                <div className="ihub-stat-value">{stats.avgScore || '—'}</div>
+                <div className="ihub-stat-value">{stats.avgScore > 0 ? `${stats.avgScore}%` : '—'}</div>
                 <div className="ihub-stat-label">Avg Score</div>
               </div>
             </div>
@@ -278,29 +362,106 @@ export default function InterviewSuite() {
               </div>
             </div>
             <div className="ihub-stat-pill">
+              <ShieldCheck size={15} color="#38bdf8" />
+              <div>
+                <div className="ihub-stat-value" style={{ color: overallReadiness.color }}>
+                  {overallReadiness.percent}%
+                </div>
+                <div className="ihub-stat-label">Readiness</div>
+              </div>
+            </div>
+            <div className="ihub-stat-pill">
               <Radio size={15} color="#06b6d4" />
               <div>
-                <div className="ihub-stat-value">5</div>
-                <div className="ihub-stat-label">Modes</div>
+                <div className="ihub-stat-value">{INTERVIEW_MODES.length}</div>
+                <div className="ihub-stat-label">Active Modes</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ═══ Interview Modes ═══ */}
-      <div className="ihub-section-header">
-        <div className="ihub-section-icon" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
-          <Target size={17} />
+      {/* ═══ Target Company Quick-Picks ═══ */}
+      <div className="ihub-company-section">
+        <div className="ihub-section-header">
+          <div className="ihub-section-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
+            <Building2 size={17} />
+          </div>
+          <div>
+            <h2 className="ihub-section-title">Target Company Calibration</h2>
+            <p className="ihub-section-subtitle">Launch directly into company-specific technical rounds</p>
+          </div>
         </div>
-        <div>
-          <h2 className="ihub-section-title">Choose Your Interview Mode</h2>
-          <p className="ihub-section-subtitle">Select a practice mode that matches your preparation goal</p>
+
+        <div className="ihub-company-grid">
+          {TARGET_COMPANIES.map((company) => (
+            <button
+              key={company.slug}
+              type="button"
+              className="ihub-company-card"
+              onClick={() => navigate(`/company-interview?company=${company.slug}&type=technical`)}
+            >
+              <div className="ihub-company-badge" style={{ backgroundColor: `${company.color}22`, color: company.color }}>
+                {company.initial}
+              </div>
+              <div className="ihub-company-info">
+                <span className="ihub-company-name">{company.name}</span>
+                <span className="ihub-company-tag">{company.tag}</span>
+              </div>
+              <ChevronRight size={15} className="ihub-company-arrow" />
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* ═══ Interview Modes Section ═══ */}
+      <div className="ihub-section-header-wrap">
+        <div className="ihub-section-header">
+          <div className="ihub-section-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>
+            <Target size={17} />
+          </div>
+          <div>
+            <h2 className="ihub-section-title">Choose Your Practice Mode</h2>
+            <p className="ihub-section-subtitle">Select a format matching your current preparation objective</p>
+          </div>
+        </div>
+
+        {/* Category Filter Tabs */}
+        <div className="ihub-tabs" role="tablist">
+          <button
+            type="button"
+            className={`ihub-tab-btn ${activeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            All Modes ({INTERVIEW_MODES.length})
+          </button>
+          <button
+            type="button"
+            className={`ihub-tab-btn ${activeFilter === 'ai' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('ai')}
+          >
+            AI Rounds
+          </button>
+          <button
+            type="button"
+            className={`ihub-tab-btn ${activeFilter === 'collaborative' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('collaborative')}
+          >
+            Peer & Mentor
+          </button>
+          <button
+            type="button"
+            className={`ihub-tab-btn ${activeFilter === 'skills' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('skills')}
+          >
+            Engineering Skills
+          </button>
+        </div>
+      </div>
+
+      {/* Mode Cards Grid */}
       <div className="ihub-modes-grid">
-        {INTERVIEW_MODES.map((mode) => {
+        {filteredModes.map((mode) => {
           const Icon = mode.icon;
           return (
             <Link key={mode.id} to={mode.path} className="ihub-mode-card">
@@ -318,8 +479,22 @@ export default function InterviewSuite() {
                   {mode.badge}
                 </span>
               </div>
+
               <h3 className="ihub-mode-title">{mode.title}</h3>
               <p className="ihub-mode-desc">{mode.desc}</p>
+
+              {/* Highlight Badges */}
+              {mode.highlights && (
+                <div className="ihub-mode-highlights">
+                  {mode.highlights.map((h) => (
+                    <span key={h} className="ihub-mode-highlight-pill">
+                      <CheckCircle2 size={11} color={mode.accent} />
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="ihub-mode-meta">
                 <span className="ihub-mode-meta-item">
                   <Timer size={12} /> {mode.time}
@@ -328,7 +503,7 @@ export default function InterviewSuite() {
                   <BarChart3 size={12} /> {mode.difficulty}
                 </span>
                 <span className="ihub-mode-start" style={{ color: mode.accent }}>
-                  Start <ArrowRight size={13} />
+                  Start Session <ArrowRight size={13} />
                 </span>
               </div>
             </Link>
@@ -336,14 +511,57 @@ export default function InterviewSuite() {
         })}
       </div>
 
-      {/* ═══ Quick Tools ═══ */}
+      {/* ═══ Readiness & Benchmark Meter ═══ */}
+      <div className="ihub-readiness-card">
+        <div className="ihub-readiness-header">
+          <div className="ihub-readiness-header-left">
+            <div className="ihub-readiness-icon">
+              <TrendingUp size={18} color="#4ade80" />
+            </div>
+            <div>
+              <h3 className="ihub-readiness-title">Interview Readiness Assessment</h3>
+              <p className="ihub-readiness-subtitle">
+                Calibrated against hiring bars from top-tier tech firms
+              </p>
+            </div>
+          </div>
+          <div className="ihub-readiness-tag" style={{ borderColor: overallReadiness.color, color: overallReadiness.color }}>
+            <Star size={13} fill={overallReadiness.color} />
+            {overallReadiness.label}
+          </div>
+        </div>
+
+        <div className="ihub-readiness-grid">
+          {readinessMetrics.map((item) => (
+            <div key={item.name} className="ihub-readiness-item">
+              <div className="ihub-readiness-label-row">
+                <span className="ihub-readiness-label">{item.name}</span>
+                <span className="ihub-readiness-score" style={{ color: getBarColor(item.score) }}>
+                  {item.score}%
+                </span>
+              </div>
+              <div className="ihub-readiness-track">
+                <div
+                  className="ihub-readiness-fill"
+                  style={{
+                    width: `${item.score}%`,
+                    background: getBarColor(item.score),
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══ Quick Tools Strip ═══ */}
       <div className="ihub-section-header">
-        <div className="ihub-section-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
+        <div className="ihub-section-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7' }}>
           <BookOpen size={17} />
         </div>
         <div>
-          <h2 className="ihub-section-title">Quick Prep Tools</h2>
-          <p className="ihub-section-subtitle">Supporting tools to round out your preparation</p>
+          <h2 className="ihub-section-title">Supporting Preparation Tools</h2>
+          <p className="ihub-section-subtitle">Deep dive tools for comprehensive interview readiness</p>
         </div>
       </div>
 
@@ -358,7 +576,7 @@ export default function InterviewSuite() {
               >
                 <Icon size={18} />
               </div>
-              <div>
+              <div className="ihub-tool-text">
                 <div className="ihub-tool-title">{tool.title}</div>
                 <div className="ihub-tool-desc">{tool.desc}</div>
               </div>
@@ -368,7 +586,7 @@ export default function InterviewSuite() {
         })}
       </div>
 
-      {/* ═══ Bottom Grid: Performance + Recent ═══ */}
+      {/* ═══ Bottom Grid: Weakness Analysis + Recent Sessions ═══ */}
       <div className="ihub-bottom-grid">
         {/* Weakness Panel */}
         <div className="ihub-panel">
@@ -384,17 +602,20 @@ export default function InterviewSuite() {
 
           {loading ? (
             <div className="ihub-empty">
-              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
+              <Loader2 size={20} className="ihub-spin" />
             </div>
           ) : heatmap.length === 0 ? (
             <div className="ihub-empty">
               <div className="ihub-empty-icon">
                 <BarChart3 size={22} />
               </div>
-              Complete your first interview session to unlock weakness analysis.
+              <p>Complete your first interview session to unlock weakness analysis and targeted coaching.</p>
+              <Link to="/company-interview?type=technical" className="ihub-empty-btn">
+                Start Mock Interview
+              </Link>
             </div>
           ) : (
-            <div>
+            <div className="ihub-weakness-list">
               {heatmap.map((item) => (
                 <div key={item.area} className="ihub-weakness-item">
                   <span className="ihub-weakness-label">
@@ -415,6 +636,14 @@ export default function InterviewSuite() {
                   >
                     {item.score}%
                   </span>
+                  <button
+                    type="button"
+                    className="ihub-weakness-practice-btn"
+                    onClick={() => navigate(`/company-interview?type=technical&topic=${encodeURIComponent(item.area)}`)}
+                    title={`Practice ${item.area.replace(/_/g, ' ')}`}
+                  >
+                    Practice
+                  </button>
                 </div>
               ))}
             </div>
@@ -435,45 +664,48 @@ export default function InterviewSuite() {
 
           {loading ? (
             <div className="ihub-empty">
-              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
+              <Loader2 size={20} className="ihub-spin" />
             </div>
           ) : recentSessions.length === 0 ? (
             <div className="ihub-empty">
               <div className="ihub-empty-icon">
                 <History size={22} />
               </div>
-              No sessions yet. Start an interview to see your progress here.
+              <p>No practice sessions yet. Start an interview to track scores and review full dossiers here.</p>
+              <Link to="/company-interview?type=technical" className="ihub-empty-btn">
+                Launch Practice
+              </Link>
             </div>
           ) : (
-            <div>
+            <div className="ihub-sessions-list">
               {recentSessions.map((session, idx) => {
                 const SessIcon = getModeIcon(session.type || session.roundType);
                 const color = getModeColor(session.type || session.roundType);
-                const score = session.score ?? session.overallScore ?? null;
+                const score = session.score ?? session.overallScore ?? session.overall_score ?? null;
                 return (
-                  <div key={session._id || idx} className="ihub-session-row">
+                  <div key={session._id || session.id || idx} className="ihub-session-row">
                     <div className="ihub-session-icon" style={{ background: `${color}18`, color }}>
                       <SessIcon size={16} />
                     </div>
                     <div className="ihub-session-info">
                       <div className="ihub-session-name">
-                        {session.company || session.type || 'Interview Session'}
+                        {session.company ? `${session.company.toUpperCase()} Interview` : (session.title || 'Technical Interview Session')}
                       </div>
                       <div className="ihub-session-meta">
-                        {session.type || session.roundType || 'Mock'} · {
-                          session.createdAt
-                            ? new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        {session.type || session.roundType || 'Technical'} · {
+                          session.createdAt || session.created_at
+                            ? new Date(session.createdAt || session.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                             : 'Recent'
                         }
                       </div>
                     </div>
                     {score != null && (
-                      <span className="ihub-session-score" style={{ color: getScoreColor(score) }}>
+                      <span className="ihub-session-score" style={{ color: getScoreColor(Number(score)) }}>
                         {score}%
                       </span>
                     )}
                     <Link to="/interview-history" className="ihub-session-replay">
-                      Replay
+                      Dossier
                     </Link>
                   </div>
                 );

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, Search, MapPin, Clock, ExternalLink, Building2, Loader2, AlertCircle, Tag, DollarSign, Calendar, Sparkles, Globe, Bookmark, TrendingUp, GraduationCap, Users, Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown } from 'lucide-react';
+import ToastContext from '../context/ToastContext';
+import { Briefcase, Search, MapPin, Clock, ExternalLink, Building2, Loader2, AlertCircle, Tag, DollarSign, Calendar, Sparkles, Globe, Bookmark, TrendingUp, GraduationCap, Users, Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown, Plus } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import '../styles/JobUpdates.css';
 import { API_URL } from '../config/api.js';
 
@@ -49,6 +51,15 @@ const parseStoredHistory = (rawValue) => {
 
 export default function JobUpdates() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const toastCtx = useContext(ToastContext);
+  const showToast = useCallback((payload) => {
+    if (toastCtx?.showToast) {
+      toastCtx.showToast(payload);
+    } else if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      window.toast(payload.description || payload.title);
+    }
+  }, [toastCtx]);
   const careerOpsHistoryKey = getCareerOpsHistoryStorageKey(user?.id);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +73,8 @@ export default function JobUpdates() {
   const [savedJobs, setSavedJobs] = useState(() => {
     try { return JSON.parse(localStorage.getItem('savedJobs') || '[]'); } catch { return []; }
   });
+  const [trackedApplications, setTrackedApplications] = useState([]);
+  const [trackingLoadingIds, setTrackingLoadingIds] = useState(() => new Set());
 
   // AI Search state
   const [isAiMode, setIsAiMode] = useState(false);
@@ -318,12 +331,231 @@ export default function JobUpdates() {
     }
   };
 
-  const toggleSaveJob = (jobId) => {
-    const updated = savedJobs.includes(jobId)
-      ? savedJobs.filter(id => id !== jobId)
-      : [...savedJobs, jobId];
-    setSavedJobs(updated);
-    localStorage.setItem('savedJobs', JSON.stringify(updated));
+  const loadTrackedApplications = useCallback(async () => {
+    if (!user) {
+      setTrackedApplications([]);
+      return;
+    }
+    try {
+      const res = await authFetch(buildApiUrl('/job-applications'));
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (Array.isArray(data.applications)) {
+          setTrackedApplications(data.applications);
+        }
+      }
+    } catch (err) {
+      console.warn('[job-discovery] Could not load tracked applications:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadTrackedApplications();
+  }, [loadTrackedApplications]);
+
+  const findTrackedApplication = useCallback((job) => {
+    if (!job) return null;
+    const company = (job.company || job.company_name || '').trim().toLowerCase();
+    const role = (job.title || job.role || '').trim().toLowerCase();
+    const jobUrl = (job.apply_link || job.job_url || '').trim();
+
+    return trackedApplications.find((app) => {
+      if (job.id && app.notes && app.notes.includes(`[job_id:${job.id}]`)) {
+        return true;
+      }
+      if (jobUrl && app.jobUrl && app.jobUrl.trim() === jobUrl) {
+        return true;
+      }
+      if (
+        company &&
+        role &&
+        app.company?.trim().toLowerCase() === company &&
+        app.role?.trim().toLowerCase() === role
+      ) {
+        return true;
+      }
+      return false;
+    }) || null;
+  }, [trackedApplications]);
+
+  const formatJobPayload = (job) => {
+    const company = (job.company || job.company_name || 'Unknown Company').trim().slice(0, 120);
+    const role = (job.title || job.role || 'Unknown Role').trim().slice(0, 160);
+
+    let validJobUrl = '';
+    const rawUrl = job.apply_link || job.job_url || job.url || '';
+    if (typeof rawUrl === 'string' && rawUrl.trim()) {
+      try {
+        const parsed = new URL(rawUrl.trim());
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          validJobUrl = rawUrl.trim().slice(0, 500);
+        }
+      } catch {
+        validJobUrl = '';
+      }
+    }
+
+    const location = (job.location || '').trim().slice(0, 160);
+    const salaryRange = (job.salary_range || job.salaryRange || job.compensation || '').trim().slice(0, 120);
+
+    const descSnippet = job.description
+      ? job.description.replace(/\s+/g, ' ').trim().slice(0, 250)
+      : '';
+    const notes = `[job_id:${job.id}] ${descSnippet ? `Description: ${descSnippet}...` : 'Bookmarked from Job Discovery'}`.trim().slice(0, 4000);
+
+    return {
+      company,
+      role,
+      status: 'bookmarked',
+      jobUrl: validJobUrl,
+      location,
+      salaryRange,
+      notes,
+    };
+  };
+
+  const handleTrackJob = async (job) => {
+    if (!job) return;
+
+    // Unauthenticated guest user fallback to localStorage
+    if (!user) {
+      const updated = savedJobs.includes(job.id) ? savedJobs : [...savedJobs, job.id];
+      setSavedJobs(updated);
+      try {
+        localStorage.setItem('savedJobs', JSON.stringify(updated));
+      } catch {}
+      showToast({
+        type: 'info',
+        title: 'Saved Locally',
+        description: 'Job saved to browser bookmarks! Sign in to sync with your Job Tracker Kanban board.',
+      });
+      return;
+    }
+
+    // Check duplicate against tracked applications
+    const existing = findTrackedApplication(job);
+    if (existing) {
+      showToast({
+        type: 'info',
+        title: 'Already in Job Tracker',
+        description: `"${existing.role}" at ${existing.company} is currently in your "${existing.status}" stage.`,
+      });
+      navigate('/job-tracker');
+      return;
+    }
+
+    if (trackingLoadingIds.has(job.id)) return;
+
+    setTrackingLoadingIds((prev) => new Set(prev).add(job.id));
+    const payload = formatJobPayload(job);
+
+    try {
+      const res = await authFetch(buildApiUrl('/job-applications'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to add job to tracker');
+      }
+
+      if (data.application) {
+        setTrackedApplications((prev) => [data.application, ...prev]);
+      }
+
+      // Also sync to savedJobs in localStorage for backward compatibility
+      const updated = Array.from(new Set([...savedJobs, job.id]));
+      setSavedJobs(updated);
+      try {
+        localStorage.setItem('savedJobs', JSON.stringify(updated));
+      } catch {}
+
+      showToast({
+        type: 'success',
+        title: 'Added to Job Tracker',
+        description: `${payload.company} — ${payload.role} added to your Bookmarked pipeline!`,
+      });
+    } catch (err) {
+      console.error('Job tracking error:', err);
+      // Fallback: save locally
+      const updated = Array.from(new Set([...savedJobs, job.id]));
+      setSavedJobs(updated);
+      try {
+        localStorage.setItem('savedJobs', JSON.stringify(updated));
+      } catch {}
+
+      showToast({
+        type: 'warning',
+        title: 'Saved Locally',
+        description: 'Saved to local bookmarks. Could not sync to server Job Tracker right now.',
+      });
+    } finally {
+      setTrackingLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
+    }
+  };
+
+  const toggleSaveJob = async (job) => {
+    if (!job) return;
+
+    // Guest fallback: localStorage
+    if (!user) {
+      const isSaved = savedJobs.includes(job.id);
+      const updated = isSaved
+        ? savedJobs.filter((id) => id !== job.id)
+        : [...savedJobs, job.id];
+      setSavedJobs(updated);
+      try {
+        localStorage.setItem('savedJobs', JSON.stringify(updated));
+      } catch {}
+      showToast({
+        type: 'info',
+        title: isSaved ? 'Removed Bookmark' : 'Job Bookmarked',
+        description: isSaved
+          ? 'Job removed from local bookmarks.'
+          : 'Job saved locally. Sign in to sync with your Job Tracker.',
+      });
+      return;
+    }
+
+    // Authenticated user
+    const existing = findTrackedApplication(job);
+    if (existing) {
+      if (existing.status === 'bookmarked') {
+        try {
+          const res = await authFetch(buildApiUrl(`/job-applications/${existing.id}`), {
+            method: 'DELETE',
+          });
+          if (res.ok) {
+            setTrackedApplications((prev) => prev.filter((a) => a.id !== existing.id));
+          }
+        } catch (err) {
+          console.warn('Failed to delete bookmark from server:', err);
+        }
+      }
+
+      const updated = savedJobs.filter((id) => id !== job.id);
+      setSavedJobs(updated);
+      try {
+        localStorage.setItem('savedJobs', JSON.stringify(updated));
+      } catch {}
+
+      showToast({
+        type: 'info',
+        title: 'Bookmark Removed',
+        description: existing.status === 'bookmarked'
+          ? `Removed ${existing.company} from your Job Tracker.`
+          : `Unbookmarked locally (remains in "${existing.status}" stage in Job Tracker).`,
+      });
+    } else {
+      await handleTrackJob(job);
+    }
   };
 
   const getTimeAgo = (dateStr) => {
@@ -735,16 +967,23 @@ export default function JobUpdates() {
               )}
             </div>
           ) : (
-            jobs.map((job) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                saved={savedJobs.includes(job.id)}
-                onToggleSave={() => toggleSaveJob(job.id)}
-                formatDeadline={formatDeadline}
-                getTimeAgo={getTimeAgo}
-              />
-            ))
+            jobs.map((job) => {
+              const trackedApp = findTrackedApplication(job);
+              const isSaved = savedJobs.includes(job.id) || Boolean(trackedApp);
+              return (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  saved={isSaved}
+                  trackedApp={trackedApp}
+                  isTracking={trackingLoadingIds.has(job.id)}
+                  onToggleSave={toggleSaveJob}
+                  onTrackJob={handleTrackJob}
+                  formatDeadline={formatDeadline}
+                  getTimeAgo={getTimeAgo}
+                />
+              );
+            })
           )}
         </div>
       )}
@@ -827,17 +1066,46 @@ function CareerOpsResultCard({ result }) {
   );
 }
 
-function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
+function JobCard({
+  job,
+  saved,
+  trackedApp,
+  isTracking,
+  onToggleSave,
+  onTrackJob,
+  formatDeadline,
+  getTimeAgo,
+}) {
   const navigate = useNavigate();
   const [showDetails, setShowDetails] = useState(false);
   const typeBadge = TYPE_BADGES[job.type] || TYPE_BADGES['full-time'];
   const deadline = formatDeadline(job.deadline);
   const _posted = getTimeAgo(job.created_at);
   const isExpired = deadline === 'Expired';
+  const isTracked = Boolean(trackedApp);
   
   const companyName = job.company || job.company_name || 'Unknown Company';
   const roleName = job.title || job.role || 'Unknown Role';
   const initials = companyName.split(/[\s&]+/).map(w => w?.[0] || '').join('').substring(0, 2).toUpperCase() || 'C';
+
+  const stageLabels = {
+    bookmarked: 'Bookmarked',
+    applied: 'Applied',
+    phone_screen: 'Phone Screen',
+    technical: 'Technical',
+    onsite: 'Onsite',
+    offer: 'Offer',
+    rejected: 'Rejected',
+  };
+
+  const handleTrackButtonClick = (e) => {
+    e.stopPropagation();
+    if (isTracked) {
+      navigate('/job-tracker');
+    } else {
+      onTrackJob(job);
+    }
+  };
 
   // Clean description — strip job requisition IDs and boilerplate
   const cleanDesc = (job.description || '')
@@ -864,6 +1132,18 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
           <span className="job-company-exact">{companyName.toUpperCase()}</span>
           <span className="job-type-badge-exact">{typeBadge.label}</span>
         </div>
+        <button
+          type="button"
+          className={`job-card-bookmark-btn ${saved ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave(job);
+          }}
+          title={saved ? 'Remove bookmark' : 'Bookmark & Add to Job Tracker'}
+          aria-label={saved ? 'Remove bookmark' : 'Bookmark & Add to Job Tracker'}
+        >
+          <Bookmark size={16} fill={saved ? 'currentColor' : 'none'} />
+        </button>
       </div>
 
       <h3 className="job-title-exact">{roleName}</h3>
@@ -899,11 +1179,37 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
       </div>
 
       <div className="job-actions-exact">
-        <button className="btn-match-score-exact" onClick={() => navigate('/copilot', { state: { jobDetails: job } })}>
-          <Zap size={15} /> Check Match Score
-        </button>
         <div className="job-actions-row-exact">
-          <button className="btn-view-details-exact" onClick={() => setShowDetails(!showDetails)}>
+          <button type="button" className="btn-match-score-exact" onClick={() => navigate('/copilot', { state: { jobDetails: job } })}>
+            <Zap size={14} /> Check Match Score
+          </button>
+          <button
+            type="button"
+            className={`btn-track-exact ${isTracked ? 'tracked' : ''}`}
+            onClick={handleTrackButtonClick}
+            disabled={isTracking}
+            title={isTracked ? 'View application in Job Tracker' : 'Add to Job Tracker'}
+          >
+            {isTracking ? (
+              <>
+                <Loader2 size={14} className="spin" />
+                <span>Tracking...</span>
+              </>
+            ) : isTracked ? (
+              <>
+                <CheckCircle2 size={14} />
+                <span>In Tracker ({stageLabels[trackedApp?.status] || 'Tracked'})</span>
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                <span>Add to Tracker</span>
+              </>
+            )}
+          </button>
+        </div>
+        <div className="job-actions-row-exact">
+          <button type="button" className="btn-view-details-exact" onClick={() => setShowDetails(!showDetails)}>
             {showDetails ? 'Hide Details' : 'View Details'}
           </button>
           {job.apply_link ? (
@@ -911,7 +1217,7 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
               Apply Now
             </a>
           ) : (
-            <button className="btn-apply-now-exact">Apply Now</button>
+            <button type="button" className="btn-apply-now-exact">Apply Now</button>
           )}
         </div>
       </div>

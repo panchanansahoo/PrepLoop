@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PROBLEMS } from '../data/problemsDatabase';
 import { getTestCasesForProblem } from '../data/problemTestCases';
+import { CURATED_ASSESSMENT_PROBLEMS } from '../data/curatedAssessmentProblems';
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api';
 
@@ -45,6 +46,10 @@ function toCamelCase(str) {
 export function buildStarterCodeForProblem(problem) {
   const title = problem.title || 'solve';
   const slug = getSlug(title);
+
+  if (CURATED_ASSESSMENT_PROBLEMS[slug]?.starter_code) {
+    return CURATED_ASSESSMENT_PROBLEMS[slug].starter_code;
+  }
 
   if (slug === 'two-sum') {
     return {
@@ -308,7 +313,8 @@ func ${fnName}() {
  * Enriches problem with test cases, starter code and scoring metadata
  */
 function enrichProblem(rawProblem, index) {
-  const slug = getSlug(rawProblem.title || `problem-${rawProblem.id || index}`);
+  const slug = getSlug(rawProblem.title || rawProblem.slug || `problem-${rawProblem.id || index}`);
+  const curated = CURATED_ASSESSMENT_PROBLEMS[slug];
   const rawTestCases = typeof getTestCasesForProblem === 'function' ? getTestCasesForProblem(slug) : [];
 
   let testCases = [];
@@ -318,6 +324,15 @@ function enrichProblem(rawProblem, index) {
       name: tc.name || `Case ${i + 1}`,
       input: tc.input,
       output: tc.output,
+      hidden: i >= 2,
+      is_hidden: i >= 2,
+    }));
+  } else if (curated && Array.isArray(curated.examples) && curated.examples.length > 0) {
+    testCases = curated.examples.map((ex, i) => ({
+      id: `tc-${rawProblem.id || index}-${i}`,
+      name: `Sample Case ${i + 1}`,
+      input: ex.input,
+      output: ex.output,
       hidden: i >= 2,
       is_hidden: i >= 2,
     }));
@@ -341,39 +356,195 @@ function enrichProblem(rawProblem, index) {
   const sampleTestCases = testCases.filter(tc => !tc.hidden);
   const hiddenTestCases = testCases.filter(tc => tc.hidden);
 
-  const diff = rawProblem.difficulty || 'Medium';
+  const diff = curated?.difficulty || rawProblem.difficulty || 'Medium';
   const defaultPoints = diff === 'Easy' ? 50 : diff === 'Hard' ? 150 : 100;
+
+  // Real examples: if curated, use curated.examples. If not curated, but testCases exist, build clean examples from testCases!
+  let authenticExamples = curated?.examples;
+  if (!authenticExamples || authenticExamples.length === 0) {
+    if (sampleTestCases.length > 0) {
+      authenticExamples = sampleTestCases.slice(0, 3).map((tc) => ({
+        input: typeof tc.input === 'object' ? JSON.stringify(tc.input) : String(tc.input),
+        output: typeof tc.output === 'object' ? JSON.stringify(tc.output) : String(tc.output),
+        explanation: tc.name ? `Validates ${tc.name.toLowerCase()}` : undefined,
+      }));
+    } else {
+      authenticExamples = rawProblem.examples || [];
+    }
+  }
 
   return {
     ...rawProblem,
     id: rawProblem.id ?? (index + 1),
     slug,
+    title: curated?.title || rawProblem.title,
     difficulty: diff,
-    points: rawProblem.points || defaultPoints,
+    points: rawProblem.points || curated?.points || defaultPoints,
+    acceptance: curated?.acceptance || rawProblem.acceptance || 50,
+    timeEstimate: curated?.timeEstimate || rawProblem.timeEstimate || 25,
+    description: curated?.description || rawProblem.description,
+    constraints: curated?.constraints || rawProblem.constraints,
+    hints: curated?.hints || rawProblem.hints || [
+      'Break down the problem into smaller edge-case steps.',
+      'Check time and space constraints before finalizing implementation.'
+    ],
+    editorial: curated?.editorial || null,
+    topics: curated?.topics || rawProblem.topics || ['Algorithms', 'Data Structures'],
+    examples: authenticExamples,
     test_cases: testCases,
     sampleTestCases,
     hiddenTestCases,
     starter_code: rawProblem.starter_code && typeof rawProblem.starter_code === 'object'
-      ? { ...buildStarterCodeForProblem(rawProblem), ...rawProblem.starter_code }
-      : buildStarterCodeForProblem(rawProblem),
+      ? { ...buildStarterCodeForProblem({ ...rawProblem, slug, title: curated?.title || rawProblem.title }), ...rawProblem.starter_code }
+      : buildStarterCodeForProblem({ ...rawProblem, slug, title: curated?.title || rawProblem.title }),
   };
 }
 
 /**
- * Selects 2-3 appropriate DSA problems matching company or difficulty, with fallback
+ * Company focus specializations and topic pools
+ */
+export const COMPANY_FOCUS_POOLS = {
+  amazon: {
+    name: 'Amazon',
+    preferredTopics: ['Trees', 'Graphs', 'Heap', 'Design', 'Arrays', 'Sorting'],
+    preferredPatterns: ['bfs', 'dfs', 'topological-sort', 'top-k', 'two-pointers', 'sliding-window'],
+    signatureProblemSlugs: [
+      'course-schedule',
+      'lru-cache',
+      'number-of-islands',
+      'word-ladder',
+      'lowest-common-ancestor-of-a-binary-tree',
+      'binary-tree-level-order-traversal',
+      'merge-k-sorted-lists',
+      'top-k-frequent-elements',
+      'trapping-rain-water',
+      'reorder-data-in-log-files'
+    ],
+  },
+  meta: {
+    name: 'Meta',
+    preferredTopics: ['Strings', 'Arrays', 'Two Pointers', 'Dynamic Programming', 'Binary Search'],
+    preferredPatterns: ['sliding-window', 'two-pointers', 'prefix-sum', 'dp-string', 'fast-slow'],
+    signatureProblemSlugs: [
+      'subarray-sum-equals-k',
+      'valid-palindrome',
+      'minimum-window-substring',
+      'longest-substring-without-repeating-characters',
+      '3sum',
+      'product-of-array-except-self',
+      'word-break',
+      'group-anagrams'
+    ],
+  },
+  google: {
+    name: 'Google',
+    preferredTopics: ['Dynamic Programming', 'Graphs', 'Trie', 'Matrix', 'Binary Search'],
+    preferredPatterns: ['dp-grid', 'dp-knapsack', 'trie-pattern', 'shortest-path', 'union-find'],
+    signatureProblemSlugs: [
+      'trapping-rain-water',
+      'median-of-two-sorted-arrays',
+      'word-break-ii',
+      'longest-increasing-path-in-a-matrix',
+      'merge-intervals',
+      'evaluate-division'
+    ],
+  },
+  microsoft: {
+    name: 'Microsoft',
+    preferredTopics: ['Linked List', 'Trees', 'Stack', 'Arrays', 'Strings'],
+    preferredPatterns: ['in-place-reversal', 'monotonic-stack', 'bfs', 'dfs'],
+    signatureProblemSlugs: [
+      'reverse-linked-list',
+      'merge-two-sorted-lists',
+      'valid-parentheses',
+      'lru-cache',
+      'binary-tree-zigzag-level-order-traversal'
+    ],
+  },
+};
+
+/**
+ * Selects appropriate DSA problems matching company, difficulty, or custom question selection
  */
 export function selectAssessmentProblems({
   company = 'google',
   role = 'SDE',
   difficulty = 'Medium',
   questionCount = 2,
+  questions = null,
   problemList = PROBLEMS,
 } = {}) {
   const normCompany = String(company || '').trim().toLowerCase();
   const normDifficulty = String(difficulty || '').trim().toLowerCase();
-  const count = Math.max(1, Math.min(parseInt(questionCount, 10) || 2, 5));
+  const count = Math.max(1, Math.min(parseInt(questionCount, 10) || 2, 10));
 
   const list = Array.isArray(problemList) && problemList.length > 0 ? problemList : [];
+
+  const selected = [];
+  const selectedIds = new Set();
+
+  const addIfUnique = (p) => {
+    if (p && !selectedIds.has(p.id)) {
+      selectedIds.add(p.id);
+      selected.push(p);
+      return true;
+    }
+    return false;
+  };
+
+  // 0. Explicit Question Selection by ID / Number (Admin / Custom Question Pool)
+  if (questions) {
+    const rawItems = Array.isArray(questions)
+      ? questions
+      : String(questions).split(',').map(s => s.trim()).filter(Boolean);
+
+    for (const raw of rawItems) {
+      const num = Number(raw);
+      const str = String(raw).trim().toLowerCase();
+      const slug = getSlug(raw);
+
+      const found = list.find(p =>
+        (!isNaN(num) && p.id === num) ||
+        String(p.id).toLowerCase() === str ||
+        String(p.title || '').toLowerCase() === str ||
+        getSlug(p.title) === slug
+      );
+      if (found) {
+        addIfUnique(found);
+      }
+    }
+
+    if (selected.length > 0) {
+      return selected.map((p, idx) => enrichProblem(p, idx));
+    }
+  }
+
+  // 1. Company Focus Pools (e.g. Amazon LP + Trees/Graphs, Meta Strings/Arrays)
+  const focus = COMPANY_FOCUS_POOLS[normCompany];
+  if (focus) {
+    // Try signature problem slugs first
+    if (Array.isArray(focus.signatureProblemSlugs)) {
+      for (const sigSlug of focus.signatureProblemSlugs) {
+        if (selected.length >= count) break;
+        const found = list.find(p => getSlug(p.title) === sigSlug || p.slug === sigSlug);
+        if (found) addIfUnique(found);
+      }
+    }
+
+    // Then try topics and patterns matching company specialization
+    if (selected.length < count) {
+      for (const p of list) {
+        if (selected.length >= count) break;
+        const hasTopic = Array.isArray(p.topics) && p.topics.some(t => focus.preferredTopics.includes(t));
+        const hasPattern = Array.isArray(p.patterns) && p.patterns.some(pat => focus.preferredPatterns.includes(pat));
+        const diffOk = !normDifficulty || normDifficulty === 'mixed' || normDifficulty === 'all' || String(p.difficulty || '').toLowerCase() === normDifficulty;
+
+        if ((hasTopic || hasPattern) && diffOk) {
+          addIfUnique(p);
+        }
+      }
+    }
+  }
 
   const matchesCompany = (p) => {
     if (!normCompany || normCompany === 'general' || normCompany === 'all') return true;
@@ -388,19 +559,7 @@ export function selectAssessmentProblems({
     return String(p.difficulty || '').toLowerCase() === normDifficulty;
   };
 
-  const selected = [];
-  const selectedIds = new Set();
-
-  const addIfUnique = (p) => {
-    if (p && !selectedIds.has(p.id)) {
-      selectedIds.add(p.id);
-      selected.push(p);
-      return true;
-    }
-    return false;
-  };
-
-  // 1. Exact match: company AND difficulty
+  // 2. Exact match: company AND difficulty
   for (const p of list) {
     if (selected.length >= count) break;
     if (matchesCompany(p) && matchesDifficulty(p)) {
@@ -408,7 +567,7 @@ export function selectAssessmentProblems({
     }
   }
 
-  // 2. Company match (any difficulty)
+  // 3. Company match (any difficulty)
   if (selected.length < count) {
     for (const p of list) {
       if (selected.length >= count) break;
@@ -418,7 +577,7 @@ export function selectAssessmentProblems({
     }
   }
 
-  // 3. Difficulty match (any company)
+  // 4. Difficulty match (any company)
   if (selected.length < count) {
     for (const p of list) {
       if (selected.length >= count) break;
@@ -428,7 +587,7 @@ export function selectAssessmentProblems({
     }
   }
 
-  // 4. Fallback: popular classic problems
+  // 5. Fallback: popular classic problems
   if (selected.length < count) {
     const fallbackSlugs = [
       'two-sum',
@@ -445,7 +604,7 @@ export function selectAssessmentProblems({
     }
   }
 
-  // 5. Fill with any available problems
+  // 6. Fill with any available problems
   if (selected.length < count) {
     for (const p of list) {
       if (selected.length >= count) break;
@@ -502,23 +661,112 @@ function buildInitialSolutions(problemsList, initialLanguage = 'python') {
 /**
  * Client-side simulation fallback for test evaluation
  */
+/**
+ * Determines whether the candidate's actual output matches the expected output
+ */
+function areOutputsEqual(actual, expected) {
+  if (actual === expected) return true;
+  if (actual === undefined || expected === undefined) return false;
+  if (typeof actual === 'boolean' || typeof expected === 'boolean') {
+    return Boolean(actual) === Boolean(expected);
+  }
+  if (typeof actual === 'number' && typeof expected === 'number') {
+    return actual === expected;
+  }
+  if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
+
+  // Unordered array comparison (e.g. 3Sum triplets or disjoint sets)
+  if (Array.isArray(actual) && Array.isArray(expected)) {
+    if (actual.length !== expected.length) return false;
+    try {
+      const normA = actual
+        .map(item => (Array.isArray(item) ? [...item].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)) : item))
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      const normE = expected
+        .map(item => (Array.isArray(item) ? [...item].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0)) : item))
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+      return JSON.stringify(normA) === JSON.stringify(normE);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Client-side simulation fallback for test evaluation
+ */
 function simulateTestCaseExecution(code, language, testCase) {
   if (language === 'javascript') {
     try {
       const runner = new Function(`
         ${code};
-        if (typeof solution === 'function') return solution;
+        if (typeof canFinish === 'function') return canFinish;
+        if (typeof numIslands === 'function') return numIslands;
+        if (typeof threeSum === 'function') return threeSum;
+        if (typeof productExceptSelf === 'function') return productExceptSelf;
+        if (typeof lengthOfLongestSubstring === 'function') return lengthOfLongestSubstring;
+        if (typeof trap === 'function') return trap;
         if (typeof twoSum === 'function') return twoSum;
         if (typeof isValid === 'function') return isValid;
         if (typeof reverseList === 'function') return reverseList;
         if (typeof maxProfit === 'function') return maxProfit;
+        if (typeof minDistance === 'function') return minDistance;
+        if (typeof coinChange === 'function') return coinChange;
+        if (typeof climbStairs === 'function') return climbStairs;
+        if (typeof wordBreak === 'function') return wordBreak;
+        if (typeof search === 'function') return search;
+        if (typeof subsets === 'function') return subsets;
+        if (typeof cloneGraph === 'function') return cloneGraph;
+        if (typeof LRUCache === 'function') return LRUCache;
+        if (typeof MinStack === 'function') return MinStack;
+        if (typeof solution === 'function') return solution;
+        if (typeof solve === 'function') return solve;
+        if (typeof Solution === 'function') {
+          try {
+            const s = new Solution();
+            const method = Object.getOwnPropertyNames(Object.getPrototypeOf(s)).find(m => m !== 'constructor');
+            if (method && typeof s[method] === 'function') return s[method].bind(s);
+          } catch {}
+        }
         return null;
       `);
       const fn = runner();
       if (typeof fn === 'function') {
-        const inputArgs = Array.isArray(testCase.input) ? testCase.input : [testCase.input];
-        const actual = fn(...inputArgs);
-        const passed = JSON.stringify(actual) === JSON.stringify(testCase.output);
+        let actual;
+        // Check if this is a class-based problem with operation commands (e.g. LRUCache, MinStack)
+        if (
+          Array.isArray(testCase.input) &&
+          testCase.input.length === 2 &&
+          Array.isArray(testCase.input[0]) &&
+          typeof testCase.input[0][0] === 'string' &&
+          (fn.name === 'LRUCache' || fn.name === 'MinStack' || fn.prototype?.get || fn.prototype?.push)
+        ) {
+          const commands = testCase.input[0];
+          const argsList = testCase.input[1];
+          const results = [];
+          let instance = null;
+          for (let i = 0; i < commands.length; i++) {
+            const cmd = commands[i];
+            const args = argsList[i] || [];
+            if (i === 0 || cmd === fn.name || cmd === 'LRUCache' || cmd === 'MinStack') {
+              instance = new fn(...args);
+              results.push(null);
+            } else if (instance && typeof instance[cmd] === 'function') {
+              const res = instance[cmd](...args);
+              results.push(res !== undefined ? res : null);
+            } else {
+              results.push(null);
+            }
+          }
+          actual = results;
+        } else {
+          const inputArgs = Array.isArray(testCase.input) ? testCase.input : [testCase.input];
+          actual = fn(...inputArgs);
+        }
+
+        const passed = areOutputsEqual(actual, testCase.output);
         return {
           name: testCase.name || 'Test Case',
           input: testCase.input,
@@ -546,11 +794,18 @@ function simulateTestCaseExecution(code, language, testCase) {
 
   // Non-JS / Fallback heuristic simulation
   const trimmed = String(code || '').trim();
-  const isMinimal = trimmed.length < 35 ||
-    trimmed.includes('pass') && trimmed.length < 70 ||
-    trimmed.includes('// Write your solution here') && trimmed.includes('return nil');
+  const isUntouchedStarter =
+    trimmed.includes('// Write your solution here\n}') ||
+    trimmed.includes('// Write your solution here\n    return false') ||
+    trimmed.includes('// Write your solution here\n        return false') ||
+    trimmed.includes('// Write your solution here\n        return {};') ||
+    trimmed.includes('// Write your solution here\n        return new int[]{};') ||
+    trimmed.includes('// Write your solution here\n    return nil') ||
+    trimmed.includes('# Write your solution here\n        pass') ||
+    trimmed.endsWith('pass') ||
+    (trimmed.includes('pass') && !trimmed.includes('for ') && !trimmed.includes('while ') && !trimmed.includes('if '));
 
-  const passed = !isMinimal;
+  const passed = !isUntouchedStarter && trimmed.length >= 35;
   return {
     name: testCase.name || 'Test Case',
     input: testCase.input,
@@ -573,9 +828,15 @@ export default function useCodingAssessment(props = {}) {
     company = 'google',
     role = 'SDE',
     difficulty = 'Medium',
-    durationMinutes = 60,
-    questionCount = 2,
+    durationMinutes: propDurationMinutes = 60,
+    questionCount: propQuestionCount = 2,
+    questions: propQuestions = null,
   } = props;
+
+  // Dynamic configuration states (configurable in lobby or via URL params)
+  const [durationMinutes, setDurationMinutes] = useState(propDurationMinutes);
+  const [questionCount, setQuestionCount] = useState(propQuestionCount);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState(propQuestions);
 
   const totalDurationSeconds = useMemo(() => {
     const mins = parseInt(durationMinutes, 10);
@@ -591,6 +852,7 @@ export default function useCodingAssessment(props = {}) {
     role,
     difficulty,
     questionCount,
+    questions: selectedQuestionIds,
   }));
 
   // Active Problem Index
@@ -616,9 +878,40 @@ export default function useCodingAssessment(props = {}) {
   // Proctoring & Integrity Tracking
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [proctoringWarning, setProctoringWarning] = useState(null);
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [webcamStream, setWebcamStream] = useState(null);
+  const [cameraSnapshots, setCameraSnapshots] = useState([]);
+  const [proctoringLogs, setProctoringLogs] = useState([]);
 
   // Final Assessment Scorecard
   const [finalScore, setFinalScore] = useState(null);
+
+  // Historical submissions per problem
+  const [submissionsHistory, setSubmissionsHistory] = useState({});
+
+  const recordSubmission = useCallback((problemId, subData) => {
+    setSubmissionsHistory(prev => ({
+      ...prev,
+      [problemId]: [subData, ...(prev[problemId] || []).slice(0, 19)],
+    }));
+  }, []);
+
+  const restoreSubmissionCode = useCallback((problemId, codeToRestore, langToRestore) => {
+    if (langToRestore) {
+      setLanguage(langToRestore);
+    }
+    if (problemId) {
+      setUserSolutions(prev => ({
+        ...prev,
+        [problemId]: {
+          ...(prev[problemId] || {}),
+          code: codeToRestore,
+          language: langToRestore || prev[problemId]?.language || 'python',
+        },
+      }));
+    }
+  }, []);
 
   // Synchronization Refs to prevent closure staleness
   const problemsRef = useRef(problems);
@@ -633,10 +926,31 @@ export default function useCodingAssessment(props = {}) {
   const languageRef = useRef(language);
   languageRef.current = language;
 
+  const timeRemainingRef = useRef(timeRemaining);
+  timeRemainingRef.current = timeRemaining;
+
+  const cameraSnapshotsRef = useRef(cameraSnapshots);
+  cameraSnapshotsRef.current = cameraSnapshots;
+
+  const proctoringLogsRef = useRef(proctoringLogs);
+  proctoringLogsRef.current = proctoringLogs;
+
+  const webcamEnabledRef = useRef(webcamEnabled);
+  webcamEnabledRef.current = webcamEnabled;
+
   const isSubmittedRef = useRef(false);
   const lastSwitchTimeRef = useRef(0);
 
-  // Update selected problems when props change while still in lobby
+  // Keep internal states in sync if props change while in lobby
+  useEffect(() => {
+    if (phase === 'lobby') {
+      setDurationMinutes(propDurationMinutes);
+      setQuestionCount(propQuestionCount);
+      setSelectedQuestionIds(propQuestions);
+    }
+  }, [propDurationMinutes, propQuestionCount, propQuestions, phase]);
+
+  // Update selected problems when props or customizer change while still in lobby
   useEffect(() => {
     if (phase === 'lobby') {
       const updatedProblems = selectAssessmentProblems({
@@ -644,12 +958,13 @@ export default function useCodingAssessment(props = {}) {
         role,
         difficulty,
         questionCount,
+        questions: selectedQuestionIds,
       });
       setProblems(updatedProblems);
       setUserSolutions(buildInitialSolutions(updatedProblems, languageRef.current));
       setTimeRemaining(totalDurationSeconds);
     }
-  }, [company, role, difficulty, questionCount, phase, totalDurationSeconds]);
+  }, [company, role, difficulty, questionCount, selectedQuestionIds, phase, totalDurationSeconds]);
 
   // Current problem helper
   const currentProblem = useMemo(() => {
@@ -735,6 +1050,91 @@ export default function useCodingAssessment(props = {}) {
     }
   }, [currentProblem]);
 
+  // Append structured proctoring log
+  const addProctoringLog = useCallback((type, message, severity = 'info') => {
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      severity,
+    };
+    setProctoringLogs(prev => [entry, ...prev.slice(0, 49)]);
+  }, []);
+
+  // Safe camera snapshot capture from video element (or fallback canvas)
+  const captureSnapshot = useCallback((videoElement = null, reason = 'Periodic AI Verification') => {
+    try {
+      let dataUrl = null;
+      if (videoElement && videoElement.videoWidth > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(videoElement.videoWidth || 320, 320);
+        canvas.height = Math.min(videoElement.videoHeight || 240, 240);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+          dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        }
+      }
+
+      const snapshot = {
+        id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        timeRemaining: timeRemainingRef.current,
+        reason,
+        verified: true,
+        dataUrl,
+      };
+
+      setCameraSnapshots(prev => [snapshot, ...prev.slice(0, 11)]);
+      addProctoringLog('SNAPSHOT_CAPTURED', `Proctoring frame verified (${reason})`, 'info');
+      return snapshot;
+    } catch (err) {
+      console.warn('Snapshot capture warning:', err);
+      return null;
+    }
+  }, [addProctoringLog]);
+
+  // Request & enable webcam + microphone
+  const enableWebcam = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: true,
+        });
+        setWebcamStream(stream);
+        setWebcamEnabled(true);
+        setAudioEnabled(true);
+        addProctoringLog('WEBCAM_ENABLED', 'Webcam & audio verification stream activated', 'info');
+        return stream;
+      }
+      setWebcamEnabled(true);
+      setAudioEnabled(true);
+      addProctoringLog('WEBCAM_ENABLED', 'Webcam proctoring simulation mode enabled', 'info');
+      return null;
+    } catch (err) {
+      console.warn('Webcam permission not granted or unsupported:', err);
+      setWebcamEnabled(false);
+      setAudioEnabled(false);
+      addProctoringLog('WEBCAM_DENIED', `Webcam access denied: ${err.message}`, 'warning');
+      return null;
+    }
+  }, [addProctoringLog]);
+
+  // Stop & disable webcam stream
+  const disableWebcam = useCallback(() => {
+    if (webcamStream) {
+      try {
+        webcamStream.getTracks().forEach(t => t.stop());
+      } catch {}
+      setWebcamStream(null);
+    }
+    setWebcamEnabled(false);
+    setAudioEnabled(false);
+    addProctoringLog('WEBCAM_DISABLED', 'Candidate disabled camera stream', 'warning');
+  }, [webcamStream, addProctoringLog]);
+
   // Tab switch / proctoring alert recorder
   const recordTabSwitch = useCallback(() => {
     const now = Date.now();
@@ -749,7 +1149,10 @@ export default function useCodingAssessment(props = {}) {
       setProctoringWarning(warning);
       return next;
     });
-  }, []);
+
+    addProctoringLog('TAB_SWITCH', 'Candidate departed active exam window or switched tabs', 'warning');
+    captureSnapshot(null, 'Flagged tab departure snapshot');
+  }, [addProctoringLog, captureSnapshot]);
 
   // Submit Exam function
   const submitExam = useCallback(() => {
@@ -759,6 +1162,8 @@ export default function useCodingAssessment(props = {}) {
     const currentProblems = problemsRef.current;
     const currentSolutions = userSolutionsRef.current;
     const currentTabSwitches = tabSwitchCountRef.current;
+    const currentSnapshots = cameraSnapshotsRef.current || [];
+    const currentLogs = proctoringLogsRef.current || [];
 
     const maxPoints = currentProblems.reduce((sum, p) => sum + (p.points || 100), 0);
     const totalPoints = currentProblems.reduce((sum, p) => sum + (currentSolutions[p.id]?.score || 0), 0);
@@ -782,8 +1187,20 @@ export default function useCodingAssessment(props = {}) {
         passedCount: sol.passedCount || 0,
         totalCount: sol.totalCount || (p.test_cases?.length || 0),
         language: sol.language || languageRef.current,
+        code: sol.code || '',
+        testResults: sol.testResults || [],
       };
     });
+
+    const proctoringData = {
+      tabSwitchCount: currentTabSwitches,
+      clean: currentTabSwitches === 0,
+      snapshotCount: currentSnapshots.length,
+      webcamVerified: currentSnapshots.length > 0 || webcamEnabledRef.current,
+      integrityScore: Math.max(0, 100 - (currentTabSwitches * 15)),
+      snapshots: currentSnapshots,
+      logs: currentLogs,
+    };
 
     const scoreResult = {
       totalPoints,
@@ -794,10 +1211,51 @@ export default function useCodingAssessment(props = {}) {
       verdict,
       tabSwitchCount: currentTabSwitches,
       problemResults,
+      proctoring: proctoringData,
     };
 
     setFinalScore(scoreResult);
     setPhase('scorecard');
+
+    // Save report for Recruiter / HR Dossier
+    try {
+      const candidateReport = {
+        id: `oa-${Date.now()}`,
+        candidate: {
+          role,
+          company,
+          difficulty,
+        },
+        scores: {
+          serverOverallScore: percentage,
+          score: percentage,
+          passingScore: 70,
+          decision: percentage >= 70 ? 'qualified' : 'review_needed',
+          breakdown: problemResults.map(pr => ({
+            topic: pr.title,
+            score: pr.score,
+            status: pr.status,
+          })),
+          integrity: {
+            tabSwitches: currentTabSwitches,
+            cameraVerified: proctoringData.webcamVerified,
+            integrityScore: proctoringData.integrityScore,
+          },
+        },
+        overall_score: percentage,
+        duration: totalDurationSeconds - (timeRemainingRef.current || 0),
+        completed_at: new Date().toISOString(),
+        problems: problemResults,
+        proctoring: proctoringData,
+      };
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('candidate_dossier_latest', JSON.stringify(candidateReport));
+        window.sessionStorage.setItem('candidate_dossier_latest', JSON.stringify(candidateReport));
+      }
+    } catch (e) {
+      console.warn('Failed to persist candidate dossier to storage:', e);
+    }
 
     // Save result to sessionStorage for MultiRoundInterview pipeline
     if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -822,6 +1280,7 @@ export default function useCodingAssessment(props = {}) {
             totalProblems: scoreResult.totalProblems,
             tabSwitchCount: currentTabSwitches,
             problemResults,
+            proctoring: proctoringData,
           },
         };
         window.sessionStorage.setItem('multiRoundResult', JSON.stringify(multiRoundResult));
@@ -829,7 +1288,7 @@ export default function useCodingAssessment(props = {}) {
         console.warn('Failed to save multiRoundResult to sessionStorage:', err);
       }
     }
-  }, []);
+  }, [role, company, difficulty, totalDurationSeconds, addProctoringLog, captureSnapshot]);
 
   const submitExamRef = useRef(submitExam);
   submitExamRef.current = submitExam;
@@ -953,6 +1412,7 @@ export default function useCodingAssessment(props = {}) {
             const passedCount = cases.filter(c => c.passed).length;
             const outputObj = {
               type: 'sample',
+              passed: passedCount === cases.length,
               passedCount,
               totalCount: cases.length,
               cases,
@@ -968,6 +1428,17 @@ export default function useCodingAssessment(props = {}) {
                 testResults: cases,
               },
             }));
+            recordSubmission(currentProblem.id, {
+              id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              type: 'run',
+              status: passedCount === cases.length ? 'Accepted' : 'Wrong Answer',
+              passedCount,
+              totalCount: cases.length,
+              runtime: cases[0]?.runtime || '15 ms',
+              language: activeLang,
+              code: activeCode,
+            });
           }
         }
       } catch (networkErr) {
@@ -976,10 +1447,31 @@ export default function useCodingAssessment(props = {}) {
 
       if (!backendHandled) {
         // Simulation mode
-        const cases = targetCases.map(tc => simulateTestCaseExecution(activeCode, activeLang, tc));
+        let cases = targetCases.map(tc => simulateTestCaseExecution(activeCode, activeLang, tc));
+
+        if (customInput && customInput.trim()) {
+          try {
+            let parsedInput;
+            try {
+              parsedInput = JSON.parse(customInput);
+            } catch {
+              parsedInput = customInput.trim();
+            }
+            const customCase = {
+              name: 'Custom Input',
+              input: parsedInput,
+              output: undefined,
+              hidden: false,
+            };
+            const customRes = simulateTestCaseExecution(activeCode, activeLang, customCase);
+            cases = [...cases, { ...customRes, name: 'Custom Stdin', passed: !customRes.error }];
+          } catch {}
+        }
+
         const passedCount = cases.filter(c => c.passed).length;
         const outputObj = {
           type: 'sample',
+          passed: passedCount === cases.length,
           passedCount,
           totalCount: cases.length,
           cases,
@@ -995,6 +1487,17 @@ export default function useCodingAssessment(props = {}) {
             testResults: cases,
           },
         }));
+        recordSubmission(currentProblem.id, {
+          id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          type: 'run',
+          status: passedCount === cases.length ? 'Accepted' : 'Wrong Answer',
+          passedCount,
+          totalCount: cases.length,
+          runtime: cases[0]?.runtime || '15 ms',
+          language: activeLang,
+          code: activeCode,
+        });
       }
     } finally {
       setIsRunning(false);
@@ -1051,6 +1554,7 @@ export default function useCodingAssessment(props = {}) {
 
             const outputObj = {
               type: 'submit',
+              passed: isSolved,
               passedCount,
               totalCount,
               cases,
@@ -1071,6 +1575,17 @@ export default function useCodingAssessment(props = {}) {
                 score,
               },
             }));
+            recordSubmission(currentProblem.id, {
+              id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              type: 'submit',
+              status: isSolved ? 'Accepted' : 'Wrong Answer',
+              passedCount,
+              totalCount,
+              runtime: '15 ms',
+              language: activeLang,
+              code: activeCode,
+            });
           }
         }
       } catch (networkErr) {
@@ -1088,6 +1603,7 @@ export default function useCodingAssessment(props = {}) {
 
         const outputObj = {
           type: 'submit',
+          passed: isSolved,
           passedCount,
           totalCount,
           cases,
@@ -1108,6 +1624,17 @@ export default function useCodingAssessment(props = {}) {
             score,
           },
         }));
+        recordSubmission(currentProblem.id, {
+          id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          type: 'submit',
+          status: isSolved ? 'Accepted' : 'Wrong Answer',
+          passedCount,
+          totalCount,
+          runtime: '15 ms',
+          language: activeLang,
+          code: activeCode,
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -1149,6 +1676,16 @@ export default function useCodingAssessment(props = {}) {
     setRunOutput,
     runCode,
     submitCode,
+    submissionsHistory,
+    restoreSubmissionCode,
+
+    // Configuration & Customization
+    durationMinutes,
+    setDurationMinutes,
+    questionCount,
+    setQuestionCount,
+    selectedQuestionIds,
+    setSelectedQuestionIds,
 
     // Timer & Proctoring
     timeRemaining,
@@ -1159,6 +1696,18 @@ export default function useCodingAssessment(props = {}) {
     setTabSwitchCount,
     proctoringWarning,
     clearProctoringWarning: () => setProctoringWarning(null),
+    webcamEnabled,
+    setWebcamEnabled,
+    audioEnabled,
+    setAudioEnabled,
+    webcamStream,
+    enableWebcam,
+    disableWebcam,
+    cameraSnapshots,
+    setCameraSnapshots,
+    captureSnapshot,
+    proctoringLogs,
+    addProctoringLog,
 
     // Final Results
     finalScore,

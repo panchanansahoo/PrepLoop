@@ -1,5 +1,9 @@
 import fs from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '../context/ThemeContext';
+import DailyChallengesPage from '../pages/DailyChallengesPage';
 import { generateImprovementPlan, getLatestImprovementPlan, updateImprovementPlanProgress } from '../api/aiService';
 
 function readSource(relativePath) {
@@ -39,6 +43,11 @@ describe('Milestone 4 — Frontend Remediation & Regression Tests', () => {
       expect(appSource).toContain('path="/live-coding" element={<LiveCodingCopilot />}');
       expect(appSource).not.toContain('path="/live-coding" element={<CodingPlayground');
     });
+
+    it('redirects legacy alias routes /code-practice and /system-design-simulator', () => {
+      expect(appSource).toContain('path="/code-practice" element={<Navigate to="/problems" replace />}');
+      expect(appSource).toContain('path="/system-design-simulator" element={<Navigate to="/system-design-sim" replace />}');
+    });
   });
 
   describe('Task 3: ApiClient Double-Unwrap Handling', () => {
@@ -62,10 +71,10 @@ describe('Milestone 4 — Frontend Remediation & Regression Tests', () => {
       expect(p2.roadmap.targetRole).toBe('Backend Dev');
     });
 
-    it('DailyChallengesPage safely unwraps challenges, leaderboard, and submission results', () => {
+    it('DailyChallengesPage cleanly renders company questions without weekly community challenges & leaderboard clutter', () => {
       const dailySource = readSource('../pages/DailyChallengesPage.jsx');
-      expect(dailySource).toContain('res?.challenges || res?.data?.challenges');
-      expect(dailySource).toContain('res?.leaderboard || res?.data?.leaderboard');
+      expect(dailySource).toContain('dailyChallenges');
+      expect(dailySource).not.toContain('Weekly Community Challenges & Leaderboard');
 
       const unwrappedChallenges = { challenges: [{ id: 'c1', title: 'Two Sum' }] };
       const wrappedChallenges = { data: { challenges: [{ id: 'c2', title: 'Reverse List' }] } };
@@ -73,6 +82,19 @@ describe('Milestone 4 — Frontend Remediation & Regression Tests', () => {
       const getChallenges = (res) => res?.challenges || res?.data?.challenges;
       expect(getChallenges(unwrappedChallenges)).toHaveLength(1);
       expect(getChallenges(wrappedChallenges)).toHaveLength(1);
+    });
+
+    it('DailyChallengesPage mounts and renders all company cards and icons without ReferenceError', () => {
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <DailyChallengesPage />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+      expect(screen.getByText('Daily Challenges')).toBeInTheDocument();
+      expect(screen.getByText("Today's Featured Company")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search companies...')).toBeInTheDocument();
     });
   });
 

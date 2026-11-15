@@ -18,7 +18,6 @@ import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { API_URL } from '../config/api.js';
-import WeeklyContestPanel from '../components/WeeklyContestPanel';
 import './QuizArena.css';
 
 const rawApiUrl = API_URL.trim();
@@ -429,8 +428,6 @@ export default function QuizArena() {
   return (
     <div className={`qa-page qa-page--${m}`}>
       <div className="qa-container">
-
-        <WeeklyContestPanel />
 
         {/* ═══ Hero Header ═══ */}
         <section className={`qa-hero qa-hero--${m}`}>
