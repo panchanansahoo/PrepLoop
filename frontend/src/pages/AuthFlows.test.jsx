@@ -93,6 +93,86 @@ describe('Signup page validation', () => {
     expect(await screen.findByText('LOGIN ROUTE')).toBeInTheDocument();
     expect(signupMock).toHaveBeenCalledWith('New@Example.com', 'SignupTest123!', 'New User');
   });
+
+  it('detects 502/504 gateway errors and displays waking up message with Try Again button', async () => {
+    signupMock.mockRejectedValueOnce({
+      response: { status: 502 },
+    });
+
+    renderSignup();
+    fillSignup({ password: 'SignupTest123!', confirmPassword: 'SignupTest123!' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Our server is currently waking up. Please wait a few moments and click Try Again.'
+    );
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
+  });
+
+  it('shows duplicate email notice with interactive link to Sign In for EMAIL_ALREADY_EXISTS', async () => {
+    signupMock.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          code: 'EMAIL_ALREADY_EXISTS',
+          error: 'An account with this email already exists.',
+        },
+      },
+    });
+
+    renderSignup();
+    fillSignup({ password: 'SignupTest123!', confirmPassword: 'SignupTest123!' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'An account with this email already exists. Would you like to Sign In instead?'
+    );
+
+    const signInLink = screen.getByRole('link', { name: 'Sign In' });
+    expect(signInLink).toBeInTheDocument();
+    fireEvent.click(signInLink);
+    expect(await screen.findByText('LOGIN ROUTE')).toBeInTheDocument();
+  });
+
+  it('detects CapsLock toggling on password inputs with clean warning badge', () => {
+    renderSignup();
+
+    const passwordInput = screen.getByLabelText('Password');
+    const confirmInput = screen.getByLabelText('Confirm Password');
+
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(passwordInput, { key: 'CapsLock', modifierCapsLock: true });
+    expect(screen.getByText('Caps Lock is on')).toBeInTheDocument();
+
+    fireEvent.keyUp(passwordInput, { key: 'CapsLock', modifierCapsLock: false });
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(confirmInput, { key: 'CapsLock', modifierCapsLock: true });
+    expect(screen.getByText('Caps Lock is on')).toBeInTheDocument();
+
+    fireEvent.keyUp(confirmInput, { key: 'CapsLock', modifierCapsLock: false });
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument();
+  });
+
+  it('handles ECONNABORTED timeout with waking up message and Try Again button', async () => {
+    const timeoutErr = new Error('Sign-up timed out. Our server may be waking up—please check your connection and click Try Again.');
+    timeoutErr.code = 'ECONNABORTED';
+    signupMock.mockRejectedValueOnce(timeoutErr);
+
+    renderSignup();
+    fillSignup({ password: 'SignupTest123!', confirmPassword: 'SignupTest123!' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to connect to PrepLoop. Our server may be waking up—please check your connection and click Try Again.'
+    );
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
+  });
 });
 
 describe('Forgot password page', () => {

@@ -265,11 +265,25 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [capsLockField, setCapsLockField] = useState('password');
   const { signup, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
   const navigate = useNavigate();
 
+  const handlePasswordKeyEvent = (e, field = 'password') => {
+    if (typeof e?.getModifierState === 'function') {
+      const isCaps = Boolean(e.getModifierState('CapsLock'));
+      setCapsLockOn(isCaps);
+      if (isCaps) setCapsLockField(field);
+    } else if (e && 'modifierCapsLock' in e) {
+      const isCaps = Boolean(e.modifierCapsLock);
+      setCapsLockOn(isCaps);
+      if (isCaps) setCapsLockField(field);
+    }
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     if (loading) return;
     setError('');
 
@@ -304,10 +318,10 @@ export default function Signup() {
       const signupPromise = signup(trimmedEmail, password, trimmedName);
       const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
-          const timeoutErr = new Error('Sign-up timed out. Please check your internet connection and try again.');
+          const timeoutErr = new Error('Sign-up timed out. Our server may be waking up—please check your connection and click Try Again.');
           timeoutErr.code = 'ECONNABORTED';
           reject(timeoutErr);
-        }, 15000);
+        }, 40000);
       });
       const user = await Promise.race([signupPromise, timeoutPromise]);
       if (user && user.emailVerified === false) {
@@ -326,18 +340,33 @@ export default function Signup() {
         err.code === 'ETIMEDOUT' ||
         (typeof navigator !== 'undefined' && !navigator.onLine);
 
-      if (isConnectionIssue) {
-        setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
+      const resData = err.response?.data;
+      const errorCode = resData?.code || err.code || '';
+      const rawError = typeof resData === 'string'
+        ? resData
+        : (resData?.error || resData?.message || err.message || '');
+      const lowerError = String(rawError).toLowerCase();
+
+      if (err.response?.status === 502 || err.response?.status === 504) {
+        setError("Our server is currently waking up. Please wait a few moments and click Try Again.");
+      } else if (
+        errorCode === 'EMAIL_ALREADY_EXISTS' ||
+        lowerError.includes('already exists') ||
+        lowerError.includes('already registered')
+      ) {
+        setError("An account with this email already exists. Would you like to Sign In instead?");
+      } else if (isConnectionIssue) {
+        setError("Unable to connect to PrepLoop. Our server may be waking up—please check your connection and click Try Again.");
       } else if (
         err.response?.status === 403 &&
-        (err.response?.data?.code?.startsWith('CSRF_') ||
-         err.response?.data?.error?.includes('CSRF'))
+        (resData?.code?.startsWith?.('CSRF_') ||
+         String(resData?.error || '').includes('CSRF'))
       ) {
         setError("Your session expired. Please refresh and try again.");
       } else if (err.response?.status >= 500) {
         setError("Our signup service is temporarily having trouble. Please try again shortly.");
       } else {
-        setError(err.response?.data?.error || 'Signup failed. Please check your information and try again.');
+        setError(resData?.error || 'Signup failed. Please check your information and try again.');
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
@@ -526,13 +555,47 @@ export default function Signup() {
               {/* Error */}
               {error && (
                 <div id="signup-error" role="alert" aria-live="polite" className="signup-stagger" style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
                   padding: '11px 14px', marginBottom: '16px',
                   background: 'rgba(239,68,68,0.06)', borderRadius: '12px',
                   border: '1px solid rgba(239,68,68,0.15)',
                   color: '#fca5a5', fontSize: '13px', lineHeight: 1.5,
                 }}>
-                  <AlertCircle size={15} style={{ flexShrink: 0 }} /> {error}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                    <AlertCircle size={15} style={{ flexShrink: 0, color: '#f87171' }} />
+                    <div>
+                      {error.includes('already exists') || error.includes('Sign In instead') ? (
+                        <span>
+                          An account with this email already exists. Would you like to{' '}
+                          <Link to="/login" style={{ color: '#c084fc', textDecoration: 'underline', fontWeight: 600 }}>
+                            Sign In
+                          </Link>{' '}
+                          instead?
+                        </span>
+                      ) : (
+                        <span>{error}</span>
+                      )}
+                    </div>
+                  </div>
+                  {(error.includes('waking up') || error.includes('Unable to connect') || error.includes('timed out') || error.includes('Try Again')) && (
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      style={{
+                        background: 'rgba(239,68,68,0.15)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: '8px',
+                        color: '#fca5a5',
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Try Again
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -684,8 +747,16 @@ export default function Signup() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="new-password"
                       value={password} onChange={e => setPassword(e.target.value)}
-                      onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
+                      onFocus={() => {
+                        setFocusedField('password');
+                        setCapsLockField('password');
+                      }}
+                      onBlur={() => {
+                        setFocusedField(null);
+                        setCapsLockOn(false);
+                      }}
+                      onKeyDown={(e) => handlePasswordKeyEvent(e, 'password')}
+                      onKeyUp={(e) => handlePasswordKeyEvent(e, 'password')}
                       placeholder="Minimum 8 characters" required minLength={8}
                       className="signup-input-v2"
                       style={{
@@ -698,6 +769,7 @@ export default function Signup() {
                     />
                     <button
                       type="button" onClick={() => setShowPassword(!showPassword)}
+                      onMouseDown={(e) => e.preventDefault()}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       className="signup-toggle-pw"
                       style={{
@@ -710,6 +782,37 @@ export default function Signup() {
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
+                  {capsLockOn && capsLockField === 'password' && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '8px',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        color: '#fbbf24',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f59e0b',
+                        boxShadow: '0 0 6px rgba(245, 158, 11, 0.6)',
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }} />
+                      Caps Lock is on
+                    </div>
+                  )}
                   {/* Password strength bar */}
                   <div style={{ display: 'flex', gap: '3px', marginTop: '8px' }}>
                     {[0, 1, 2, 3].map(i => (
@@ -765,8 +868,16 @@ export default function Signup() {
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="new-password"
                       value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                      onFocus={() => setFocusedField('confirmPassword')}
-                      onBlur={() => setFocusedField(null)}
+                      onFocus={() => {
+                        setFocusedField('confirmPassword');
+                        setCapsLockField('confirmPassword');
+                      }}
+                      onBlur={() => {
+                        setFocusedField(null);
+                        setCapsLockOn(false);
+                      }}
+                      onKeyDown={(e) => handlePasswordKeyEvent(e, 'confirmPassword')}
+                      onKeyUp={(e) => handlePasswordKeyEvent(e, 'confirmPassword')}
                       placeholder="Re-enter your password" required minLength={8}
                       className="signup-input-v2"
                       style={{
@@ -778,6 +889,37 @@ export default function Signup() {
                       }}
                     />
                   </div>
+                  {capsLockOn && capsLockField === 'confirmPassword' && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '8px',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        color: '#fbbf24',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f59e0b',
+                        boxShadow: '0 0 6px rgba(245, 158, 11, 0.6)',
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }} />
+                      Caps Lock is on
+                    </div>
+                  )}
                   {confirmPassword.length > 0 && (
                     <p style={{
                       fontSize: '10px', marginTop: '5px', fontWeight: 600,

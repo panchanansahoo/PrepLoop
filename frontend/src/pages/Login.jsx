@@ -300,6 +300,15 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+
+  const handlePasswordKeyEvent = (e) => {
+    if (typeof e?.getModifierState === 'function') {
+      setCapsLockOn(Boolean(e.getModifierState('CapsLock')));
+    } else if (e && 'modifierCapsLock' in e) {
+      setCapsLockOn(Boolean(e.modifierCapsLock));
+    }
+  };
   const { login, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -740,7 +749,12 @@ export default function Login() {
                       autoComplete="current-password"
                       value={password} onChange={e => setPassword(e.target.value)}
                       onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
+                      onBlur={() => {
+                        setFocusedField(null);
+                        setCapsLockOn(false);
+                      }}
+                      onKeyDown={handlePasswordKeyEvent}
+                      onKeyUp={handlePasswordKeyEvent}
                       placeholder="••••••••" required
                       aria-invalid={Boolean(error)}
                       aria-describedby={error ? 'login-error' : undefined}
@@ -756,6 +770,7 @@ export default function Login() {
                     />
                     <button
                       type="button" onClick={() => setShowPassword(!showPassword)}
+                      onMouseDown={(e) => e.preventDefault()}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       className="auth-toggle-pw"
                       style={{
@@ -769,6 +784,37 @@ export default function Login() {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  {capsLockOn && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '8px',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        color: '#fbbf24',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f59e0b',
+                        boxShadow: '0 0 6px rgba(245, 158, 11, 0.6)',
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }} />
+                      Caps Lock is on
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit */}

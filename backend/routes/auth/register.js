@@ -11,6 +11,8 @@ import {
 import {
   validatePasswordStrength,
   isMissingEmailVerificationSchema,
+  AUTH_ERROR_CODES,
+  isDuplicateEmailError,
 } from './helpers.js';
 import { verifyCaptcha } from '../../utils/captcha.js';
 
@@ -89,8 +91,12 @@ router.post('/signup', signupLimiter, async (req, res) => {
     if (error) {
       console.error('Signup error:', error);
       const errMsg = String(error.message || '').toLowerCase();
-      if (errMsg.includes('already registered') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
-        return res.status(400).json({ error: 'Email already registered' });
+      if (isDuplicateEmailError(error) || errMsg.includes('already registered') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
+        return res.status(400).json({
+          code: AUTH_ERROR_CODES.EMAIL_ALREADY_EXISTS,
+          error: 'An account with this email already exists.',
+          message: 'An account with this email already exists.',
+        });
       }
       if (errMsg.includes('password') && (errMsg.includes('short') || errMsg.includes('weak') || errMsg.includes('character'))) {
         return res.status(400).json({ error: 'Password does not meet security requirements' });
@@ -103,30 +109,52 @@ router.post('/signup', signupLimiter, async (req, res) => {
     const tokenExpiresAt = shouldRequireVerification ? getTokenExpirationTime() : null;
 
     let legacyMode = !shouldRequireVerification;
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        verification_token: verificationToken,
-        token_expires_at: tokenExpiresAt ? tokenExpiresAt.toISOString() : null,
-        verification_sent_at: shouldRequireVerification ? new Date().toISOString() : null,
-        email_verified: !shouldRequireVerification
-      })
-      .eq('id', data.user.id);
+    const profilePayload = {
+      id: data.user.id,
+      full_name: trimmedFullName,
+      role: 'user',
+      email_verified: !shouldRequireVerification,
+      coins: 0,
+      profile_theme: 'aurora',
+      verification_token: verificationToken,
+      token_expires_at: tokenExpiresAt ? tokenExpiresAt.toISOString() : null,
+      verification_sent_at: shouldRequireVerification ? new Date().toISOString() : null,
+    };
 
-    if (profileError && shouldRequireVerification) {
-      if (isMissingEmailVerificationSchema(profileError)) {
-        legacyMode = true;
-        console.warn('Email verification columns missing; continuing signup in legacy mode.');
+    let { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'id' });
+
+    if (profileError && isMissingEmailVerificationSchema(profileError)) {
+      legacyMode = true;
+      console.warn('Email verification columns missing; continuing signup in legacy mode.');
+      const fallbackPayload = {
+        id: data.user.id,
+        full_name: trimmedFullName,
+        role: 'user',
+        coins: 0,
+        profile_theme: 'aurora',
+      };
+      const { error: fallbackError } = await supabaseAdmin
+        .from('profiles')
+        .upsert(fallbackPayload, { onConflict: 'id' });
+
+      if (fallbackError) {
+        console.warn('Fallback profile upsert warning:', fallbackError);
+      }
+
+      if (shouldRequireVerification) {
         await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
           email_confirm: true,
         }).catch((confirmError) => {
           console.error('Error auto-confirming email in legacy mode:', confirmError);
         });
       }
+      profileError = null;
     }
 
     if (profileError && !legacyMode && shouldRequireVerification) {
-      console.error('Error storing verification token:', profileError);
+      console.error('Error storing verification token / creating profile:', profileError);
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
       return res.status(500).json({ error: 'Failed to process signup' });
     }

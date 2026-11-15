@@ -73,4 +73,46 @@ describe('Login page', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/temporarily locked/i);
   });
+
+  it('detects CapsLock toggling on password input and displays clean warning badge', () => {
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+
+    const passwordInput = screen.getByLabelText('Password');
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(passwordInput, { key: 'CapsLock', modifierCapsLock: true });
+    expect(screen.getByText('Caps Lock is on')).toBeInTheDocument();
+
+    fireEvent.keyUp(passwordInput, { key: 'CapsLock', modifierCapsLock: false });
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument();
+  });
+
+  it('detects 502/504 gateway waking up error and provides Try Again action', async () => {
+    loginMock.mockRejectedValueOnce({
+      response: { status: 502 },
+    });
+
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'ValidPass123!' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Sign In/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Our server is currently waking up. Please wait a few moments and click Try Again.'
+    );
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
+  });
 });

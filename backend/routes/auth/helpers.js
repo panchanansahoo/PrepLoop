@@ -208,3 +208,25 @@ export async function clearLoginAttempts(email, ip) {
   await removeLoginRecord(`account:${normalizedEmail}`);
 }
 
+export const AUTH_ERROR_CODES = {
+  EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
+};
+
+/**
+ * Checks if a Supabase or database error indicates a duplicate email registration attempt.
+ */
+export function isDuplicateEmailError(error) {
+  if (!error) return false;
+  const errMsg = String(error.message || '').toLowerCase();
+  const errCode = String(error.code || error.status || '').toLowerCase();
+  return (
+    (errMsg.includes('already') && (errMsg.includes('register') || errMsg.includes('exist'))) ||
+    errMsg.includes('duplicate') ||
+    errMsg.includes('already in use') ||
+    errCode === 'user_already_exists' ||
+    errCode === 'email_exists' ||
+    errCode === '23505'
+  );
+}
+
+

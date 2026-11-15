@@ -8,6 +8,8 @@ import {
   recordFailedLogin,
   clearLoginAttempts,
   MAX_LOGIN_ATTEMPTS,
+  AUTH_ERROR_CODES,
+  isDuplicateEmailError,
 } from '../routes/auth/helpers.js';
 
 test('Password strength validation', async (t) => {
@@ -72,3 +74,20 @@ test('Account lockout tracking', async (t) => {
     assert.equal(status.locked, false);
   });
 });
+
+test('Duplicate email error detection', async (t) => {
+  await t.test('detects Supabase and Postgres duplicate email error messages', () => {
+    assert.equal(isDuplicateEmailError({ message: 'User already registered' }), true);
+    assert.equal(isDuplicateEmailError({ message: 'A user with this email address has already been registered' }), true);
+    assert.equal(isDuplicateEmailError({ message: 'duplicate key value violates unique constraint' }), true);
+    assert.equal(isDuplicateEmailError({ code: 'user_already_exists' }), true);
+    assert.equal(isDuplicateEmailError({ code: '23505' }), true);
+    assert.equal(isDuplicateEmailError({ message: 'Password is too weak' }), false);
+    assert.equal(isDuplicateEmailError(null), false);
+  });
+
+  await t.test('exposes EMAIL_ALREADY_EXISTS code', () => {
+    assert.equal(AUTH_ERROR_CODES.EMAIL_ALREADY_EXISTS, 'EMAIL_ALREADY_EXISTS');
+  });
+});
+
