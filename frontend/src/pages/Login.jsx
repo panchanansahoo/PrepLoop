@@ -74,6 +74,11 @@ function FloatingSnippets() {
 
 /* ─── CSS-in-JS Keyframes ─── */
 const keyframes = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   @keyframes borderRotate {
     0% { --angle: 0deg; }
     100% { --angle: 360deg; }
@@ -322,10 +327,10 @@ export default function Login() {
       const loginPromise = login(parsed.data.email, parsed.data.password);
       const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
-          const timeoutErr = new Error('Sign-in timed out. Please check your internet connection and try again.');
+          const timeoutErr = new Error('Sign-in timed out. The server may be waking up—please try again.');
           timeoutErr.code = 'ECONNABORTED';
           reject(timeoutErr);
-        }, 15000);
+        }, 40000);
       });
       await Promise.race([loginPromise, timeoutPromise]);
       const target = (() => {
@@ -349,8 +354,10 @@ export default function Login() {
         err.code === 'ETIMEDOUT' ||
         (typeof navigator !== 'undefined' && !navigator.onLine);
 
-      if (isConnectionIssue) {
-        setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
+      if (err.response?.status === 502 || err.response?.status === 504) {
+        setError("Our server is currently waking up. Please wait a few moments and click Try Again.");
+      } else if (isConnectionIssue) {
+        setError("Unable to connect to PrepLoop. Our server may be waking up—please check your connection and click Try Again.");
       } else if (err.response?.status === 403 && err.response?.data?.email) {
         navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
       } else if (
@@ -574,7 +581,7 @@ export default function Login() {
                     <AlertCircle size={16} style={{ flexShrink: 0, color: '#f87171' }} />
                     <span>{error}</span>
                   </div>
-                  {error.includes('Unable to connect') && (
+                  {(error.includes('Unable to connect') || error.includes('waking up') || error.includes('timed out')) && (
                     <button
                       type="button"
                       onClick={handleSubmit}
@@ -784,7 +791,7 @@ export default function Login() {
                         <div style={{
                           width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)',
                           borderTopColor: '#fff', borderRadius: '50%',
-                          animation: 'borderRotate 0.8s linear infinite',
+                          animation: 'spin 0.8s linear infinite',
                         }} />
                         Signing in...
                       </>

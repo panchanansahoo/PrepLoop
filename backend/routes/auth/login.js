@@ -80,21 +80,46 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     // Clear failed attempts on successful login
     await clearLoginAttempts(normalizedEmail, req.ip);
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('full_name, subscription_tier, experience_level, role, email_verified')
-      .eq('id', data.user.id)
-      .single();
+    let profile = null;
+    let shouldBypassVerification = false;
 
-    if (profileError && !isMissingEmailVerificationSchema(profileError)) {
-      console.error('Login profile query error:', profileError);
-      return res.status(500).json({ error: 'Login failed' });
+    try {
+      const { data: profileData, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name, subscription_tier, experience_level, role, email_verified')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('Login profile query warning:', profileError);
+        shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
+      } else if (profileData) {
+        profile = profileData;
+      } else {
+        // Self-heal: create missing profile row gracefully
+        const newProfile = {
+          id: data.user.id,
+          full_name: data.user.user_metadata?.full_name || normalizedEmail.split('@')[0],
+          role: 'user',
+          subscription_tier: 'free',
+          experience_level: 'beginner',
+          email_verified: true,
+        };
+        const { data: createdProfile, error: createErr } = await supabaseAdmin
+          .from('profiles')
+          .upsert(newProfile, { onConflict: 'id' })
+          .select('full_name, subscription_tier, experience_level, role, email_verified')
+          .maybeSingle();
+
+        profile = (!createErr && createdProfile) ? createdProfile : newProfile;
+      }
+    } catch (profileFetchErr) {
+      console.warn('Profile fetch exception in login (non-fatal):', profileFetchErr?.message || profileFetchErr);
     }
 
-    const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
     const shouldRequireVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 
-    if (shouldRequireVerification && !shouldBypassVerification && !profile?.email_verified) {
+    if (shouldRequireVerification && !shouldBypassVerification && profile && !profile.email_verified) {
       // Return a distinct 403 code so the frontend interceptor can skip retry
       return res.status(403).json({
         error: 'Please verify your email before logging in',
@@ -104,7 +129,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
       });
     }
 
-    if (!shouldRequireVerification && !profile?.email_verified) {
+    if (!shouldRequireVerification && profile && !profile.email_verified) {
       try {
         await supabaseAdmin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
         await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', data.user.id);
@@ -119,10 +144,10 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         .update({ last_login: new Date().toISOString() })
         .eq('id', data.user.id);
       if (updateErr) {
-        console.error('Failed to update last_login:', updateErr.message || updateErr);
+        console.warn('Failed to update last_login (non-fatal):', updateErr.message || updateErr);
       }
     } catch (updateErr) {
-      console.error('Failed to update last_login:', updateErr?.message || updateErr);
+      console.warn('Failed to update last_login (non-fatal):', updateErr?.message || updateErr);
     }
 
     setSessionCookies(res, data.session);
@@ -135,11 +160,11 @@ router.post('/login', authLoginLimiter, async (req, res) => {
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: profile?.full_name || data.user.user_metadata?.full_name || '',
+        fullName: profile?.full_name || data.user.user_metadata?.full_name || normalizedEmail.split('@')[0],
         subscriptionTier: profile?.subscription_tier || 'free',
         experienceLevel: profile?.experience_level || 'beginner',
         role: profile?.role || 'user',
-        emailVerified: shouldBypassVerification ? true : (profile?.email_verified || true)
+        emailVerified: shouldBypassVerification ? true : (profile?.email_verified ?? true)
       }
     });
   } catch (error) {

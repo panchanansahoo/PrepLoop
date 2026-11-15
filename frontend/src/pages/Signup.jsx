@@ -43,6 +43,11 @@ function FloatingSnippets() {
 
 /* ─── CSS Keyframes ─── */
 const keyframes = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   @keyframes borderRotate {
     0% { --angle: 0deg; }
     100% { --angle: 360deg; }
@@ -802,7 +807,7 @@ export default function Signup() {
                         <div style={{
                           width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)',
                           borderTopColor: '#fff', borderRadius: '50%',
-                          animation: 'borderRotate 0.8s linear infinite',
+                          animation: 'spin 0.8s linear infinite',
                         }} />
                         Creating account...
                       </>
