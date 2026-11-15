@@ -18,6 +18,55 @@ const CSRF_COOKIE_NAME = '__csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+const EXEMPT_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
+  '/api/csrf-token',
+  '/api/payment/webhook',
+  '/auth/login',
+  '/auth/signup',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/verify-email',
+  '/auth/resend-verification',
+  '/csrf-token',
+  '/payment/webhook',
+]);
+
+export function isExemptPath(req) {
+  const urlPath = (req.originalUrl || req.url || '').split('?')[0].toLowerCase();
+  const subPath = (req.path || '').split('?')[0].toLowerCase();
+
+  return (
+    EXEMPT_PATHS.has(urlPath) ||
+    EXEMPT_PATHS.has(subPath) ||
+    urlPath.startsWith('/api/auth/login') ||
+    urlPath.startsWith('/api/auth/signup') ||
+    urlPath.startsWith('/api/auth/register') ||
+    urlPath.startsWith('/api/auth/forgot-password') ||
+    urlPath.startsWith('/api/auth/reset-password') ||
+    urlPath.startsWith('/api/auth/verify-email') ||
+    urlPath.startsWith('/api/auth/resend-verification') ||
+    urlPath.startsWith('/api/csrf-token') ||
+    urlPath.startsWith('/api/payment/webhook') ||
+    subPath.startsWith('/auth/login') ||
+    subPath.startsWith('/auth/signup') ||
+    subPath.startsWith('/auth/register') ||
+    subPath.startsWith('/auth/forgot-password') ||
+    subPath.startsWith('/auth/reset-password') ||
+    subPath.startsWith('/auth/verify-email') ||
+    subPath.startsWith('/auth/resend-verification') ||
+    subPath.startsWith('/csrf-token') ||
+    subPath.startsWith('/payment/webhook')
+  );
+}
+
 /**
  * Parse cookies from the raw Cookie header string.
  * Returns an object of { name: value } pairs.
@@ -44,7 +93,7 @@ export function generateCsrfToken(req, res) {
   res.cookie(CSRF_COOKIE_NAME, token, {
     httpOnly: false,  // JS needs to read it to send in header
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 3600000,  // 1 hour
     path: '/',
   });
@@ -54,6 +103,11 @@ export function generateCsrfToken(req, res) {
 export function csrfProtection(req, res, next) {
   // Skip safe methods
   if (SAFE_METHODS.has(req.method)) {
+    return next();
+  }
+
+  // Skip public unauthenticated endpoints and webhooks
+  if (isExemptPath(req)) {
     return next();
   }
   

@@ -9,6 +9,7 @@ import {
   setSessionCookies,
   isMissingEmailVerificationSchema,
 } from './helpers.js';
+import { generateCsrfToken } from '../../middleware/csrf.js';
 
 const router = express.Router();
 
@@ -125,10 +126,12 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     }
 
     setSessionCookies(res, data.session);
+    const csrfToken = generateCsrfToken(req, res);
     res.json({
       message: 'Login successful',
       token: data.session.access_token,
       refreshToken: data.session.refresh_token,
+      csrfToken,
       user: {
         id: data.user.id,
         email: data.user.email,

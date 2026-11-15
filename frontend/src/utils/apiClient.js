@@ -177,17 +177,22 @@ apiClient.interceptors.response.use(
     // Handle a stale/missing CSRF token: refresh it and replay once.
     // The replay is safe because a CSRF failure means the request was never processed.
     const csrfErrorCode = error.response?.data?.code;
-    if (
+    const isCsrfError =
       error.response?.status === 403 &&
-      typeof csrfErrorCode === 'string' &&
-      csrfErrorCode.startsWith('CSRF_') &&
-      !originalRequest._csrfRetry
-    ) {
+      ((typeof csrfErrorCode === 'string' && csrfErrorCode.startsWith('CSRF_')) ||
+        String(error.response?.data?.error || '').includes('CSRF'));
+
+    if (isCsrfError && !originalRequest._csrfRetry) {
       originalRequest._csrfRetry = true;
       csrfTokenCache = null;
       const csrfToken = await getCsrfToken(true);
       if (csrfToken) {
-        originalRequest.headers['X-CSRF-Token'] = csrfToken;
+        if (typeof originalRequest.headers?.set === 'function') {
+          originalRequest.headers.set('X-CSRF-Token', csrfToken);
+        } else {
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers['X-CSRF-Token'] = csrfToken;
+        }
         return apiClient(originalRequest);
       }
     }

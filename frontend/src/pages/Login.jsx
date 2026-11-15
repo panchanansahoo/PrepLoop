@@ -353,6 +353,12 @@ export default function Login() {
         setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
       } else if (err.response?.status === 403 && err.response?.data?.email) {
         navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
+      } else if (
+        err.response?.status === 403 &&
+        (err.response?.data?.code?.startsWith('CSRF_') ||
+         err.response?.data?.error?.includes('CSRF'))
+      ) {
+        setError("Your session expired. Please try signing in again.");
       } else if (err.response?.status === 429) {
         setError(err.response?.data?.error || 'Too many sign-in attempts. Please wait a few minutes and try again.');
       } else if (err.response?.status >= 500) {

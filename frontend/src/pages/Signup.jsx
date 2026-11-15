@@ -323,6 +323,12 @@ export default function Signup() {
 
       if (isConnectionIssue) {
         setError("Unable to connect to PrepLoop. Please check your internet connection and try again.");
+      } else if (
+        err.response?.status === 403 &&
+        (err.response?.data?.code?.startsWith('CSRF_') ||
+         err.response?.data?.error?.includes('CSRF'))
+      ) {
+        setError("Your session expired. Please refresh and try again.");
       } else if (err.response?.status >= 500) {
         setError("Our signup service is temporarily having trouble. Please try again shortly.");
       } else {

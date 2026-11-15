@@ -186,6 +186,24 @@ test('anonymous cache requests reuse successful responses', () => {
     assert.equal(anonymousNext, 1);
   });
 
+  test('CSRF protection skips public auth routes even when session cookies exist', () => {
+    const loginResponse = createResponse();
+    let loginNext = 0;
+    csrfProtection(
+      {
+        method: 'POST',
+        originalUrl: '/api/auth/login',
+        path: '/auth/login',
+        headers: { cookie: 'preploop_access=stale-token; preploop_refresh=stale-refresh' },
+      },
+      loginResponse,
+      () => { loginNext += 1; },
+    );
+
+    assert.equal(loginNext, 1);
+    assert.equal(loginResponse.statusCode, 200);
+  });
+
   test('CSRF protection rejects authenticated cookie mutations without a matching token', () => {
     const response = createResponse();
     let nextCalls = 0;
