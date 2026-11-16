@@ -621,7 +621,14 @@ function DesignCanvas({ problem, onBack }) {
                 buildApiUrl('/system-design/feedback', { rawBaseUrl: API_URL, apiPrefix: '/api' }),
                 {
                 method: 'POST',
-                body: JSON.stringify({ topicId: 1, design: `Problem: ${problem.title}\nComponents: ${designDesc}\nConnections: ${connDesc}\nRequirements: ${problem.requirements.functional.join(', ')}`, components: nodes.map(n => n.label) }),
+                body: JSON.stringify({
+                    topicId: problem.id,
+                    problemTitle: problem.title,
+                    requirements: problem.requirements,
+                    systemDescription: problem.description,
+                    design: `Problem: ${problem.title}\nComponents: ${designDesc}\nConnections: ${connDesc}\nRequirements: ${Array.isArray(problem.requirements?.functional) ? problem.requirements.functional.join(', ') : ''}`,
+                    components: nodes.map(n => n.label)
+                }),
             });
             const data = await res.json();
             setFeedback(data.feedback || data);

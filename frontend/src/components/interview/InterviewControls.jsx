@@ -3,6 +3,7 @@ import {
     Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
     Play, Pause, Captions, CaptionsOff, MessageSquare,
     Bookmark, Phone, Keyboard, HelpCircle, RotateCcw, SkipForward,
+    CheckCircle2,
 } from 'lucide-react';
 
 /**
@@ -27,10 +28,45 @@ function InterviewControls({
     voiceOnly = false,
     onRepeatQuestion,
     onSkipQuestion,
+    // Decoupled controls
+    onFinishAnswer,
+    onSubmitAnswer,
+    isMuted,
+    onToggleMute,
 }) {
     const [questionText, setQuestionText] = useState('');
     const [askOpen, setAskOpen] = useState(false);
     const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+    const [localMuted, setLocalMuted] = useState(false);
+
+    // Compute effective mute state:
+    // If isMuted is provided from outside, honor it;
+    // Otherwise fallback to localMuted or negated micOn.
+    const isMicMuted = isMuted !== undefined
+        ? isMuted
+        : (onToggleMute ? localMuted : (localMuted || !micOn));
+
+    const handleMicMuteToggle = useCallback(() => {
+        if (onToggleMute) {
+            onToggleMute();
+        } else if (isListening) {
+            // Decoupled: muting environmental noise during an answer does NOT terminate the turn
+            setLocalMuted(prev => !prev);
+        } else {
+            toggleMic?.();
+        }
+    }, [onToggleMute, isListening, toggleMic]);
+
+    const handleFinishOrSubmit = useCallback(() => {
+        if (onFinishAnswer) {
+            onFinishAnswer();
+        } else if (onSubmitAnswer) {
+            onSubmitAnswer();
+        } else if (isListening || awaitingAnswer) {
+            toggleMic?.();
+        }
+    }, [onFinishAnswer, onSubmitAnswer, isListening, awaitingAnswer, toggleMic]);
+
     const handleAskSubmit = useCallback(() => {
         if (!questionText.trim()) return;
         onAskQuestion(questionText);
@@ -43,16 +79,29 @@ function InterviewControls({
     return (
         <div className="ai-vc-controls">
             <div className="ai-vc-controls-group">
-                {/* Mic */}
+                {/* Dedicated Mic Mute/Unmute Toggle — Mutes environmental noise without finishing turn */}
                 <button
-                    className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''} ${awaitingAnswer ? 'ai-vc-ctrl--attention' : ''}`}
-                    onClick={toggleMic}
-                    title={awaitingAnswer ? 'Click or press Space to start answering' : (micOn ? (isListening ? 'Finish recording to review your answer' : 'Mute') : 'Unmute & start listening')}
-                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to finish and review your answer.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
-                    aria-pressed={micOn}
+                    className={`ai-vc-ctrl ${isMicMuted ? 'ai-vc-ctrl--off' : ''}`}
+                    onClick={handleMicMuteToggle}
+                    title={isMicMuted ? 'Unmute microphone' : 'Mute microphone (suppress environmental noise)'}
+                    aria-label={isMicMuted ? 'Microphone muted. Click to unmute.' : 'Microphone active. Click to mute environmental noise.'}
+                    aria-pressed={!isMicMuted}
                 >
-                    {awaitingAnswer ? <Mic size={18} /> : (micOn ? <Mic size={18} /> : <MicOff size={18} />)}
-                    <span className="ai-vc-ctrl-label">{awaitingAnswer ? 'Answer' : (isListening ? 'Finish' : micOn ? 'Mic' : 'Muted')}</span>
+                    {isMicMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                    <span className="ai-vc-ctrl-label">{isMicMuted ? 'Muted' : 'Mic'}</span>
+                </button>
+
+                {/* Dedicated Finish / Submit Answer Button — Submits answer without interfering with mic state */}
+                <button
+                    className={`ai-vc-ctrl ai-vc-ctrl--finish ${isListening ? 'ai-vc-ctrl--listening' : ''} ${awaitingAnswer && !isListening ? 'ai-vc-ctrl--attention' : ''} ${!isListening && !awaitingAnswer && !onFinishAnswer && !onSubmitAnswer ? 'ai-vc-ctrl--disabled' : ''}`}
+                    onClick={handleFinishOrSubmit}
+                    disabled={!isListening && !awaitingAnswer && !onFinishAnswer && !onSubmitAnswer}
+                    title={isListening ? 'Finish recording to review and submit your answer' : (awaitingAnswer ? 'Click or press Space to start answering' : 'Finish or submit answer')}
+                    aria-label={isListening ? 'Microphone on, actively listening. Click to finish and review your answer.' : (awaitingAnswer ? 'Click to start speaking your answer' : 'Finish or submit answer')}
+                    aria-pressed={isListening}
+                >
+                    {awaitingAnswer && !isListening ? <Mic size={18} /> : <CheckCircle2 size={18} />}
+                    <span className="ai-vc-ctrl-label">{awaitingAnswer && !isListening ? 'Answer' : (isListening ? 'Finish' : 'Submit')}</span>
                     {isListening && <span className="ai-vc-listening-dot" />}
                     {isListening && (
                         <span className="ai-vc-conn-mode-badge">

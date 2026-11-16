@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+import { SQL_SCHEMAS } from '../data/sqlSchemas.js';
 
 function execFileAsync(command, args, { input = '', timeout = 3000, cwd, env, maxBuffer = SANDBOX_MAX_BUFFER } = {}) {
     return new Promise((resolve, reject) => {
@@ -205,6 +206,300 @@ const LANG_CONFIG = {
 };
 
 /**
+ * Generate CREATE TABLE and INSERT INTO DDL/DML SQL statements for a schema
+ */
+export function generateSchemaSql(schema) {
+    if (!schema || !Array.isArray(schema.tables)) return '';
+    const statements = [];
+    for (const table of schema.tables) {
+        if (!table || !table.name || !Array.isArray(table.columns)) continue;
+        const colDefs = table.columns.map((c) => {
+            const type = (c.type || 'TEXT').replace(/ENUM\(.*?\)/i, 'TEXT');
+            const parts = [`"${c.name}" ${type}`];
+            if (c.primaryKey) parts.push('PRIMARY KEY');
+            return parts.join(' ');
+        }).join(', ');
+        statements.push(`CREATE TABLE IF NOT EXISTS "${table.name}" (${colDefs});`);
+        if (Array.isArray(table.sampleData) && table.sampleData.length > 0) {
+            const colNames = table.columns.map((c) => `"${c.name}"`).join(', ');
+            for (const row of table.sampleData) {
+                const vals = row.map((v) => {
+                    if (v === null || v === undefined) return 'NULL';
+                    if (typeof v === 'number') return v;
+                    return "'" + String(v).replace(/'/g, "''") + "'";
+                }).join(', ');
+                statements.push(`INSERT OR IGNORE INTO "${table.name}" (${colNames}) VALUES (${vals});`);
+            }
+        }
+    }
+    return statements.join('\n');
+}
+
+/**
+ * Identify relevant schemas for a given SQL query
+ */
+export function getRelevantSchemasForQuery(query = '', explicitSchemaId = null) {
+    if (explicitSchemaId && Array.isArray(SQL_SCHEMAS)) {
+        const found = SQL_SCHEMAS.find((s) => s.id === explicitSchemaId);
+        if (found) return [found];
+    }
+    const queryLower = String(query || '').toLowerCase();
+    const matchedSchemas = new Set();
+    if (Array.isArray(SQL_SCHEMAS)) {
+        for (const schema of SQL_SCHEMAS) {
+            if (!schema || !Array.isArray(schema.tables)) continue;
+            for (const table of schema.tables) {
+                const regex = new RegExp(`\\b${table.name}\\b`, 'i');
+                if (regex.test(queryLower)) {
+                    matchedSchemas.add(schema);
+                    break;
+                }
+            }
+        }
+    }
+    if (matchedSchemas.size > 0) {
+        return Array.from(matchedSchemas);
+    }
+    const defaultSchema = Array.isArray(SQL_SCHEMAS)
+        ? (SQL_SCHEMAS.find((s) => s.id === 'ecommerce') || SQL_SCHEMAS[0])
+        : null;
+    return defaultSchema ? [defaultSchema] : [];
+}
+
+/**
+ * Format columns and rows into a tabular ASCII box string
+ */
+export function formatTabularOutput(columns, rows) {
+    if (!Array.isArray(columns) || columns.length === 0) {
+        return '(No columns returned)';
+    }
+    const colWidths = columns.map((col, idx) => {
+        let max = String(col).length;
+        if (Array.isArray(rows)) {
+            for (const row of rows) {
+                const val = row[idx] === null || row[idx] === undefined ? 'NULL' : String(row[idx]);
+                if (val.length > max) max = val.length;
+            }
+        }
+        return Math.max(max, 1);
+    });
+
+    const sep = '+' + colWidths.map((w) => '-'.repeat(w + 2)).join('+') + '+';
+    const header = '| ' + columns.map((col, idx) => String(col).padEnd(colWidths[idx])).join(' | ') + ' |';
+    const dataLines = (Array.isArray(rows) ? rows : []).map((row) => {
+        return '| ' + row.map((val, idx) => {
+            const str = val === null || val === undefined ? 'NULL' : String(val);
+            return str.padEnd(colWidths[idx]);
+        }).join(' | ') + ' |';
+    });
+
+    const parts = [sep, header, sep];
+    if (dataLines.length > 0) {
+        parts.push(...dataLines);
+        parts.push(sep);
+        parts.push(`(${rows.length} ${rows.length === 1 ? 'row' : 'rows'} in set)`);
+    } else {
+        parts.push('(0 rows returned)');
+    }
+    return parts.join('\n');
+}
+
+/**
+ * Execute SQL in SQLite with pre-populated schema tables and sample data
+ */
+export async function executeSqlite(code, input = '') {
+    const startTime = Date.now();
+
+    if (typeof code !== 'string') {
+        return {
+            success: false,
+            output: '',
+            error: 'Code must be a string',
+            columns: ['Error'],
+            rows: [['Code must be a string']],
+            executionTime: 0,
+            compileTime: 0,
+            runTime: 0,
+        };
+    }
+
+    if (!code.trim()) {
+        return {
+            success: false,
+            output: '',
+            error: 'SQL code is required',
+            columns: ['Error'],
+            rows: [['SQL code is required']],
+            executionTime: 0,
+            compileTime: 0,
+            runTime: 0,
+        };
+    }
+
+    let explicitSchemaId = null;
+    if (typeof input === 'object' && input !== null) {
+        explicitSchemaId = input.schemaId || input.schema;
+    } else if (typeof input === 'string' && input.trim()) {
+        try {
+            const parsed = JSON.parse(input);
+            explicitSchemaId = parsed.schemaId || parsed.schema;
+        } catch {
+            if (/^[a-z0-9_-]+$/i.test(input.trim())) {
+                explicitSchemaId = input.trim();
+            }
+        }
+    }
+
+    // 1. Try native node:sqlite
+    try {
+        const sqliteModule = await import('node:sqlite').catch(() => null);
+        if (sqliteModule?.DatabaseSync) {
+            const db = new sqliteModule.DatabaseSync(':memory:');
+            const schemas = getRelevantSchemasForQuery(code, explicitSchemaId);
+            for (const schema of schemas) {
+                const ddlDml = generateSchemaSql(schema);
+                if (ddlDml) {
+                    db.exec(ddlDml);
+                }
+            }
+
+            const cleaned = code
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .split('\n')
+                .map((line) => line.replace(/--.*$/, '').trim())
+                .filter(Boolean)
+                .join(' ');
+
+            const rawStatements = cleaned.split(';').map((s) => s.trim()).filter(Boolean);
+            if (rawStatements.length === 0) {
+                return {
+                    success: true,
+                    output: '(No SQL query to execute)',
+                    columns: ['Result'],
+                    rows: [['No SQL query to execute']],
+                    executionTime: Date.now() - startTime,
+                    compileTime: 0,
+                    runTime: Date.now() - startTime,
+                };
+            }
+
+            for (let i = 0; i < rawStatements.length - 1; i++) {
+                db.exec(rawStatements[i] + ';');
+            }
+
+            const lastStmt = rawStatements[rawStatements.length - 1];
+            const isQuery = /^\s*(SELECT|WITH|EXPLAIN|PRAGMA|VALUES)\b/i.test(lastStmt);
+
+            let columns = [];
+            let rows = [];
+
+            if (isQuery) {
+                const stmt = db.prepare(lastStmt);
+                const rowsObj = stmt.all();
+                if (rowsObj.length > 0) {
+                    columns = Object.keys(rowsObj[0]);
+                    rows = rowsObj.map((r) => columns.map((c) => r[c]));
+                } else {
+                    try {
+                        if (typeof stmt.columns === 'function') {
+                            columns = stmt.columns().map((c) => c.name);
+                        }
+                    } catch {}
+                    if (columns.length === 0) columns = ['Result'];
+                    rows = [];
+                }
+            } else {
+                const stmt = db.prepare(lastStmt);
+                const info = stmt.run();
+                columns = ['Status', 'Changes'];
+                rows = [['Query OK', info?.changes ?? 0]];
+            }
+
+            const output = formatTabularOutput(columns, rows);
+            const duration = Date.now() - startTime;
+            return {
+                success: true,
+                output,
+                columns,
+                rows,
+                executionTime: duration,
+                compileTime: 0,
+                runTime: duration,
+            };
+        }
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        return {
+            success: false,
+            output: '',
+            error: err.message,
+            columns: ['Error'],
+            rows: [[err.message]],
+            executionTime: duration,
+            compileTime: 0,
+            runTime: duration,
+        };
+    }
+
+    // 2. Fallback: Python sqlite3
+    try {
+        const schemas = getRelevantSchemasForQuery(code, explicitSchemaId);
+        const ddlDml = schemas.map(s => generateSchemaSql(s)).join('\n');
+        const runnerScript = `import sqlite3, json, sys
+con = sqlite3.connect(':memory:')
+cur = con.cursor()
+init_sql = ${JSON.stringify(ddlDml)}
+if init_sql.strip():
+    cur.executescript(init_sql)
+user_code = ${JSON.stringify(code)}
+statements = [s.strip() for s in user_code.split(';') if s.strip()]
+if not statements:
+    print(json.dumps({'columns': ['Result'], 'rows': [['No query']], 'output': '(No query)'}))
+    sys.exit(0)
+for s in statements[:-1]:
+    cur.execute(s)
+cur.execute(statements[-1])
+if cur.description:
+    columns = [d[0] for d in cur.description]
+    rows = cur.fetchall()
+else:
+    columns = ['Status', 'Changes']
+    rows = [['Query OK', con.total_changes]]
+print(json.dumps({'columns': columns, 'rows': rows}))
+`;
+        const pyResult = await execFileAsync('python', ['-c', runnerScript], {
+            timeout: 3000,
+            maxBuffer: SANDBOX_MAX_BUFFER,
+            env: SANDBOX_ENV,
+        });
+        const parsed = JSON.parse(pyResult.toString().trim());
+        const output = formatTabularOutput(parsed.columns, parsed.rows);
+        const duration = Date.now() - startTime;
+        return {
+            success: true,
+            output,
+            columns: parsed.columns,
+            rows: parsed.rows,
+            executionTime: duration,
+            compileTime: 0,
+            runTime: duration,
+        };
+    } catch (fallbackErr) {
+        const duration = Date.now() - startTime;
+        return {
+            success: false,
+            output: '',
+            error: fallbackErr.message || 'SQLite execution failed',
+            columns: ['Error'],
+            rows: [[fallbackErr.message || 'SQLite execution failed']],
+            executionTime: duration,
+            compileTime: 0,
+            runTime: duration,
+        };
+    }
+}
+
+/**
  * Execute code in the given language and return the result.
  * @param {string} code - The source code to execute
  * @param {string} language - The programming language (python, javascript, c, cpp, java, go, rust, sql)
@@ -244,6 +539,11 @@ export async function executeCode(code, language, input = '') {
     }
 
     sweepCompiledCache();
+
+    // SQL / SQLite execution: hydrate schema DDL/DML and execute query
+    if (normalizedLanguage === 'sql') {
+        return executeSqlite(code, input);
+    }
 
     // JavaScript: execute in sandboxed child process via Node.js
     if (normalizedLanguage === 'javascript') {

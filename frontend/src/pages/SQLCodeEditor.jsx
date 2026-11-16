@@ -17,6 +17,52 @@ const getAuthHeaders = () => buildAuthHeaders();
 const diffColors = { Easy: '#10b981', Medium: '#f59e0b', Hard: '#ef4444' };
 const getSQLSolutionUnlockKey = (id) => `sql-solution-unlocked-${String(id ?? '').trim()}`;
 
+export function parseSqlOutputToGrid(text) {
+  if (!text || typeof text !== 'string') {
+    return { columns: ['Output'], rows: [['No output']] };
+  }
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) {
+    return { columns: ['Output'], rows: [['No output']] };
+  }
+
+  // Check for ASCII box table format: | col | col |
+  const boxRows = lines.filter(l => l.startsWith('|') && l.endsWith('|'));
+  if (boxRows.length >= 1) {
+    const columns = boxRows[0]
+      .slice(1, -1)
+      .split('|')
+      .map(c => c.trim());
+    const dataLines = boxRows.slice(1);
+    const rows = dataLines.map(line =>
+      line
+        .slice(1, -1)
+        .split('|')
+        .map(cell => cell.trim())
+    );
+    return { columns, rows };
+  }
+
+  // Check for pipe-delimited output
+  if (lines[0].includes('|')) {
+    const columns = lines[0].split('|').map(c => c.trim());
+    const rows = lines.slice(1).map(line => line.split('|').map(c => c.trim()));
+    return { columns, rows };
+  }
+
+  // Check for tab-delimited output
+  if (lines[0].includes('\t')) {
+    const columns = lines[0].split('\t').map(c => c.trim());
+    const rows = lines.slice(1).map(line => line.split('\t').map(c => c.trim()));
+    return { columns, rows };
+  }
+
+  return {
+    columns: ['Output'],
+    rows: lines.map(line => [line]),
+  };
+}
+
 export default function SQLCodeEditor() {
   const { problemId } = useParams();
   const navigate = useNavigate();
@@ -115,7 +161,12 @@ export default function SQLCodeEditor() {
     try {
       const res = await authFetch(`${API_URL}/api/practice/execute`, {
         method: 'POST',
-        body: JSON.stringify({ code, language: 'sql', input: '' }),
+        body: JSON.stringify({
+          code,
+          language: 'sql',
+          schemaId: problem?.schemaId || schema?.id || 'ecommerce',
+          input: '',
+        }),
       });
 
       if (res.status === 401 || res.status === 403) {
@@ -137,12 +188,23 @@ export default function SQLCodeEditor() {
         return;
       }
       const execTimeMs = data.executionTime || Math.floor(Math.random() * 50) + 10;
-      setResults({
-        columns: ['Output'],
-        rows: [[data.output || data.error || 'Query executed']],
-      });
       setExecTime(execTimeMs);
       setStatus(data.success ? 'accepted' : 'error');
+
+      // Format query results into { columns, rows } for SQL results grid
+      if (Array.isArray(data.columns) && Array.isArray(data.rows)) {
+        setResults({
+          columns: data.columns.length > 0 ? data.columns : ['Result'],
+          rows: data.rows,
+        });
+      } else if (typeof data.output === 'string' && data.output.trim()) {
+        setResults(parseSqlOutputToGrid(data.output));
+      } else {
+        setResults({
+          columns: ['Output'],
+          rows: [[data.output || data.error || (data.success ? 'Query executed successfully' : 'No output')]],
+        });
+      }
     } catch (err) {
       setResults({
         columns: ['Error'],
@@ -152,7 +214,7 @@ export default function SQLCodeEditor() {
     } finally {
       setRunning(false);
     }
-  }, [code, running]);
+  }, [code, running, problem, schema]);
 
   const handleSubmit = useCallback(() => {
     const headers = getAuthHeaders();

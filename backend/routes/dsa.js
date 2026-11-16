@@ -423,7 +423,7 @@ router.get('/progress', authenticateToken, async (req, res) => {
 
 router.post('/ai', aiEndpointsLimiter, optionalAuth, usageQuota('ai'), async (req, res) => {
   try {
-    const { prompt, code: _code, language: _language, problemId: _problemId } = req.body;
+    const { prompt, code, language, problemId, problemTitle } = req.body;
 
     if (typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -436,6 +436,42 @@ router.post('/ai', aiEndpointsLimiter, optionalAuth, usageQuota('ai'), async (re
       });
     }
 
+    let resolvedProblemTitle = problemTitle || null;
+    let resolvedProblemDescription = null;
+    let resolvedDifficulty = null;
+
+    if (problemId) {
+      try {
+        const canonicalId = await resolveProblemId(problemId);
+        if (canonicalId) {
+          const { data: pData } = await supabaseAdmin
+            .from('problems')
+            .select('title, difficulty, description')
+            .eq('id', canonicalId)
+            .maybeSingle();
+          if (pData) {
+            resolvedProblemTitle = resolvedProblemTitle || pData.title;
+            resolvedProblemDescription = pData.description;
+            resolvedDifficulty = pData.difficulty;
+          }
+        }
+        if (!resolvedProblemTitle) {
+          const staticMatch =
+            all425Problems.find((p) => String(p.id) === String(problemId)) ||
+            all425Problems.find((p) => slugifyProblemTitle(p.title) === slugifyProblemTitle(String(problemId))) ||
+            all425Problems.find((p) => p.title?.toLowerCase() === String(problemId).toLowerCase()) ||
+            null;
+          if (staticMatch) {
+            resolvedProblemTitle = resolvedProblemTitle || staticMatch.title;
+            resolvedProblemDescription = resolvedProblemDescription || staticMatch.description;
+            resolvedDifficulty = resolvedDifficulty || staticMatch.difficulty;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not resolve problem context for AI:', err.message);
+      }
+    }
+
     const systemPrompt = `You are an expert DSA coding assistant integrated into a LeetCode-style code editor. You help users understand algorithms, debug their code, and improve their solutions.
 
 Guidelines:
@@ -446,12 +482,26 @@ Guidelines:
 - Use markdown formatting with code blocks when showing code
 - Do NOT write the entire solution unless the user asks for it`;
 
+    const contextParts = [];
+    if (resolvedProblemTitle || problemId) {
+      const titleStr = resolvedProblemTitle || problemId;
+      const diffStr = resolvedDifficulty ? ` (${resolvedDifficulty})` : '';
+      const descStr = resolvedProblemDescription ? `\nDescription: ${resolvedProblemDescription.slice(0, 1000)}` : '';
+      contextParts.push(`### Problem Context:\nProblem: ${titleStr}${diffStr}${descStr}`);
+    }
+    if (typeof code === 'string' && code.trim()) {
+      contextParts.push(`### Candidate's Code (${language || 'unknown'}):\n\`\`\`${language || ''}\n${code}\n\`\`\``);
+    }
+    contextParts.push(`### Candidate Query:\n${prompt}`);
+
+    const userMessageContent = contextParts.join('\n\n');
+
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt },
+          { role: 'user', content: userMessageContent },
         ],
         temperature: 0.5,
         max_tokens: 2048,

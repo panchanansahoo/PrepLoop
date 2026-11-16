@@ -252,7 +252,7 @@ function PracticeTab({ topic, progress }) {
                         {group.problems.map((problem, pi) => {
                             const isSolved = solved.has(problem.id);
                             return (
-                                <Link key={pi} to={`/sql-editor`}
+                                <Link key={pi} to={`/sql-editor/${problem.id}`}
                                     className={`lp-topic-problem ${isSolved ? 'lp-topic-problem--solved' : ''}`}
                                     style={{ background: isSolved ? undefined : group.bg }}>
                                     <div className="lp-topic-problem-info">

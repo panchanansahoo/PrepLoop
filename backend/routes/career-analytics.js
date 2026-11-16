@@ -44,7 +44,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
 
     // Get user's job search history
     const { data: jobs } = await supabaseAdmin
-      .from('jobs')
+      .from('job_listings')
       .select('*')
       .limit(100);
 
@@ -211,11 +211,22 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
 
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
-    // Get user's pathway interactions
-    const { data: interactions } = await supabaseAdmin
-      .from('career_user_pathway_interactions')
-      .select('*')
-      .eq('user_id', userId);
+    // Get user's pathway interactions with clean fallback
+    let interactions = [];
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('career_user_pathway_interactions')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (!error && Array.isArray(data)) {
+        interactions = data;
+      } else if (error) {
+        console.warn('Could not query career_user_pathway_interactions, falling back to empty interactions:', error.message);
+      }
+    } catch (interactionErr) {
+      console.warn('career_user_pathway_interactions fallback triggered:', interactionErr?.message);
+    }
 
     // Get hybrid recommendations
     const recommendations = await collaborativeFiltering.getHybridPathwayRecommendations(
@@ -325,7 +336,7 @@ router.post('/resume-insights', expensiveFeatureLimiter, authenticateToken, (req
 router.get('/trending-skills', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { data: jobs } = await supabaseAdmin
-      .from('jobs')
+      .from('job_listings')
       .select('id, title, description, company')
       .order('created_at', { ascending: false })
       .limit(500);

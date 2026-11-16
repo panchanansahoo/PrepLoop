@@ -80,15 +80,26 @@ export function CoinProvider({ children }) {
     }
   }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  const earnCoins = useCallback(async (amount = 5, description = 'Problem solved', signal) => {
+  const earnCoins = useCallback(async (amount = 5, description = 'Problem solved', sourceRef = 'daily_problem', signal) => {
+    let resolvedSourceRef = sourceRef;
+    let resolvedSignal = signal;
+    if (sourceRef && typeof sourceRef === 'object' && ('aborted' in sourceRef || (typeof AbortSignal !== 'undefined' && sourceRef instanceof AbortSignal))) {
+      resolvedSignal = sourceRef;
+      resolvedSourceRef = 'daily_problem';
+    }
     if (!userId) return null;
     if (isMountedRef.current) setLoading(true);
-    const ctrl = createManagedSignal(signal);
+    const ctrl = createManagedSignal(resolvedSignal);
     try {
       const res = await authFetch(`${API_URL}/api/coins/earn`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ amount, description }),
+        body: JSON.stringify({
+          amount,
+          description,
+          source: 'problem_solved',
+          sourceRef: resolvedSourceRef || 'daily_problem',
+        }),
         signal: ctrl.signal,
       });
       if (res.ok) {

@@ -18,8 +18,10 @@ import {
   Settings,
   CheckCircle2,
 } from 'lucide-react';
-import { usePeerInterview } from '../hooks/usePeerInterview';
+import { usePeerInterview, DEFAULT_ICE_SERVERS, getIceServers } from '../hooks/usePeerInterview';
 import { useAuth } from '../context/AuthContext';
+
+export { DEFAULT_ICE_SERVERS, getIceServers };
 
 export default function PeerInterviewRoom() {
   const { roomCode: paramRoomCode } = useParams();
@@ -64,7 +66,8 @@ export default function PeerInterviewRoom() {
     evaluation,
     submitEvaluation,
     statusMessage,
-  } = usePeerInterview({ roomCode: paramRoomCode });
+    iceCandidatesQueue,
+  } = usePeerInterview({ roomCode: paramRoomCode, iceServers: DEFAULT_ICE_SERVERS });
 
   // Bind video streams to elements
   useEffect(() => {

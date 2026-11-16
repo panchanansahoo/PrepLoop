@@ -71,14 +71,35 @@ router.get('/topics/:id', (req, res) => {
 });
 
 router.post('/feedback', authenticateToken, async (req, res) => {
-  const { topicId, design, components } = req.body;
+  const { topicId, design, components, problemTitle, requirements, systemDescription } = req.body;
   const componentsText = formatComponents(components);
 
   try {
-    const topic = systemDesignTopics.find(t => t.id === parseInt(topicId));
-    
-    if (!topic) {
-      return res.status(404).json({ error: 'Topic not found' });
+    const topic = topicId ? systemDesignTopics.find(t => t.id === parseInt(topicId) || String(t.id) === String(topicId)) : null;
+
+    const title = problemTitle || topic?.title || (topicId ? `Topic ${topicId}` : 'System Design Problem');
+    const description = systemDescription || topic?.description || 'N/A';
+
+    let requirementsText = '';
+    if (requirements) {
+      if (typeof requirements === 'string') {
+        requirementsText = requirements;
+      } else if (Array.isArray(requirements)) {
+        requirementsText = requirements.join(', ');
+      } else if (typeof requirements === 'object') {
+        const parts = [];
+        if (Array.isArray(requirements.functional) && requirements.functional.length > 0) {
+          parts.push(`Functional:\n- ${requirements.functional.join('\n- ')}`);
+        }
+        if (Array.isArray(requirements.nonFunctional) && requirements.nonFunctional.length > 0) {
+          parts.push(`Non-Functional:\n- ${requirements.nonFunctional.join('\n- ')}`);
+        }
+        requirementsText = parts.length > 0 ? parts.join('\n') : JSON.stringify(requirements);
+      }
+    }
+
+    if (!topic && !problemTitle && !design) {
+      return res.status(400).json({ error: 'Problem details or design required' });
     }
 
     if (!groq) {
@@ -93,7 +114,7 @@ router.post('/feedback', authenticateToken, async (req, res) => {
             'Think about database replication'
           ],
           score: 80,
-          detailedFeedback: 'Overall solid design. Consider adding more details about how components communicate.'
+          detailedFeedback: `Overall solid design for ${title}. Consider adding more details about how components communicate.`
         }
       });
     }
@@ -110,7 +131,7 @@ router.post('/feedback', authenticateToken, async (req, res) => {
           },
           {
             role: 'user',
-            content: `Topic: ${topic.title}\nDescription: ${topic.description}\n\nUser's Design:\n${design}\n\nComponents used: ${componentsText}\n\nProvide feedback.`
+            content: `Topic: ${title}\nDescription: ${description}${requirementsText ? `\nRequirements:\n${requirementsText}` : ''}\n\nUser's Design:\n${design || 'Not specified'}\n\nComponents used: ${componentsText}\n\nProvide feedback.`
           }
         ],
         response_format: { type: 'json_object' }

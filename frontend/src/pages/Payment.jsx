@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './Payment.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import {Shield, Lock, CheckCircle2, ArrowLeft, Zap, Check, Code2} from 'lucide-react';
+import {Shield, Lock, CheckCircle2, ArrowLeft, Zap, Check, Code2, Sparkles} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { authFetch } from '../utils/authFetch';
@@ -91,31 +91,43 @@ export default function Payment() {
         };
     }, []);
 
-    const plans = {
+    const billingCycle = (searchParams.get('billingCycle') || 'monthly').toLowerCase();
+    const isAnnual = billingCycle === 'annual';
+
+    const basePlans = {
         pro: {
             name: 'Pro',
-            price: '₹99',
-            priceInr: '₹99',
-            period: 'per month',
+            basePrice: 99,
             features: ['Unlimited AI mock interviews', 'Advanced code feedback', 'Full DSA patterns & solutions', 'Priority support']
         },
         premium: {
             name: 'Premium',
-            price: '₹299',
-            priceInr: '₹299',
-            period: 'per month',
+            basePrice: 299,
             features: ['Everything in Pro', 'Extended time limits', 'Behavioral coaching', 'Custom study plans']
         },
         elite: {
             name: 'Elite',
-            price: '₹299',
-            priceInr: '₹299',
-            period: 'per month',
+            basePrice: 299,
             features: ['Everything in Pro', 'Extended time limits', 'Behavioral coaching', 'Custom study plans']
         }
     };
 
-    const selectedPlan = plans[plan.toLowerCase()] || plans.pro;
+    const targetKey = plan.toLowerCase();
+    const currentBase = basePlans[targetKey] || basePlans.pro;
+    const finalAmount = isAnnual ? Math.round(currentBase.basePrice * 0.8) : currentBase.basePrice;
+    const formattedPrice = `₹${finalAmount}`;
+    const formattedPeriod = isAnnual ? '/ month, billed annually' : '/ month';
+
+    const selectedPlan = {
+        name: currentBase.name,
+        price: formattedPrice,
+        priceInr: formattedPrice,
+        originalPrice: `₹${currentBase.basePrice}`,
+        period: formattedPeriod,
+        features: currentBase.features,
+        isAnnual,
+        discountPercent: isAnnual ? 20 : 0,
+    };
 
     const handlePayment = async () => {
         setError('');
@@ -162,7 +174,10 @@ export default function Payment() {
             // 3. Create order on backend
             const orderRes = await authFetch(`${API_URL}/api/payment/create-order`, {
                 method: 'POST',
-                body: JSON.stringify({ plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase() }),
+                body: JSON.stringify({
+                    plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase(),
+                    billingCycle: isAnnual ? 'annual' : 'monthly',
+                }),
             });
 
             const orderData = await parseJsonSafely(orderRes);
@@ -197,7 +212,7 @@ export default function Payment() {
                 amount: orderData.amount,
                 currency: orderData.currency,
                 name: 'PrepLoop',
-                description: `${selectedPlan.name} Plan - Monthly`,
+                description: `${selectedPlan.name} Plan - ${isAnnual ? 'Annual (20% off)' : 'Monthly'}`,
                 order_id: orderData.orderId,
                 prefill: {
                     email: user?.email || '',
@@ -298,7 +313,7 @@ export default function Payment() {
                         </div>
                         <div className="detail-row">
                             <span className="detail-label">Plan</span>
-                            <span className="detail-value">{selectedPlan.name} Plan</span>
+                            <span className="detail-value">{selectedPlan.name} Plan {isAnnual ? '(Annual)' : ''}</span>
                         </div>
                     </div>
                     <p className="redirect-text">Redirecting to your dashboard...</p>
@@ -332,7 +347,7 @@ export default function Payment() {
 
                     <div className="plan-details">
                         <div className="plan-badge">
-                            {selectedPlan.name} Plan
+                            {selectedPlan.name} Plan {isAnnual ? '• Annual (Save 20%)' : ''}
                         </div>
                         <h2 className="plan-title text-gradient">Upgrade to {selectedPlan.name}</h2>
                         <p className="plan-desc">Unlock premium tools and fast-track your prep.</p>
@@ -340,8 +355,14 @@ export default function Payment() {
                         <div className="price-display">
                             <span className="currency">₹</span>
                             <span className="amount">{selectedPlan.price.replace('₹', '')}</span>
-                            <span className="period">/ month</span>
+                            <span className="period">{selectedPlan.period}</span>
                         </div>
+                        {isAnnual && (
+                            <div className="annual-discount-callout" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#34d399', marginTop: '6px' }}>
+                                <Sparkles size={14} />
+                                <span>20% Annual Discount Applied (was {selectedPlan.originalPrice}/mo)</span>
+                            </div>
+                        )}
 
                         <div className="divider" />
 

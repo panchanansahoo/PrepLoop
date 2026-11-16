@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Brain, Lightbulb, Target, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
@@ -171,7 +171,11 @@ export default function SystemDesignTopicLearning() {
     const isLight = theme === 'light';
     const [activeTab, setActiveTab] = useState('theory');
     const topic = useMemo(() => SD_TOPICS.find(t => t.id === topicId), [topicId]);
-    const progress = useMemo(() => getSDTopicProgress(topicId), [topicId]);
+    const [progress, setProgress] = useState(() => getSDTopicProgress(topicId));
+
+    useEffect(() => {
+        setProgress(getSDTopicProgress(topicId));
+    }, [topicId]);
 
     if (!topic) return (
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
@@ -182,11 +186,11 @@ export default function SystemDesignTopicLearning() {
 
     const markDone = (field) => {
         setSDTopicProgress(topicId, field, true);
-        window.location.reload();
+        setProgress(prev => ({ ...prev, [field]: true }));
     };
 
     const doneField = { theory: 'theoryDone', concepts: 'conceptsDone', thinking: 'thinkingDone', tricks: 'tricksDone' }[activeTab];
-    const isDone = progress[doneField];
+    const isDone = Boolean(progress?.[doneField]);
 
     return (
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 20px 80px' }}>

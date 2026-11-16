@@ -2,15 +2,79 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config/api.js';
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-  ],
+export const DEFAULT_ICE_SERVERS = [
+  {
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302',
+      'stun:stun.cloudflare.com:3478',
+    ],
+  },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelay',
+    credential: 'openrelay',
+  },
+];
+
+export const getIceServers = (customServers) => {
+  if (Array.isArray(customServers) && customServers.length > 0) {
+    return customServers;
+  }
+  if (typeof window !== 'undefined' && window.__ICE_SERVERS__) {
+    return window.__ICE_SERVERS__;
+  }
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ICE_SERVERS) {
+    try {
+      return JSON.parse(import.meta.env.VITE_ICE_SERVERS);
+    } catch {
+      // Fall through to defaults on parse failure
+    }
+  }
+
+  const servers = [
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+        'stun:stun.cloudflare.com:3478',
+      ],
+    },
+  ];
+
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_URL) {
+    servers.push({
+      urls: import.meta.env.VITE_TURN_URL.split(',').map((u) => u.trim()),
+      username: import.meta.env.VITE_TURN_USERNAME || '',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || '',
+    });
+  } else {
+    // Fallback STUN/TURN configuration to prevent dropped calls across symmetric NATs
+    servers.push({
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelay',
+      credential: 'openrelay',
+    });
+  }
+
+  return servers;
 };
 
-export function usePeerInterview({ roomCode, initialRole = 'candidate', initialLanguage = 'javascript' } = {}) {
+export function usePeerInterview({ roomCode, initialRole = 'candidate', initialLanguage = 'javascript', iceServers } = {}) {
   const { user } = useAuth();
   const anonIdRef = useRef(`anon_${Math.random().toString(36).substring(2, 9)}`);
   const userId = user?.id || anonIdRef.current;
@@ -31,12 +95,32 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
   const wsRef = useRef(null);
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
+  const iceCandidatesQueue = useRef([]);
+
+  // Drain buffered ICE candidates once setRemoteDescription resolves
+  const drainIceCandidatesQueue = useCallback(async (pc) => {
+    if (!pc || !pc.remoteDescription) return;
+    while (iceCandidatesQueue.current.length > 0) {
+      const candidateData = iceCandidatesQueue.current.shift();
+      if (candidateData) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidateData));
+        } catch (err) {
+          console.warn('Error applying queued ICE candidate:', err);
+        }
+      }
+    }
+  }, []);
 
   // Initialize WebRTC Peer Connection
   const createPeerConnection = useCallback(() => {
     if (pcRef.current) return pcRef.current;
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const rtcConfig = {
+      iceServers: getIceServers(iceServers),
+      iceCandidatePoolSize: 10,
+    };
+    const pc = new RTCPeerConnection(rtcConfig);
 
     pc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -72,7 +156,7 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
 
     pcRef.current = pc;
     return pc;
-  }, []);
+  }, [iceServers]);
 
   // Initialize Local Media (Camera + Mic)
   const startMedia = useCallback(async () => {
@@ -174,7 +258,10 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
 
           case 'webrtc_offer': {
             const pc = createPeerConnection();
-            await pc.setRemoteDescription(new RTCSessionDescription(message.data));
+            const offerData = message.data?.payload || message.data;
+            await pc.setRemoteDescription(new RTCSessionDescription(offerData));
+            // Drain ICE candidates that arrived before setRemoteDescription resolved
+            await drainIceCandidatesQueue(pc);
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             ws.send(JSON.stringify({
@@ -186,18 +273,28 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
 
           case 'webrtc_answer': {
             if (pcRef.current) {
-              await pcRef.current.setRemoteDescription(new RTCSessionDescription(message.data));
+              const answerData = message.data?.payload || message.data;
+              await pcRef.current.setRemoteDescription(new RTCSessionDescription(answerData));
+              // Drain ICE candidates that arrived before setRemoteDescription resolved
+              await drainIceCandidatesQueue(pcRef.current);
             }
             break;
           }
 
           case 'ice_candidate': {
-            if (pcRef.current && message.data) {
+            const candidateData = message.data?.payload || message.data;
+            if (!candidateData) break;
+
+            const pc = pcRef.current;
+            if (pc && pc.remoteDescription && pc.remoteDescription.type) {
               try {
-                await pcRef.current.addIceCandidate(new RTCIceCandidate(message.data));
+                await pc.addIceCandidate(new RTCIceCandidate(candidateData));
               } catch (e) {
                 console.warn('Error adding ICE candidate:', e);
               }
+            } else {
+              // Buffer ICE candidates arriving before setRemoteDescription resolves to prevent dropped calls
+              iceCandidatesQueue.current.push(candidateData);
             }
             break;
           }
@@ -241,6 +338,7 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
     };
 
     return () => {
+      iceCandidatesQueue.current = [];
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -254,7 +352,7 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
         ws.close();
       }
     };
-  }, [roomCode, userId]);
+  }, [roomCode, userId, createPeerConnection, drainIceCandidatesQueue, startMedia, code, language, initialRole]);
 
   // Sync Code Changes
   const updateCode = useCallback((newCode) => {
@@ -344,6 +442,8 @@ export function usePeerInterview({ roomCode, initialRole = 'candidate', initialL
     evaluation,
     submitEvaluation,
     statusMessage,
+    iceCandidatesQueue,
+    getIceServers,
   };
 }
 

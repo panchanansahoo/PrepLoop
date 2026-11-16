@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
 import {
     Timer, Zap, Clock, Target, Play, Pause, RotateCcw,
     CheckCircle2, XCircle, ArrowRight, Trophy, Brain
@@ -56,7 +57,7 @@ export default function TimedPractice() {
     const startSession = async (mode) => {
         setLoading(true);
         try {
-            const res = await authFetch('/api/practice/timed-session', {
+            const res = await authFetch(`${API_URL}/api/practice/timed-session`, {
                 method: 'POST',
                 body: JSON.stringify({
                     difficulty: 'all',

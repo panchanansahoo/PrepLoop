@@ -20,7 +20,7 @@ describe('Milestone 3: Backend Business Logic, Queries & Regression Tests Suite'
     it('verifies all career-analytics queries use supabaseAdmin to prevent RLS false 404s', () => {
       const code = readBackend('routes/career-analytics.js');
       expect(code).toMatch(/await\s+supabaseAdmin\s*\.from\('profiles'\)/);
-      expect(code).toMatch(/await\s+supabaseAdmin\s*\.from\('jobs'\)/);
+      expect(code).toMatch(/await\s+supabaseAdmin\s*\.from\('(?:job_listings|jobs)'\)/);
       expect(code).toMatch(/await\s+supabaseAdmin\s*\.from\('career_user_pathway_interactions'\)/);
     });
   });

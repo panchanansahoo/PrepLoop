@@ -103,6 +103,10 @@ export default function Pricing() {
     if ((plan.name === 'Pro' || plan.name === 'Team') && (!user || user.isGuest)) {
       return '/login';
     }
+    if (isAnnual && plan.btnLink?.startsWith('/payment')) {
+      const separator = plan.btnLink.includes('?') ? '&' : '?';
+      return `${plan.btnLink}${separator}billingCycle=annual`;
+    }
     return plan.btnLink;
   };
 

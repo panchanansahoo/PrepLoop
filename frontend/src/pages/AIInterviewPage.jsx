@@ -256,6 +256,30 @@ export default function AIInterviewPage() {
     const handleListeningTimeUpdate = React.useCallback(() => handleInterviewerTimeUpdate('listening'), [handleInterviewerTimeUpdate]);
     const handleListeningCanPlay = React.useCallback(() => handleInterviewerCanPlay('listening'), [handleInterviewerCanPlay]);
 
+    const [micMuted, setMicMuted] = useState(false);
+
+    const handleToggleMute = useCallback(() => {
+        setMicMuted((prev) => {
+            const next = !prev;
+            if (voiceAI?.streamRef?.current) {
+                voiceAI.streamRef.current.getAudioTracks().forEach((track) => {
+                    track.enabled = !next;
+                });
+            }
+            return next;
+        });
+    }, [voiceAI]);
+
+    const handleFinishAnswer = useCallback(() => {
+        if (awaitingAnswer && !isListening) {
+            startAnswer();
+            return;
+        }
+        if (isListening) {
+            voiceAI.submitAnswer();
+        }
+    }, [awaitingAnswer, isListening, startAnswer, voiceAI]);
+
     const handleToggleMic = useCallback(() => {
         if (awaitingAnswer && !isListening) {
             startAnswer();
@@ -344,12 +368,12 @@ export default function AIInterviewPage() {
             if (e.code === 'Space' || e.key === ' ') {
                 if (isListening || awaitingAnswer || (!aiSpeaking && !loading && !isPaused)) {
                     e.preventDefault();
-                    handleToggleMic();
+                    handleFinishAnswer();
                     return;
                 }
             }
             switch (e.key.toLowerCase()) {
-                case 'm': handleToggleMic(); break;
+                case 'm': handleToggleMute(); break;
                 case 'v': toggleCamera(); break;
                 case 'p': togglePause(); break;
                 case 'c': setCaptionsOn(prev => !prev); break;
@@ -362,7 +386,7 @@ export default function AIInterviewPage() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [phase, handleToggleMic, toggleCamera, togglePause, setCaptionsOn, setBookmarked, keyboardHelpOpen, setShowEndConfirm, aiSpeaking, loading, isListening, awaitingAnswer]);
+    }, [phase, handleFinishAnswer, handleToggleMute, toggleCamera, togglePause, setCaptionsOn, setBookmarked, keyboardHelpOpen, setShowEndConfirm, aiSpeaking, loading, isListening, awaitingAnswer]);
 
     // Guard against accidentally closing/refreshing the tab mid-interview.
     // In-app navigation is handled by the logo/End actions below.
@@ -810,7 +834,12 @@ export default function AIInterviewPage() {
                     />
 
                     <InterviewControls
-                        micOn={micOn} toggleMic={handleToggleMic} isListening={isListening}
+                        micOn={micOn && !micMuted}
+                        isMuted={micMuted}
+                        onToggleMute={handleToggleMute}
+                        onFinishAnswer={handleFinishAnswer}
+                        toggleMic={handleToggleMic}
+                        isListening={isListening}
                         cameraOn={cameraOn} toggleCamera={toggleCamera}
                         speakerMuted={speakerMuted} setSpeakerMuted={setSpeakerMuted}
                         isPaused={isPaused} onTogglePause={togglePause}

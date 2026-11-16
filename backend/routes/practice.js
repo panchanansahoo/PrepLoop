@@ -1067,7 +1067,7 @@ router.post('/run', authenticateToken, async (req, res) => {
 });
 
 router.post('/execute', optionalAuth, async (req, res) => {
-  const { code, language } = req.body;
+  const { code, language, input = '', schemaId } = req.body;
 
   if (!language || typeof language !== 'string') {
     return res
@@ -1097,7 +1097,7 @@ router.post('/execute', optionalAuth, async (req, res) => {
   }
 
   try {
-    const result = await executeCode(code, language);
+    const result = await executeCode(code, language, schemaId ? { schemaId } : input);
     res.json(result);
   } catch (error) {
     console.error('Code execution error:', error);
