@@ -1,10 +1,11 @@
 import {useState, useMemo, useEffect} from 'react';
 import './CompanyPrep.css';
-import { Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle, Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight, BarChart3, Target, X, Mic, Brain, Code, Code2, MessageSquare, Calendar, ChevronLeft, ChevronRight, Lightbulb } from 'lucide-react';
-import { COMPANIES, STAGES, ROLES, DIFFICULTIES, DATA_LAST_UPDATED } from '../data/companyPrepMeta';
+import { Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle, Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight, BarChart3, Target, X, Mic, Brain, Code, Code2, MessageSquare, Calendar, ChevronLeft, ChevronRight, Lightbulb, WifiOff } from 'lucide-react';
+import { COMPANIES, STAGES, ROLES, DIFFICULTIES, DATA_LAST_UPDATED, COMPANY_QUESTION_COUNTS } from '../data/companyPrepMeta';
 import { useCompanyPrepProgress } from '../data/companyPrepProgress';
 import { Link } from 'react-router-dom';
 import CompanyIntelligencePanel from '../components/CompanyIntelligencePanel';
+import { API_URL } from '../config/api.js';
 
 export default function CompanyPrep() {
   const FILTER_LABELS = {
@@ -33,95 +34,169 @@ export default function CompanyPrep() {
   const [selectedCompanyTile, setSelectedCompanyTile] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [questions, setQuestions] = useState([]);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [questionLoadError, setQuestionLoadError] = useState('');
-  const QUESTIONS_PER_PAGE = 50;
+  const [isOfflineFallback, setIsOfflineFallback] = useState(false);
+  const QUESTIONS_PER_PAGE = 25;
 
   const { progress, toggleSolved, setNote, toggleBookmark, stats, isSolved, isBookmarked, getNote, getRecommendations } = useCompanyPrepProgress(questions);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingQuestions(true);
-    setQuestionLoadError('');
+  const activeCompany = selectedCompanyTile || (selectedCompanies.length === 1 ? selectedCompanies[0] : '');
 
-    fetch('/company-prep-questions.json')
-      .then((res) => {
+  // Paginated question fetch with search, filter params, and graceful offline fallback
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const fetchQuestions = async () => {
+      setLoadingQuestions(true);
+      setQuestionLoadError('');
+
+      const params = new URLSearchParams();
+      if (activeCompany) params.append('company', activeCompany);
+      params.append('page', String(currentPage));
+      params.append('limit', String(QUESTIONS_PER_PAGE));
+      if (selectedRole) params.append('role', selectedRole);
+      if (selectedStage) params.append('stage', selectedStage);
+      if (selectedDifficulty) params.append('difficulty', selectedDifficulty);
+      if (search.trim()) params.append('search', search.trim());
+
+      const endpoint = `${API_URL}/api/company-interview/questions?${params.toString()}`;
+
+      try {
+        const res = await fetch(endpoint, { signal });
         if (!res.ok) {
-          throw new Error('Failed to fetch question bank');
+          throw new Error(`HTTP ${res.status}: Failed to fetch company questions`);
         }
-        return res.json();
-      })
-      .then((loaded) => {
-        if (cancelled) return;
-        setQuestions(Array.isArray(loaded) ? loaded : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setQuestionLoadError('Failed to load question bank. Please refresh and try again.');
-        setQuestions([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingQuestions(false);
-      });
+        const data = await res.json();
+        if (signal.aborted) return;
+
+        if (Array.isArray(data)) {
+          // Direct array response support (e.g. mock or legacy)
+          setQuestions(data);
+          setTotalQuestions(data.length);
+          setTotalPages(Math.max(1, Math.ceil(data.length / QUESTIONS_PER_PAGE)));
+          setIsOfflineFallback(false);
+        } else if (data && data.success && Array.isArray(data.questions)) {
+          setQuestions(data.questions);
+          setTotalQuestions(data.pagination?.total ?? data.questions.length);
+          setTotalPages(data.pagination?.totalPages ?? 1);
+          setIsOfflineFallback(false);
+        } else if (data && Array.isArray(data.questions)) {
+          setQuestions(data.questions);
+          setTotalQuestions(data.pagination?.total ?? data.questions.length);
+          setTotalPages(data.pagination?.totalPages ?? 1);
+          setIsOfflineFallback(false);
+        } else {
+          setQuestions([]);
+          setTotalQuestions(0);
+          setTotalPages(1);
+        }
+      } catch (err) {
+        if (signal.aborted) return;
+        console.warn('Company question API unavailable, attempting graceful offline fallback:', err?.message);
+
+        // Graceful offline fallback: try local static question bank or cached dataset
+        try {
+          const fallbackRes = await fetch('/company-prep-questions.json', { signal });
+          if (fallbackRes.ok) {
+            const allQs = await fallbackRes.json();
+            if (signal.aborted) return;
+            if (Array.isArray(allQs)) {
+              let filtered = allQs;
+              if (activeCompany) {
+                const norm = activeCompany.toLowerCase();
+                filtered = filtered.filter(q => (q?.company || '').toLowerCase().includes(norm));
+              }
+              if (selectedRole) filtered = filtered.filter(q => (q?.role || '').toLowerCase().includes(selectedRole.toLowerCase()));
+              if (selectedStage) filtered = filtered.filter(q => (q?.stage || '').toLowerCase().includes(selectedStage.toLowerCase()));
+              if (selectedDifficulty) filtered = filtered.filter(q => (q?.difficulty || '').toLowerCase() === selectedDifficulty.toLowerCase());
+              if (search.trim()) {
+                const s = search.trim().toLowerCase();
+                filtered = filtered.filter(q =>
+                  (q?.question && q.question.toLowerCase().includes(s)) ||
+                  (Array.isArray(q?.tags) && q.tags.some(t => String(t).toLowerCase().includes(s))) ||
+                  (q?.company && q.company.toLowerCase().includes(s))
+                );
+              }
+              const total = filtered.length;
+              const pages = Math.max(1, Math.ceil(total / QUESTIONS_PER_PAGE));
+              const start = (currentPage - 1) * QUESTIONS_PER_PAGE;
+              setQuestions(filtered.slice(start, start + QUESTIONS_PER_PAGE));
+              setTotalQuestions(total);
+              setTotalPages(pages);
+              setIsOfflineFallback(true);
+              return;
+            }
+          }
+        } catch (_) {
+          // Local static file also unreachable
+        }
+
+        if (!signal.aborted) {
+          setQuestions([]);
+          setTotalQuestions(0);
+          setTotalPages(1);
+          setIsOfflineFallback(true);
+          setQuestionLoadError('Offline mode: Question service unavailable. UI active with local cache.');
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoadingQuestions(false);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      fetchQuestions();
+    }, search ? 200 : 0);
 
     return () => {
-      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, []);
+  }, [activeCompany, currentPage, selectedRole, selectedStage, selectedDifficulty, search]);
 
   const companyStats = useMemo(() => {
     const byCompany = {};
-    questions.forEach((q) => {
-      byCompany[q.company] = byCompany[q.company] || { total: 0, byStage: {}, byDifficulty: { Easy: 0, Medium: 0, Hard: 0 } };
-      byCompany[q.company].total += 1;
-      byCompany[q.company].byStage[q.stage] = (byCompany[q.company].byStage[q.stage] || 0) + 1;
-      byCompany[q.company].byDifficulty[q.difficulty] = (byCompany[q.company].byDifficulty[q.difficulty] || 0) + 1;
+    COMPANIES.forEach((c) => {
+      byCompany[c.id] = {
+        total: COMPANY_QUESTION_COUNTS[c.id] || 0,
+        byStage: {},
+        byDifficulty: { Easy: 0, Medium: 0, Hard: 0 },
+      };
+    });
+    (questions || []).forEach((q) => {
+      if (q && q.company && byCompany[q.company]) {
+        if (q.stage) byCompany[q.company].byStage[q.stage] = (byCompany[q.company].byStage[q.stage] || 0) + 1;
+        if (q.difficulty) byCompany[q.company].byDifficulty[q.difficulty] = (byCompany[q.company].byDifficulty[q.difficulty] || 0) + 1;
+      }
     });
     return byCompany;
   }, [questions]);
 
-  const filteredQuestions = useMemo(() => {
-    let filtered = [...questions];
+  // Client-side refinement on currently loaded page (status, frequency, recency)
+  const displayedQuestions = useMemo(() => {
+    let filtered = Array.isArray(questions) ? questions : [];
 
-    if (selectedCompanyTile) {
-      filtered = filtered.filter(q => q.company === selectedCompanyTile);
-    } else if (selectedCompanies.length > 0) {
-      const set = new Set(selectedCompanies);
-      filtered = filtered.filter(q => set.has(q.company));
-    }
-    if (selectedDifficulty) filtered = filtered.filter(q => q.difficulty === selectedDifficulty);
-    if (selectedStage) filtered = filtered.filter(q => q.stage === selectedStage);
-    if (selectedRole) filtered = filtered.filter(q => q.role === selectedRole);
-    if (frequencyMin > 0) filtered = filtered.filter(q => q.frequencyScore >= frequencyMin);
+    if (frequencyMin > 0) filtered = filtered.filter(q => (q?.frequencyScore || 0) >= frequencyMin);
     if (recentFilter > 0) {
       const cutoff = new Date();
       cutoff.setMonth(cutoff.getMonth() - recentFilter);
-      filtered = filtered.filter(q => new Date(q.lastReported) >= cutoff);
+      filtered = filtered.filter(q => q?.lastReported && new Date(q.lastReported) >= cutoff);
     }
-    if (search) {
-      const s = search.toLowerCase();
-      filtered = filtered.filter(q =>
-        q.question.toLowerCase().includes(s) ||
-        q.tags.some(t => t.includes(s)) ||
-        q.company.includes(s)
-      );
-    }
-    if (showSolvedOnly) filtered = filtered.filter(q => isSolved(q.id));
-    if (showBookmarkedOnly) filtered = filtered.filter(q => isBookmarked(q.id));
+    if (showSolvedOnly) filtered = filtered.filter(q => q?.id && isSolved(q.id));
+    if (showBookmarkedOnly) filtered = filtered.filter(q => q?.id && isBookmarked(q.id));
 
     return filtered;
-  }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile, progress, questions]);
+  }, [questions, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, isSolved, isBookmarked]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile]);
-
-  const totalPages = Math.ceil(filteredQuestions.length / QUESTIONS_PER_PAGE);
-  const paginatedQuestions = useMemo(() => {
-    const start = (currentPage - 1) * QUESTIONS_PER_PAGE;
-    return filteredQuestions.slice(start, start + QUESTIONS_PER_PAGE);
-  }, [filteredQuestions, currentPage]);
 
   const recommendations = useMemo(() => getRecommendations(8), [getRecommendations]);
 
@@ -205,13 +280,13 @@ export default function CompanyPrep() {
         </div>
       </div>
 
-      {questionLoadError && (
-        <div className="cp-recommended-section" style={{ marginBottom: 16 }}>
+      {isOfflineFallback && (
+        <div className="cp-recommended-section" style={{ marginBottom: 16, borderLeft: '4px solid #f59e0b', background: 'rgba(245, 158, 11, 0.08)' }}>
           <div className="cp-rec-header">
-            <X size={20} />
+            <WifiOff size={20} color="#f59e0b" />
             <div>
-              <h3>Unable to load questions</h3>
-              <p>{questionLoadError}</p>
+              <h3 style={{ color: '#f59e0b' }}>Offline Mode Active</h3>
+              <p>{questionLoadError || 'Question bank server unreachable. Gracefully running in local offline mode.'}</p>
             </div>
           </div>
         </div>
@@ -354,12 +429,13 @@ export default function CompanyPrep() {
       <div className="cp-questions-list">
         <div className="cp-list-header">
           <span>
-            {loadingQuestions ? 'Loading question bank...' : `${activeView === 'recommended' ? recommendations.length : filteredQuestions.length} questions`}
+            {loadingQuestions ? 'Loading question bank...' : `${activeView === 'recommended' ? recommendations.length : totalQuestions} questions`}
             {!loadingQuestions && activeView !== 'recommended' && totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : ''}
+            {isOfflineFallback ? ' · (Offline)' : ''}
           </span>
         </div>
 
-        {(activeView === 'recommended' ? recommendations : paginatedQuestions).map(q => (
+        {(activeView === 'recommended' ? recommendations : displayedQuestions).map(q => (
           <div key={q.id} className={`cp-question-card ${isSolved(q.id) ? 'solved' : ''}`}>
             <div className="cp-card-header" onClick={() => toggleExpand(q.id)}>
               <button className="cp-solve-btn" onClick={e => { e.stopPropagation(); toggleSolved(q.id); }} title={isSolved(q.id) ? 'Mark unsolved' : 'Mark solved'}>
@@ -379,10 +455,10 @@ export default function CompanyPrep() {
                 <p className="cp-question-text">{q.question}</p>
                 <div className="cp-card-footer">
                   <span className="cp-freq" title={frequencyLabel(q.frequencyScore)}>
-                    {'🔥'.repeat(Math.min(q.frequencyScore, 5))}
+                    {'🔥'.repeat(Math.min(q.frequencyScore || 1, 5))}
                   </span>
                   <span className="cp-tags">
-                    {q.tags.slice(0, 3).map(t => <span key={t} className="cp-tag">#{t}</span>)}
+                    {(q.tags || []).slice(0, 3).map(t => <span key={t} className="cp-tag">#{t}</span>)}
                   </span>
                   <span className="cp-reported"><Clock size={12} /> {q.lastReported}</span>
                 </div>
@@ -407,7 +483,7 @@ export default function CompanyPrep() {
                 <div className="cp-answer-section">
                   <h4>💡 Answer</h4>
                   <div className="cp-answer-content">
-                    {q.answer.split('```').map((block, idx) => {
+                    {(q.answer || '').split('```').map((block, idx) => {
                       if (idx % 2 === 1) {
                         const lines = block.split('\n');
                         const lang = lines[0].trim();
@@ -466,7 +542,7 @@ export default function CompanyPrep() {
           </div>
         ))}
 
-        {filteredQuestions.length === 0 && activeView !== 'recommended' && (
+        {displayedQuestions.length === 0 && !loadingQuestions && activeView !== 'recommended' && (
           <div className="cp-empty">
             <Search size={48} />
             <h3>No questions found</h3>

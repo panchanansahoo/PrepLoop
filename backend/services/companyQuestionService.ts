@@ -30,9 +30,35 @@ export interface CompanyMeta {
   logo?: string;
 }
 
+export interface PaginationOptions {
+  company?: string;
+  role?: string;
+  stage?: string;
+  difficulty?: string;
+  search?: string;
+  page?: number | string;
+  limit?: number | string;
+}
+
+export interface PaginatedResult<T> {
+  success: boolean;
+  questions: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 // In-memory cache for the question bank
 let questionCache: CompanyQuestion[] | null = null;
 let companiesList: CompanyMeta[] | null = null;
+
+// Query cache for paginated requests
+const queryResultCache = new Map<string, { result: PaginatedResult<CompanyQuestion>; timestamp: number }>();
+const QUERY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_QUERY_CACHE_SIZE = 500;
 
 const EMBEDDED_DEFAULT_COMPANIES: CompanyMeta[] = [
   { id: 'google', name: 'Google', industry: 'Technology' },
@@ -143,40 +169,80 @@ async function resolveQuestionModule(): Promise<{ metaMod: any; qsMod: any } | n
 }
 
 /**
- * Load question data from the frontend data file.
- * Data is imported directly to avoid runtime code evaluation.
+ * Load question data from datasets or fallback modules.
+ * In-memory questionCache acts as an in-process index after initial load.
  */
-async function loadQuestionData(): Promise<void> {
-  if (questionCache) return;
+export async function loadQuestionData(): Promise<void> {
+  if (questionCache && questionCache.length > 0) return;
 
+  // 1. Try to load from structured JSON dataset
+  const jsonCandidates = [
+    path.resolve(__dirname, '../data/company-prep-questions.json'),
+    path.resolve(__dirname, '../../frontend/public/company-prep-questions.json'),
+    path.resolve(__dirname, '../../frontend/dist/company-prep-questions.json'),
+  ];
+
+  for (const candidate of jsonCandidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        const raw = await fs.promises.readFile(candidate, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          questionCache = parsed;
+          console.log(`✅ Company Question Bank loaded from ${path.basename(candidate)}: ${questionCache.length} questions`);
+          break;
+        }
+      }
+    } catch (err: any) {
+      console.warn(`Failed reading candidate ${candidate}:`, err?.message);
+    }
+  }
+
+  // 2. Resolve metadata module if available
   const dataModules = await resolveQuestionModule();
-  if (!dataModules || (!dataModules.metaMod && !dataModules.qsMod)) {
+  if (dataModules?.metaMod?.COMPANIES && Array.isArray(dataModules.metaMod.COMPANIES)) {
+    companiesList = dataModules.metaMod.COMPANIES;
+  }
+
+  // 3. Fallback to JS module questions if JSON was not found
+  if (!questionCache || questionCache.length === 0) {
+    if (dataModules?.qsMod?.companyQuestions) {
+      try {
+        const rawQs = dataModules.qsMod.companyQuestions || {};
+        const flatQuestions: CompanyQuestion[] = [];
+        for (const [companyId, companyData] of Object.entries(rawQs as Record<string, any>)) {
+          if (companyData && Array.isArray(companyData.questions)) {
+            for (const q of companyData.questions) {
+              flatQuestions.push({
+                company: companyId,
+                ...q,
+              });
+            }
+          }
+        }
+        questionCache = flatQuestions;
+        if (companiesList === null && Array.isArray(dataModules.metaMod?.COMPANIES)) {
+          companiesList = dataModules.metaMod.COMPANIES;
+        }
+        console.log(`✅ Company Question Bank loaded from JS module: ${questionCache.length} questions`);
+      } catch (error: any) {
+        console.error('Failed to parse company question data from JS module:', error.message);
+      }
+    }
+  }
+
+  // 4. Fallback to embedded default questions if all file sources fail
+  if (!questionCache || questionCache.length === 0) {
     console.warn('⚠️ Company question dataset not found in this runtime. Using embedded fallback dataset.');
     questionCache = [...EMBEDDED_DEFAULT_QUESTIONS];
     companiesList = [...EMBEDDED_DEFAULT_COMPANIES];
-    return;
-  }
-
-  try {
-    const rawQs = dataModules.qsMod?.companyQuestions || {};
-    const flatQuestions: CompanyQuestion[] = [];
-    for (const [companyId, companyData] of Object.entries(rawQs as Record<string, any>)) {
-      if (companyData && Array.isArray(companyData.questions)) {
-        for (const q of companyData.questions) {
-          flatQuestions.push({
-            company: companyId,
-            ...q,
-          });
-        }
-      }
-    }
-    questionCache = flatQuestions;
-    companiesList = Array.isArray(dataModules.metaMod?.COMPANIES) ? dataModules.metaMod.COMPANIES : [];
-    console.log(`✅ Company Question Bank loaded: ${questionCache.length} questions, ${companiesList?.length || 0} companies`);
-  } catch (error: any) {
-    console.error('Failed to parse company question data:', error.message);
-    questionCache = [...EMBEDDED_DEFAULT_QUESTIONS];
-    companiesList = [...EMBEDDED_DEFAULT_COMPANIES];
+  } else if (!companiesList || companiesList.length === 0) {
+    // Generate company metadata from indexed questions
+    const companyIds = Array.from(new Set(questionCache.map((q) => q.company).filter(Boolean)));
+    companiesList = companyIds.map((id) => ({
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1).replace(/_/g, ' '),
+    }));
   }
 }
 
@@ -294,12 +360,163 @@ export async function getQuestionCount(company: string): Promise<number> {
   return (questionCache || []).filter((q) => q.company?.toLowerCase() === companyId).length;
 }
 
+/**
+ * Get aggregated counts per company for fast metadata summaries
+ */
+export async function getCompanyStats(): Promise<Record<string, { total: number }>> {
+  await loadQuestionData();
+  const stats: Record<string, { total: number }> = {};
+  for (const q of questionCache || []) {
+    if (q.company) {
+      const c = q.company.toLowerCase();
+      if (!stats[c]) stats[c] = { total: 0 };
+      stats[c].total += 1;
+    }
+  }
+  return stats;
+}
+
+/**
+ * Paginated and searchable question retriever with caching.
+ * Supports query params: company, role, stage, difficulty, search, page (default 1), limit (default 20, max 100)
+ */
+export async function getPaginatedQuestions(
+  options: PaginationOptions = {}
+): Promise<PaginatedResult<CompanyQuestion>> {
+  const page = Math.max(1, Math.floor(Number(options.page) || 1));
+  const rawLimit = Math.floor(Number(options.limit) || 20);
+  const limit = Math.min(100, Math.max(1, rawLimit));
+
+  const company = typeof options.company === 'string' ? options.company.trim().toLowerCase() : '';
+  const role = typeof options.role === 'string' ? options.role.trim().toLowerCase() : '';
+  const stage = typeof options.stage === 'string' ? options.stage.trim().toLowerCase() : '';
+  const difficulty = typeof options.difficulty === 'string' ? options.difficulty.trim().toLowerCase() : '';
+  const search = typeof options.search === 'string' ? options.search.trim().toLowerCase() : '';
+
+  const cacheKey = `company_paged:${company}:${role}:${stage}:${difficulty}:${search}:${page}:${limit}`;
+
+  // 1. Check Redis cache if available
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // 2. Check in-memory query cache
+  const inMemoryCached = queryResultCache.get(cacheKey);
+  if (inMemoryCached && Date.now() - inMemoryCached.timestamp < QUERY_CACHE_TTL_MS) {
+    return inMemoryCached.result;
+  }
+
+  // 3. Ensure dataset is loaded and indexed
+  await loadQuestionData();
+  const allQuestions = questionCache || [];
+
+  // 4. Apply filtering
+  let filtered = allQuestions;
+
+  if (company && company !== 'all') {
+    const companies = company.split(',').map((c) => c.trim().replace(/\s+/g, '_')).filter(Boolean);
+    filtered = filtered.filter((q) => {
+      const qCompany = (q.company || '').toLowerCase();
+      return companies.some((c) => qCompany === c || qCompany.includes(c) || c.includes(qCompany));
+    });
+  }
+
+  if (stage && stage !== 'all') {
+    filtered = filtered.filter((q) => {
+      const qStage = (q.stage || '').toLowerCase();
+      return qStage === stage || qStage.includes(stage) || stage.includes(qStage);
+    });
+  }
+
+  if (role && role !== 'all') {
+    filtered = filtered.filter((q) => {
+      const qRole = (q.role || '').toLowerCase();
+      return qRole === role || qRole.includes(role) || role.includes(qRole);
+    });
+  }
+
+  if (difficulty && difficulty !== 'all') {
+    filtered = filtered.filter((q) => {
+      const qDiff = (q.difficulty || '').toLowerCase();
+      return qDiff === difficulty;
+    });
+  }
+
+  if (search) {
+    filtered = filtered.filter((q) => {
+      if (q.question && q.question.toLowerCase().includes(search)) return true;
+      if (q.title && q.title.toLowerCase().includes(search)) return true;
+      if (q.company && q.company.toLowerCase().includes(search)) return true;
+      if (q.role && q.role.toLowerCase().includes(search)) return true;
+      if (q.stage && q.stage.toLowerCase().includes(search)) return true;
+      if (Array.isArray(q.tags)) {
+        for (const tag of q.tags) {
+          if (typeof tag === 'string' && tag.toLowerCase().includes(search)) return true;
+        }
+      }
+      return false;
+    });
+  }
+
+  const total = filtered.length;
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+  const startIndex = (page - 1) * limit;
+  const pageQuestions = startIndex < total ? filtered.slice(startIndex, startIndex + limit) : [];
+
+  const result: PaginatedResult<CompanyQuestion> = {
+    success: true,
+    questions: pageQuestions,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+  };
+
+  // 5. Store in caches
+  if (redis && total > 0) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(result), { EX: 1800 });
+    } catch (_) {}
+  }
+
+  if (queryResultCache.size >= MAX_QUERY_CACHE_SIZE) {
+    const oldestKey = queryResultCache.keys().next().value;
+    if (oldestKey) queryResultCache.delete(oldestKey);
+  }
+  queryResultCache.set(cacheKey, { result, timestamp: Date.now() });
+
+  return result;
+}
+
+/**
+ * Clear cached question and query data (useful for test resets)
+ */
+export function _clearQuestionCacheForTesting(): void {
+  questionCache = null;
+  companiesList = null;
+  queryResultCache.clear();
+}
+
 export default {
+  loadQuestionData,
   getFilteredQuestions,
   getRandomQuestionSet,
   getQuestionById,
   getAvailableCompanies,
   getQuestionCount,
+  getCompanyStats,
+  getPaginatedQuestions,
+  _clearQuestionCacheForTesting,
 };
 
 export const _getFilteredQuestions = getFilteredQuestions;

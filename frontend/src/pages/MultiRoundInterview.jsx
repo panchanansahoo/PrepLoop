@@ -1,12 +1,148 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { Play, ChevronRight, Trophy, Star, BarChart3, CheckCircle, Clock, ArrowRight, RotateCcw, Zap, Code2, Users, Brain, Briefcase, Award, Target } from 'lucide-react';
-import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
+import { Play, ChevronRight, Trophy, Star, BarChart3, CheckCircle, Clock, ArrowRight, RotateCcw, Zap, Code2, Users, Brain, Briefcase, Award, Target, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
+import {  COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { API_URL } from '../config/api.js';
+
+// ─── Bar-Raiser Veto Thresholds & Weights ───
+const BAR_RAISER_THRESHOLDS = {
+    dsa: 65,
+    coding: 65,
+    'system-design': 60,
+    behavioral: 60,
+    hr: 55,
+    default: 60
+};
+
+const ROUND_WEIGHTS = {
+    dsa: 35,
+    coding: 35,
+    'system-design': 30,
+    behavioral: 20,
+    hr: 15,
+    default: 20
+};
+
+function normalizeClientRoundType(round) {
+    if (!round) return 'default';
+    const raw = typeof round === 'string'
+        ? round
+        : (round.roundId || round.id || round.stage || round.name || '');
+    const lower = String(raw).trim().toLowerCase();
+    if (lower.includes('dsa') || lower.includes('coding') || lower.includes('algorithm')) return 'dsa';
+    if (lower.includes('system') || lower.includes('design') || lower.includes('architecture')) return 'system-design';
+    if (lower.includes('behavioral') || lower.includes('leadership')) return 'behavioral';
+    if (lower.includes('hr')) return 'hr';
+    return 'default';
+}
+
+function evaluateBarRaiserClient(results, company = '', role = '') {
+    if (!results || results.length === 0) return null;
+    const roundEvaluations = [];
+    const vetoReasons = [];
+    let totalScoreSum = 0;
+    let weightedScoreSum = 0;
+    let totalWeightSum = 0;
+
+    results.forEach((r, idx) => {
+        const normKey = normalizeClientRoundType(r);
+        const threshold = BAR_RAISER_THRESHOLDS[normKey] || BAR_RAISER_THRESHOLDS.default;
+        const score = Math.round(Number(r.score ?? r.percentage ?? r.finalScore?.percentage ?? 0));
+        const passed = score >= threshold;
+        const isVeto = !passed;
+        const roundName = r.name || r.stage || r.roundId || `Round ${idx + 1}`;
+
+        if (isVeto) {
+            vetoReasons.push(`[Bar-Raiser Veto] ${roundName} score of ${score}% failed the mandatory threshold of ${threshold}%.`);
+        }
+
+        const weight = ROUND_WEIGHTS[normKey] || ROUND_WEIGHTS.default;
+        totalScoreSum += score;
+        weightedScoreSum += score * weight;
+        totalWeightSum += weight;
+
+        roundEvaluations.push({
+            roundIndex: idx,
+            roundId: r.roundId || normKey,
+            name: roundName,
+            stage: r.stage || roundName,
+            score,
+            threshold,
+            passed,
+            veto: isVeto,
+            weight,
+            strengths: Array.isArray(r.strengths) ? r.strengths : [],
+            improvements: Array.isArray(r.improvements) ? r.improvements : [],
+            feedback: r.feedback || ''
+        });
+    });
+
+    const averageScore = Math.round(totalScoreSum / results.length);
+    const weightedScore = totalWeightSum > 0 ? Math.round(weightedScoreSum / totalWeightSum) : averageScore;
+    const vetoTriggered = vetoReasons.length > 0;
+
+    let status = 'NO_HIRE';
+    let verdict = 'Needs Improvement 📚';
+    let badge = 'Needs Improvement 📚';
+    let color = '#ef4444';
+    let recommendation = '';
+
+    if (vetoTriggered) {
+        status = 'VETOED';
+        verdict = 'No Hire (Bar-Raiser Veto)';
+        badge = 'Vetoed by Bar-Raiser ❌';
+        color = '#ef4444';
+        const failedRoundsStr = roundEvaluations
+            .filter((re) => re.veto)
+            .map((re) => `${re.name} (${re.score}% vs min ${re.threshold}%)`)
+            .join(', ');
+        recommendation = `The Hiring Committee has issued a Bar-Raiser Veto. While average performance across rounds was ${averageScore}%, the candidate failed to satisfy minimum required competencies in: ${failedRoundsStr}. In calibrated committee deliberation, high scores in non-core rounds cannot override a failure to meet the baseline standard.`;
+    } else if (weightedScore >= 85) {
+        status = 'STRONG_HIRE';
+        verdict = 'Strong Hire 🌟';
+        badge = 'Strong Hire 🌟';
+        color = '#22c55e';
+        recommendation = `Outstanding performance across all interview dimensions. Candidate comfortably surpassed all bar-raiser thresholds with a weighted score of ${weightedScore}%, demonstrating clear domain mastery and communication excellence.`;
+    } else if (weightedScore >= 70) {
+        status = 'HIRE';
+        verdict = 'Would Advance 👍';
+        badge = 'Would Advance 👍';
+        color = '#3b82f6';
+        recommendation = `Consistently satisfied all competency bars with a calibrated score of ${weightedScore}%. The candidate meets the role requirements across technical and behavioral dimensions with positive committee consensus.`;
+    } else if (weightedScore >= 60) {
+        status = 'BORDERLINE';
+        verdict = 'Borderline 🤔';
+        badge = 'Borderline 🤔';
+        color = '#f59e0b';
+        recommendation = `Candidate met minimum passing thresholds across rounds (weighted score ${weightedScore}%), but performance was near the margin. Hiring Committee recommends an additional targeted debrief before a final leveling decision.`;
+    } else {
+        status = 'NO_HIRE';
+        verdict = 'Needs Improvement 📚';
+        badge = 'Needs Improvement 📚';
+        color = '#ef4444';
+        recommendation = `Overall calibrated score of ${weightedScore}% fell below the advancement threshold. Candidate should focus on targeted technical practice before reapplying.`;
+    }
+
+    return {
+        status,
+        verdict,
+        badge,
+        color,
+        vetoTriggered,
+        vetoReasons,
+        averageScore,
+        weightedScore,
+        company,
+        role,
+        roundEvaluations,
+        recommendation,
+        passingThresholds: BAR_RAISER_THRESHOLDS
+    };
+}
 
 // ─── Interview Round Definitions ───
 const ROUND_TYPES = [
@@ -124,12 +260,69 @@ export default function MultiRoundInterview() {
         `multi-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
 
+    // Multi-round persistent session & hiring decision state
+    const [sessionId, setSessionId] = useState(() => {
+        return initialCtx.current?.sessionId ||
+            (typeof window !== 'undefined' ? sessionStorage.getItem('multiRoundSessionId') : null) ||
+            null;
+    });
+    const [hiringDecision, setHiringDecision] = useState(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                const stored = sessionStorage.getItem('multiRoundHiringDecision');
+                return stored ? JSON.parse(stored) : null;
+            }
+        } catch {}
+        return null;
+    });
+
     const companyObj = COMPANIES.find(c => c.id === company) || COMPANIES[0];
     const activeRounds = ROUND_TYPES.filter(r => selectedRounds.includes(r.id));
 
     const getAuthHeaders = () => {
         return buildAuthHeaders(user);
     };
+
+    // Restore multi-round session from database to prevent tab-close data loss
+    React.useEffect(() => {
+        let isMounted = true;
+        const restoreSession = async () => {
+            const storedSessionId = sessionId || (typeof window !== 'undefined' ? sessionStorage.getItem('multiRoundSessionId') : null);
+            if (!storedSessionId) return;
+
+            try {
+                const res = await authFetch(`${API_URL}/api/company-interview/multi-round/session/${storedSessionId}`, {
+                    headers: getAuthHeaders()
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!isMounted || !data?.session) return;
+                const s = data.session;
+                if (s.company) setCompany(s.company);
+                if (s.role) setRole(s.role);
+                if (Array.isArray(s.round_scores) && s.round_scores.length > 0) {
+                    setRoundResults(s.round_scores);
+                    if (s.status === 'completed') {
+                        setPhase('report');
+                    } else if (typeof s.current_round === 'number') {
+                        setCurrentRoundIdx(s.current_round);
+                        setPhase('transition');
+                    }
+                }
+                if (s.hiring_decision) {
+                    setHiringDecision(s.hiring_decision);
+                    try {
+                        sessionStorage.setItem('multiRoundHiringDecision', JSON.stringify(s.hiring_decision));
+                    } catch {}
+                }
+            } catch (e) {
+                console.warn('[multi-round] Session restore fallback to local state:', e?.message);
+            }
+        };
+
+        restoreSession();
+        return () => { isMounted = false; };
+    }, []);
 
     // Toggle round selection
     const toggleRound = (roundId) => {
@@ -153,14 +346,64 @@ export default function MultiRoundInterview() {
         return { text: 'Needs Improvement 📚', color: '#ef4444' };
     };
 
+    // Start interview loop - initializes or resumes multi-round session in database
+    const handleStartLoop = async () => {
+        let currentId = sessionId || (typeof window !== 'undefined' ? sessionStorage.getItem('multiRoundSessionId') : null);
+        if (!currentId) {
+            currentId = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? crypto.randomUUID()
+                : `multi-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        }
+        setSessionId(currentId);
+        try {
+            sessionStorage.setItem('multiRoundSessionId', currentId);
+        } catch {}
+
+        try {
+            const res = await authFetch(`${API_URL}/api/company-interview/multi-round/session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify({
+                    company,
+                    role,
+                    difficulty,
+                    selectedRounds,
+                    sessionId: currentId,
+                    resume: true
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.session?.id) {
+                    currentId = data.session.id;
+                    setSessionId(currentId);
+                    try {
+                        sessionStorage.setItem('multiRoundSessionId', currentId);
+                    } catch {}
+                }
+            }
+        } catch (e) {
+            console.warn('[multi-round] Session start fallback to offline/guest:', e?.message);
+        }
+
+        setPhase('transition');
+        setCurrentRoundIdx(0);
+    };
+
     // Start interview → navigate to CodingAssessment or CompanyInterview with the right config
     const startRound = () => {
         const round = activeRounds[currentRoundIdx];
         if (!round) return;
 
+        const effectiveSessionId = sessionId || (typeof window !== 'undefined' ? sessionStorage.getItem('multiRoundSessionId') : null) || saveIdempotencyKeyRef.current;
+
         // Store multi-round context in sessionStorage for CodingAssessment / CompanyInterview to pick up
         sessionStorage.setItem('multiRoundContext', JSON.stringify({
             multiRound: true,
+            sessionId: effectiveSessionId,
             company,
             role,
             difficulty,
@@ -184,7 +427,7 @@ export default function MultiRoundInterview() {
     // Save session to backend and local history
     const saveMultiRoundSession = async (results, sessionCompany = company, sessionRole = role, sessionDiff = difficulty) => {
         const overallScore = Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / (results.length || 1));
-        const localSessionId = saveIdempotencyKeyRef.current || `multi-${Date.now()}`;
+        const localSessionId = sessionId || saveIdempotencyKeyRef.current || `multi-${Date.now()}`;
         try {
             const historyKey = "preploop_local_interview_history";
             const existing = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -263,11 +506,64 @@ export default function MultiRoundInterview() {
                 setCurrentRoundIdx(nextIdx);
 
                 const total = ctx?.totalRounds ?? (ctx?.selectedRounds ? ctx.selectedRounds.length : activeRounds.length);
-                if (nextIdx < total) {
+                const isCompleted = nextIdx >= total;
+                const targetSessionId = sessionId || ctx?.sessionId || (typeof window !== 'undefined' ? sessionStorage.getItem('multiRoundSessionId') : null) || saveIdempotencyKeyRef.current;
+
+                // Client-side fallback Bar-Raiser decision
+                const localDecision = evaluateBarRaiserClient(updatedResults, ctx?.company || company, ctx?.role || role);
+                if (localDecision) {
+                    setHiringDecision(localDecision);
+                    try {
+                        sessionStorage.setItem('multiRoundHiringDecision', JSON.stringify(localDecision));
+                    } catch {}
+                }
+
+                // Checkpoint completed round to backend database session
+                if (targetSessionId) {
+                    authFetch(`${API_URL}/api/company-interview/multi-round/session/${targetSessionId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...getAuthHeaders()
+                        },
+                        body: JSON.stringify({
+                            current_round: nextIdx,
+                            roundScores: updatedResults,
+                            roundScore: normalizedResult,
+                            status: isCompleted ? 'completed' : 'in_progress',
+                            totalRounds: total,
+                            company: ctx?.company || company,
+                            role: ctx?.role || role
+                        })
+                    })
+                    .then(async (res) => {
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.hiringDecision) {
+                                setHiringDecision(data.hiringDecision);
+                                try {
+                                    sessionStorage.setItem('multiRoundHiringDecision', JSON.stringify(data.hiringDecision));
+                                } catch {}
+                            }
+                            if (data.session?.id) {
+                                setSessionId(data.session.id);
+                                try {
+                                    sessionStorage.setItem('multiRoundSessionId', data.session.id);
+                                } catch {}
+                            }
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn('[multi-round] Checkpoint PUT fallback:', err?.message);
+                    });
+                }
+
+                if (!isCompleted) {
                     setPhase('transition');
                     sessionStorage.setItem('multiRoundContext', JSON.stringify({
                         ...(ctx || {}),
                         multiRound: true,
+                        sessionId: targetSessionId,
                         company: ctx?.company || company,
                         role: ctx?.role || role,
                         difficulty: ctx?.difficulty || difficulty,
@@ -288,7 +584,7 @@ export default function MultiRoundInterview() {
                 }
             }
         }
-    }, [company, role, difficulty, activeRounds.length]);
+    }, [company, role, difficulty, activeRounds.length, sessionId]);
 
     // ═══════════════════════════════════════════
     //  SETUP PHASE — Select company, rounds
@@ -508,7 +804,7 @@ export default function MultiRoundInterview() {
 
                     {/* Start Button */}
                     <button
-                        onClick={() => { setPhase('transition'); setCurrentRoundIdx(0); }}
+                        onClick={handleStartLoop}
                         disabled={selectedRounds.length === 0}
                         style={{
                             width: '100%',
@@ -667,7 +963,15 @@ export default function MultiRoundInterview() {
     //  FINAL REPORT — All rounds complete
     // ═══════════════════════════════════════════
     if (phase === 'report') {
-        const verdict = getVerdict(overallScore);
+        const effectiveDecision = hiringDecision || evaluateBarRaiserClient(roundResults, company, role);
+        const isVetoed = Boolean(effectiveDecision?.vetoTriggered);
+        const finalScore = effectiveDecision?.weightedScore ?? overallScore;
+        const avgScore = effectiveDecision?.averageScore ?? overallScore;
+        const verdictObj = effectiveDecision ? {
+            text: effectiveDecision.verdict,
+            color: effectiveDecision.color,
+            badge: effectiveDecision.badge
+        } : getVerdict(overallScore);
 
         return (
             <div style={{
@@ -677,50 +981,86 @@ export default function MultiRoundInterview() {
                 padding: '40px 20px',
                 fontFamily: "'Inter', system-ui, sans-serif"
             }}>
-                <div style={{ maxWidth: 700, margin: '0 auto' }}>
+                <div style={{ maxWidth: 760, margin: '0 auto' }}>
                     {/* Header */}
-                    <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 28 }}>
                         <Trophy size={40} style={{ color: '#f59e0b', marginBottom: 12 }} />
-                        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
-                            Interview Complete!
+                        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>
+                            Interview Loop Complete
                         </h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-                            {companyObj.name} · {role} · {activeRounds.length} rounds completed
+                            {companyObj.name} · {role} · {roundResults.length} rounds completed
                         </p>
                     </div>
 
-                    {/* Overall Score */}
+                    {/* Hiring Committee Bar-Raiser Deliberation Banner */}
                     <div style={{
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: isVetoed ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                        border: `1.5px solid ${isVetoed ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.35)'}`,
                         borderRadius: 16,
-                        padding: 32,
-                        textAlign: 'center',
-                        marginBottom: 24
+                        padding: '20px 24px',
+                        marginBottom: 24,
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: isVetoed ? '0 0 30px rgba(239, 68, 68, 0.15)' : '0 0 30px rgba(34, 197, 94, 0.15)'
                     }}>
-                        <div style={{
-                            width: 100, height: 100,
-                            borderRadius: '50%',
-                            background: `conic-gradient(${verdict.color} ${overallScore * 3.6}deg, rgba(255, 255, 255, 0.08) 0deg)`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 16px'
-                        }}>
-                            <div style={{
-                                width: 80, height: 80,
-                                borderRadius: '50%',
-                                background: '#0f0f23',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 28, fontWeight: 700, color: verdict.color
-                            }}>
-                                {overallScore}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {isVetoed ? (
+                                    <ShieldAlert size={24} color="#ef4444" />
+                                ) : (
+                                    <ShieldCheck size={24} color="#22c55e" />
+                                )}
+                                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: isVetoed ? '#fca5a5' : '#86efac' }}>
+                                    {isVetoed ? 'Bar-Raiser Veto Triggered' : 'Bar-Raiser Cleared — Hiring Consensus'}
+                                </h2>
                             </div>
+                            <span style={{
+                                padding: '4px 10px',
+                                borderRadius: 20,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: '0.5px',
+                                textTransform: 'uppercase',
+                                background: isVetoed ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                color: isVetoed ? '#ef4444' : '#22c55e',
+                                border: `1px solid ${isVetoed ? 'rgba(239, 68, 68, 0.4)' : 'rgba(34, 197, 94, 0.4)'}`
+                            }}>
+                                {isVetoed ? 'Veto Enforced' : 'Passed Bar'}
+                            </span>
                         </div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: verdict.color, marginBottom: 4 }}>
-                            {verdict.text}
-                        </div>
+
+                        {isVetoed ? (
+                            <div>
+                                <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)', margin: '0 0 8px 0', lineHeight: 1.5 }}>
+                                    The candidate failed to satisfy the non-negotiable minimum competency threshold in core evaluation areas:
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                                    {effectiveDecision?.vetoReasons?.map((reason, idx) => (
+                                        <div key={idx} style={{ fontSize: 12, color: '#fca5a5', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                                            <span style={{ color: '#ef4444', fontWeight: 800 }}>•</span>
+                                            <span>{reason}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{
+                                    fontSize: 11,
+                                    color: 'rgba(255, 255, 255, 0.6)',
+                                    background: 'rgba(0, 0, 0, 0.25)',
+                                    padding: '8px 12px',
+                                    borderRadius: 8,
+                                    borderLeft: '3px solid #ef4444'
+                                }}>
+                                    💡 <strong>Committee Calibration Principle:</strong> Standard tech hiring committee policies dictate that exceptional scores in other rounds cannot override a failure in a core technical or behavioral competency.
+                                </div>
+                            </div>
+                        ) : (
+                            <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)', margin: 0, lineHeight: 1.5 }}>
+                                Candidate met or exceeded the minimum bar-raiser competency thresholds across all scheduled interview rounds.
+                            </p>
+                        )}
                     </div>
 
-                    {/* Per-Round Breakdown */}
+                    {/* Committee Deliberation & Scoring Grid */}
                     <div style={{
                         background: 'rgba(255, 255, 255, 0.03)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -728,37 +1068,145 @@ export default function MultiRoundInterview() {
                         padding: 24,
                         marginBottom: 24
                     }}>
-                        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Round Breakdown</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: 12,
+                                padding: '16px 14px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                                    Calibrated Score
+                                </div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: verdictObj.color }}>
+                                    {finalScore}%
+                                </div>
+                                <div style={{ fontSize: 11, color: verdictObj.color, marginTop: 4, fontWeight: 600 }}>
+                                    {verdictObj.text}
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: 12,
+                                padding: '16px 14px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                                    Arithmetic Average
+                                </div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#94a3b8' }}>
+                                    {avgScore}%
+                                </div>
+                                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                                    Raw Mean Score
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: 12,
+                                padding: '16px 14px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                                    Bar-Raiser Gate
+                                </div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: isVetoed ? '#ef4444' : '#22c55e' }}>
+                                    {isVetoed ? 'VETOED' : 'CLEARED'}
+                                </div>
+                                <div style={{ fontSize: 11, color: isVetoed ? '#ef4444' : '#22c55e', marginTop: 4, fontWeight: 600 }}>
+                                    {isVetoed ? 'Competency Failed' : 'All Bars Passed'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Executive Committee Recommendation */}
+                        {effectiveDecision?.recommendation && (
+                            <div style={{
+                                background: 'rgba(0, 0, 0, 0.25)',
+                                border: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderRadius: 12,
+                                padding: 16
+                            }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                                    Hiring Committee Evaluation
+                                </div>
+                                <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.85)', margin: 0, lineHeight: 1.6 }}>
+                                    {effectiveDecision.recommendation}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Per-Round Competency Evaluation Breakdown */}
+                    <div style={{
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 16,
+                        padding: 24,
+                        marginBottom: 24
+                    }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#818cf8' }}>
+                            Competency Breakdown & Bar Checks
+                        </h3>
                         {roundResults.map((result, i) => {
-                            const round = activeRounds[i];
+                            const round = activeRounds[i] || ROUND_TYPES.find(r => r.id === result.roundId) || { name: result.stage || `Round ${i + 1}`, color: '#8b5cf6' };
+                            const evalMatch = effectiveDecision?.roundEvaluations?.[i];
+                            const threshold = evalMatch?.threshold || (BAR_RAISER_THRESHOLDS[result.roundId] ?? 60);
+                            const passed = evalMatch ? evalMatch.passed : (result.score >= threshold);
+                            const vetoed = evalMatch ? evalMatch.veto : (!passed);
+
                             return (
                                 <div key={i} style={{
-                                    display: 'flex', alignItems: 'center', gap: 12,
-                                    padding: '12px 0',
+                                    padding: '14px 0',
                                     borderBottom: i < roundResults.length - 1 ? '1px solid rgba(255, 255, 255, 0.06)' : 'none'
                                 }}>
-                                    <div style={{
-                                        width: 34, height: 34,
-                                        borderRadius: 8,
-                                        background: round?.color + '15',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: round?.color,
-                                        flexShrink: 0
-                                    }}>
-                                        {round?.icon}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, fontSize: 13 }}>{round?.name}</div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                            {result.strengths?.slice(0, 2).join(' · ')}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                                        <div style={{
+                                            width: 36, height: 36,
+                                            borderRadius: 8,
+                                            background: round?.color + '15',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            color: round?.color,
+                                            flexShrink: 0
+                                        }}>
+                                            {round?.icon || <CheckCircle size={18} />}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <span style={{ fontWeight: 700, fontSize: 14 }}>{round?.name || result.stage}</span>
+                                                <span style={{
+                                                    fontSize: 10,
+                                                    padding: '2px 8px',
+                                                    borderRadius: 12,
+                                                    fontWeight: 700,
+                                                    background: vetoed ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                                                    color: vetoed ? '#ef4444' : '#22c55e',
+                                                    border: `1px solid ${vetoed ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
+                                                }}>
+                                                    {vetoed ? 'BAR-RAISER VETO ✗' : 'PASSED BAR ✓'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                                Required Bar: ≥{threshold}% · Candidate Score: {result.score}%
+                                            </div>
+                                        </div>
+                                        <div style={{
+                                            fontSize: 20, fontWeight: 800,
+                                            color: vetoed ? '#ef4444' : result.score >= 80 ? '#22c55e' : '#f59e0b'
+                                        }}>
+                                            {result.score}%
                                         </div>
                                     </div>
-                                    <div style={{
-                                        fontSize: 18, fontWeight: 700,
-                                        color: result.score >= 80 ? '#22c55e' : result.score >= 60 ? '#f59e0b' : '#ef4444'
-                                    }}>
-                                        {result.score}%
-                                    </div>
+                                    {Array.isArray(result.strengths) && result.strengths.length > 0 && (
+                                        <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.65)', marginTop: 4, marginLeft: 48 }}>
+                                            <strong>Observed:</strong> {result.strengths.slice(0, 2).join(' · ')}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -770,6 +1218,10 @@ export default function MultiRoundInterview() {
                             onClick={() => {
                                 sessionStorage.removeItem('multiRoundContext');
                                 sessionStorage.removeItem('multiRoundResult');
+                                sessionStorage.removeItem('multiRoundSessionId');
+                                sessionStorage.removeItem('multiRoundHiringDecision');
+                                setSessionId(null);
+                                setHiringDecision(null);
                                 setPhase('setup');
                                 setCurrentRoundIdx(0);
                                 setRoundResults([]);
