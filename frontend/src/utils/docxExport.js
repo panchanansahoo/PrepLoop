@@ -1,11 +1,11 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
-
 /**
  * Builds and downloads a true binary OpenXML .docx file client-side.
  * Compatible with Microsoft Word, Google Docs, LibreOffice, and ATS parsers.
  */
 export async function downloadResumeDocx(resumeData) {
   if (!resumeData) return;
+
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import('docx');
 
   const sections = [];
 

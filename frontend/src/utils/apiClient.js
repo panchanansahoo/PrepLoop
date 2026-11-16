@@ -32,8 +32,9 @@ async function getCsrfToken(forceRefresh = false) {
   }
 
   if (!csrfTokenRequest) {
+    const csrfBaseUrl = apiClient?.defaults?.baseURL ?? API_URL;
     csrfTokenRequest = axios
-      .get(`${API_URL}/api/csrf-token`, {
+      .get(`${csrfBaseUrl}/api/csrf-token`, {
         withCredentials: true,
         timeout: 4000,
       })
@@ -146,8 +147,9 @@ apiClient.interceptors.response.use(
         // a stored refresh token for older sessions. The refresh endpoint is
         // cookie-authenticated, so it needs the double-submit CSRF header.
         const csrfToken = await getCsrfToken();
+        const refreshBaseUrl = apiClient?.defaults?.baseURL ?? API_URL;
         const response = await axios.post(
-          `${API_URL}/api/auth/refresh`,
+          `${refreshBaseUrl}/api/auth/refresh`,
           refreshToken ? { refreshToken } : {},
           {
             withCredentials: true,
@@ -167,7 +169,6 @@ apiClient.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -382,4 +383,9 @@ export const cachedApi = {
   },
 };
 
-export default api;
+apiClient.api = api;
+apiClient.cachedApi = cachedApi;
+apiClient.upload = api.upload;
+
+export { apiClient };
+export default apiClient;

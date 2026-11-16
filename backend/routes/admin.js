@@ -22,92 +22,126 @@ router.use(authenticateToken, requireAdmin);
 // ─── Platform Stats ─────────────────────────────────────────────
 router.get('/stats', async (req, res) => {
   try {
-    // Total users
-    const { count: totalUsers } = await supabaseAdmin
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
-
-    // Users by role
-    const { count: adminCount } = await supabaseAdmin
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'admin');
-
-    // New users this week
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const { count: newUsersWeek } = await supabaseAdmin
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', weekAgo);
-
-    // New users this month
     const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-    const { count: newUsersMonth } = await supabaseAdmin
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', monthAgo);
 
-    // Total submissions
-    const { count: totalSubmissions } = await supabaseAdmin
-      .from('submissions')
-      .select('*', { count: 'exact', head: true });
+    // Concurrently fetch all independent count metrics and breakdown samples
+    const [
+      totalUsersRes,
+      adminCountRes,
+      newUsersWeekRes,
+      newUsersMonthRes,
+      totalSubmissionsRes,
+      totalInterviewsRes,
+      totalProblemsRes,
+      totalPostsRes,
+      totalResumesRes,
+      tierDataRes,
+      recentUsersRes,
+    ] = await Promise.all([
+      // Total users
+      supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true }),
 
-    // Total interviews
-    const { count: totalInterviews } = await supabaseAdmin
-      .from('mock_interviews')
-      .select('*', { count: 'exact', head: true });
+      // Users by role
+      supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'admin'),
 
-    // Total problems
-    const { count: totalProblems } = await supabaseAdmin
-      .from('problems')
-      .select('*', { count: 'exact', head: true });
+      // New users this week
+      supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', weekAgo),
 
-    // Total community posts
-    const { count: totalPosts } = await supabaseAdmin
-      .from('community_posts')
-      .select('*', { count: 'exact', head: true });
+      // New users this month
+      supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', monthAgo),
 
-    // Total resume analyses
-    const { count: totalResumes } = await supabaseAdmin
-      .from('resume_analyses')
-      .select('*', { count: 'exact', head: true });
+      // Total submissions
+      supabaseAdmin
+        .from('submissions')
+        .select('*', { count: 'exact', head: true }),
 
-    // Users by subscription tier (capped with .limit() to prevent full table scan on admin stats load)
-    const { data: tierData } = await supabaseAdmin
-      .from('profiles')
-      .select('subscription_tier')
-      .limit(10000);
-    
+      // Total interviews
+      supabaseAdmin
+        .from('mock_interviews')
+        .select('*', { count: 'exact', head: true }),
+
+      // Total problems
+      supabaseAdmin
+        .from('problems')
+        .select('*', { count: 'exact', head: true }),
+
+      // Total community posts
+      supabaseAdmin
+        .from('community_posts')
+        .select('*', { count: 'exact', head: true }),
+
+      // Total resume analyses
+      supabaseAdmin
+        .from('resume_analyses')
+        .select('*', { count: 'exact', head: true }),
+
+      // Users by subscription tier (capped with .limit() to prevent full table scan on admin stats load)
+      supabaseAdmin
+        .from('profiles')
+        .select('subscription_tier')
+        .limit(10000),
+
+      // User growth (last 30 days — daily signups)
+      supabaseAdmin
+        .from('profiles')
+        .select('created_at')
+        .gte('created_at', monthAgo)
+        .order('created_at', { ascending: true })
+        .limit(5000),
+    ]);
+
+    const firstError = [
+      totalUsersRes,
+      adminCountRes,
+      newUsersWeekRes,
+      newUsersMonthRes,
+      totalSubmissionsRes,
+      totalInterviewsRes,
+      totalProblemsRes,
+      totalPostsRes,
+      totalResumesRes,
+      tierDataRes,
+      recentUsersRes,
+    ].find(r => r?.error)?.error;
+
+    if (firstError) {
+      throw firstError;
+    }
+
     const tierBreakdown = {};
-    (tierData || []).forEach(p => {
+    (tierDataRes?.data || []).forEach(p => {
       const tier = p.subscription_tier || 'free';
       tierBreakdown[tier] = (tierBreakdown[tier] || 0) + 1;
     });
 
-    // User growth (last 30 days — daily signups)
-    const { data: recentUsers } = await supabaseAdmin
-      .from('profiles')
-      .select('created_at')
-      .gte('created_at', monthAgo)
-      .order('created_at', { ascending: true })
-      .limit(5000);
-
     const growthData = {};
-    (recentUsers || []).forEach(u => {
+    (recentUsersRes?.data || []).forEach(u => {
       const day = new Date(u.created_at).toISOString().split('T')[0];
       growthData[day] = (growthData[day] || 0) + 1;
     });
 
     res.json({
-      totalUsers: totalUsers || 0,
-      adminCount: adminCount || 0,
-      newUsersWeek: newUsersWeek || 0,
-      newUsersMonth: newUsersMonth || 0,
-      totalSubmissions: totalSubmissions || 0,
-      totalInterviews: totalInterviews || 0,
-      totalProblems: totalProblems || 0,
-      totalPosts: totalPosts || 0,
-      totalResumes: totalResumes || 0,
+      totalUsers: totalUsersRes?.count || 0,
+      adminCount: adminCountRes?.count || 0,
+      newUsersWeek: newUsersWeekRes?.count || 0,
+      newUsersMonth: newUsersMonthRes?.count || 0,
+      totalSubmissions: totalSubmissionsRes?.count || 0,
+      totalInterviews: totalInterviewsRes?.count || 0,
+      totalProblems: totalProblemsRes?.count || 0,
+      totalPosts: totalPostsRes?.count || 0,
+      totalResumes: totalResumesRes?.count || 0,
       tierBreakdown,
       growthData,
     });
@@ -1511,15 +1545,25 @@ router.get('/interview-metrics', async (req, res) => {
     const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 7));
     const sinceDate = new Date(Date.now() - days * 86400000).toISOString();
 
-    // Query interview sessions within timeframe
-    const { data: sessions, error: sessionsError } = await supabaseAdmin
-      .from('interview_sessions')
-      .select('id, status, interview_type, difficulty, interview_score, questions_asked, total_duration_seconds, created_at, completed_at, performance_metrics')
-      .gte('created_at', sinceDate);
+    // Concurrently fetch sessions and telemetry events within timeframe
+    const [sessionsRes, telemRes] = await Promise.all([
+      supabaseAdmin
+        .from('interview_sessions')
+        .select('id, status, interview_type, difficulty, interview_score, questions_asked, total_duration_seconds, created_at, completed_at, performance_metrics')
+        .gte('created_at', sinceDate),
+      supabaseAdmin
+        .from('interview_telemetry_events')
+        .select('event_name, payload, created_at')
+        .gte('created_at', sinceDate)
+        .limit(1000)
+        // Telemetry table may not yet be provisioned in all environments
+        .then(res => res)
+        .catch(() => ({ data: null, error: null })),
+    ]);
 
-    if (sessionsError) throw sessionsError;
+    if (sessionsRes?.error) throw sessionsRes.error;
 
-    const sessionList = sessions || [];
+    const sessionList = sessionsRes?.data || [];
     const completedSessions = sessionList.filter(s => s.status === 'completed');
 
     const totalSessions = sessionList.length;
@@ -1547,34 +1591,25 @@ router.get('/interview-metrics', async (req, res) => {
       byType[type] = (byType[type] || 0) + 1;
     }
 
-    // Try fetching recent telemetry events for latency and grounding stats
+    // Process telemetry events for latency and grounding stats
     let telemetryEventsCount = 0;
     let avgTurnLatencyMs = null;
     let groundingHitRate = null;
 
-    try {
-      const { data: events, error: telemErr } = await supabaseAdmin
-        .from('interview_telemetry_events')
-        .select('event_name, payload, created_at')
-        .gte('created_at', sinceDate)
-        .limit(1000);
-
-      if (!telemErr && Array.isArray(events)) {
-        telemetryEventsCount = events.length;
-        const latencies = events
-          .map(e => Number(e?.payload?.latencyMs))
-          .filter(l => Number.isFinite(l) && l > 0);
-        if (latencies.length > 0) {
-          avgTurnLatencyMs = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
-        }
-        const groundingEvents = events.filter(e => typeof e?.payload?.groundingHit === 'boolean');
-        if (groundingEvents.length > 0) {
-          const hits = groundingEvents.filter(e => e.payload.groundingHit).length;
-          groundingHitRate = Number((hits / groundingEvents.length).toFixed(2));
-        }
+    const events = telemRes?.data;
+    if (Array.isArray(events) && events.length > 0) {
+      telemetryEventsCount = events.length;
+      const latencies = events
+        .map(e => Number(e?.payload?.latencyMs))
+        .filter(l => Number.isFinite(l) && l > 0);
+      if (latencies.length > 0) {
+        avgTurnLatencyMs = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
       }
-    } catch {
-      // Telemetry table may not yet be provisioned in all environments
+      const groundingEvents = events.filter(e => typeof e?.payload?.groundingHit === 'boolean');
+      if (groundingEvents.length > 0) {
+        const hits = groundingEvents.filter(e => e.payload.groundingHit).length;
+        groundingHitRate = Number((hits / groundingEvents.length).toFixed(2));
+      }
     }
 
     res.json({

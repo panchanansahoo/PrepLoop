@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { sendEmail, isEmailConfigured, getFromAddress } from '../services/emailService.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { isSafeOutboundUrl } from './ssrfGuard.js';
+import { isSafeOutboundUrlAsync } from './ssrfGuard.js';
 import { createLogger } from './structuredLogger.js';
 
 const logger = createLogger('interview-mailer');
@@ -546,7 +546,8 @@ export async function dispatchInterviewWebhook(webhookUrl, webhookSecret = '', p
     return { success: false, error: 'Webhook URL is required' };
   }
 
-  if (!isSafeOutboundUrl(webhookUrl)) {
+  const isSafe = await isSafeOutboundUrlAsync(webhookUrl);
+  if (!isSafe) {
     logger.warn('SSRF defense blocked dispatch to unsafe webhook URL', { webhookUrl });
     return { success: false, error: 'Target webhook URL blocked by SSRF defense policy' };
   }
@@ -586,6 +587,7 @@ export async function dispatchInterviewWebhook(webhookUrl, webhookSecret = '', p
       method: 'POST',
       headers,
       body: rawBody,
+      redirect: 'manual',
       signal: AbortSignal.timeout(5000),
     });
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { authFetch } from '../utils/authFetch';
@@ -232,7 +232,7 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const response = await apiClient.post(
       '/api/auth/login',
       { email: email.trim().toLowerCase(), password },
@@ -250,37 +250,37 @@ export function AuthProvider({ children }) {
     }
 
     return user;
-  };
+  }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = useCallback(async () => {
     if (!supabase) throw new Error('Supabase Authentication is not configured. Please check your .env file.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + '/dashboard' }
     });
     if (error) throw error;
-  };
+  }, []);
 
-  const loginWithGithub = async () => {
+  const loginWithGithub = useCallback(async () => {
     if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: { redirectTo: window.location.origin + '/dashboard' }
     });
     if (error) throw error;
-  };
+  }, []);
 
-  const loginWithLinkedin = async () => {
+  const loginWithLinkedin = useCallback(async () => {
     if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'linkedin_oidc',
       options: { redirectTo: window.location.origin + '/dashboard' }
     });
     if (error) throw error;
-  };
+  }, []);
 
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
-  const signup = async (email, password, fullName) => {
+  const signup = useCallback(async (email, password, fullName) => {
     const response = await apiClient.post(
       '/api/auth/signup',
       { email: email.trim().toLowerCase(), password, fullName: fullName.trim() },
@@ -298,9 +298,9 @@ export function AuthProvider({ children }) {
     }
 
     return user || payload?.user || payload;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       if (supabase) {
         await supabase.auth.signOut();
@@ -318,9 +318,9 @@ export function AuthProvider({ children }) {
       delete axios.defaults.headers.common['Authorization'];
       setUser(null);
     }
-  };
+  }, []);
 
-  const refreshSession = () => {
+  const refreshSession = useCallback(() => {
     if (refreshPromiseRef.current) {
       return refreshPromiseRef.current;
     }
@@ -369,7 +369,7 @@ export function AuthProvider({ children }) {
     })();
 
     return refreshPromiseRef.current;
-  };
+  }, [logout]);
 
   // Fix #9: keep ref in sync so the interceptor always has the latest function
   refreshSessionRef.current = refreshSession;
@@ -421,8 +421,34 @@ export function AuthProvider({ children }) {
     return () => axios.interceptors.response.eject(interceptor);
   }, []); // safe — uses ref, no stale closure
 
+  const value = useMemo(() => ({
+    user,
+    loading,
+    login,
+    signup,
+    logout,
+    refreshSession,
+    getAuthHeaders,
+    loginWithGoogle,
+    loginWithGithub,
+    loginWithLinkedin,
+    isAdmin,
+  }), [
+    user,
+    loading,
+    login,
+    signup,
+    logout,
+    refreshSession,
+    getAuthHeaders,
+    loginWithGoogle,
+    loginWithGithub,
+    loginWithLinkedin,
+    isAdmin,
+  ]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshSession, getAuthHeaders, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

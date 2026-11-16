@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
@@ -261,21 +261,35 @@ export function CoinProvider({ children }) {
     };
   }, [userId, refreshBalance, fetchRedeemOptions]);
 
+  const value = useMemo(() => ({
+    coins,
+    loading,
+    historyLoading,
+    history,
+    redeemOptions,
+    earnCoins,
+    spendCoins,
+    redeemCoins,
+    refreshBalance,
+    fetchBalance: refreshBalance,
+    fetchCoinHistory,
+    fetchRedeemOptions,
+  }), [
+    coins,
+    loading,
+    historyLoading,
+    history,
+    redeemOptions,
+    earnCoins,
+    spendCoins,
+    redeemCoins,
+    refreshBalance,
+    fetchCoinHistory,
+    fetchRedeemOptions,
+  ]);
+
   return (
-    <CoinContext.Provider value={{
-      coins,
-      loading,
-      historyLoading,
-      history,
-      redeemOptions,
-      earnCoins,
-      spendCoins,
-      redeemCoins,
-      refreshBalance,
-      fetchBalance: refreshBalance,
-      fetchCoinHistory,
-      fetchRedeemOptions,
-    }}>
+    <CoinContext.Provider value={value}>
       {children}
     </CoinContext.Provider>
   );

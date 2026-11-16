@@ -180,8 +180,6 @@ router.post('/earn', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid earn source' });
     }
 
-    const referenceKey = req.body?.referenceKey || (sourceRef ? `earn:${source}:${sourceRef}` : null);
-
     if (!amount || amount < COIN_LIMITS.minEarn || amount > COIN_LIMITS.maxEarn) {
       return res.status(400).json({
         error: `Amount must be an integer between ${COIN_LIMITS.minEarn} and ${COIN_LIMITS.maxEarn}`,
@@ -194,15 +192,57 @@ router.post('/earn', authenticateToken, async (req, res) => {
       });
     }
 
-    if (source === 'problem_solved' && !sourceRef) {
-      return res.status(400).json({
-        error: 'sourceRef is required when earning coins for problem_solved',
-      });
+    let finalAmount = amount;
+
+    if (source === 'problem_solved') {
+      if (!sourceRef) {
+        return res.status(400).json({
+          error: 'sourceRef is required when earning coins for problem_solved',
+        });
+      }
+
+      // Security validation: verify problem completion for non-admin users in non-test mode
+      if (process.env.NODE_ENV !== 'test' && req.user?.role !== 'admin') {
+        const { data: progress } = await supabaseAdmin
+          .from('user_progress')
+          .select('status, solved_at')
+          .eq('user_id', req.user.id)
+          .eq('problem_id', sourceRef)
+          .maybeSingle();
+
+        let isSolved = progress && (progress.status === 'solved' || progress.solved_at !== null);
+
+        if (!isSolved) {
+          const { data: submission } = await supabaseAdmin
+            .from('submissions')
+            .select('id')
+            .eq('user_id', req.user.id)
+            .eq('problem_id', sourceRef)
+            .eq('status', 'passed')
+            .limit(1)
+            .maybeSingle();
+
+          if (submission) isSolved = true;
+        }
+
+        if (!isSolved) {
+          return res.status(403).json({
+            error: 'Problem completion verification failed. Solution must be submitted and passed before claiming coins.',
+          });
+        }
+      }
+
+      // Cap coin reward for problem solves to maximum 15 coins to prevent arbitrary inflation
+      if (req.user?.role !== 'admin') {
+        finalAmount = Math.min(amount, 15);
+      }
     }
+
+    const referenceKey = req.body?.referenceKey || (sourceRef ? `problem_solve:${req.user.id}:${sourceRef}` : null);
 
     const atomicResult = await applyCoinTransaction({
       userId: req.user.id,
-      amount,
+      amount: finalAmount,
       type: 'earn',
       description,
       referenceKey,
@@ -213,7 +253,7 @@ router.post('/earn', authenticateToken, async (req, res) => {
       }
       return res.json({
         coins: atomicResult.balance,
-        earned: atomicResult.applied ? amount : 0,
+        earned: atomicResult.applied ? finalAmount : 0,
         applied: atomicResult.applied,
         source,
       });
@@ -228,7 +268,7 @@ router.post('/earn', authenticateToken, async (req, res) => {
 
     if (fetchError) throw fetchError;
 
-    const newBalance = (profile?.coins || 0) + amount;
+    const newBalance = (profile?.coins || 0) + finalAmount;
 
     // Update balance
     const { error: updateError } = await supabaseAdmin
@@ -241,12 +281,12 @@ router.post('/earn', authenticateToken, async (req, res) => {
     // Log transaction
     await supabaseAdmin.from('coin_transactions').insert({
       user_id: req.user.id,
-      amount,
+      amount: finalAmount,
       type: 'earn',
       description,
     });
 
-    res.json({ coins: newBalance, earned: amount });
+    res.json({ coins: newBalance, earned: finalAmount });
   } catch (error) {
     console.error('Error earning coins:', error);
     if (isSchemaMissingError(error)) {

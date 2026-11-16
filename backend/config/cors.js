@@ -70,9 +70,19 @@ function isOriginAllowed(origin) {
     }
   }
 
-    // Allow preploop.me and vercel.app domains
-  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*(preploop\.me|vercel\.app)(:\d+)?$/i.test(origin)) {
+  // Allow official preploop.me subdomains (HTTPS enforced in production)
+  const preploopPattern = process.env.NODE_ENV === 'production'
+    ? /^https:\/\/([a-zA-Z0-9-]+\.)*preploop\.me(:\d+)?$/i
+    : /^https?:\/\/([a-zA-Z0-9-]+\.)*preploop\.me(:\d+)?$/i;
+  if (preploopPattern.test(origin)) {
     return true;
+  }
+
+  // In non-production/staging, allow explicit PrepLoop team Vercel preview deployments (e.g. preploop-*.vercel.app)
+  if (process.env.NODE_ENV !== 'production' || process.env.ALLOW_VERCEL_PREVIEWS === 'true') {
+    if (/^https:\/\/preploop(-[a-zA-Z0-9-]+)?\.vercel\.app$/i.test(origin)) {
+      return true;
+    }
   }
 
   return false;

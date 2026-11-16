@@ -69,6 +69,18 @@ export default defineConfig({
 
           if (!id.includes('node_modules')) return;
 
+          // Core React & Router - keep isolated to prevent hoisting into heavy feature chunks
+          if (
+            /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)
+          ) {
+            return 'vendor-react-core';
+          }
+          if (
+            /[\\/]node_modules[\\/](react-router|react-router-dom|@remix-run[\\/]router)[\\/]/.test(id)
+          ) {
+            return 'vendor-router';
+          }
+
           // Keep manual chunking focused on very heavy dependencies.
           // Group tightly coupled editor packages to avoid circular chunk warnings.
           if (id.includes('@supabase')) return 'vendor-supabase';

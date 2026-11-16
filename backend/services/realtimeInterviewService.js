@@ -9,6 +9,7 @@ import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { InterviewScoringService } from './interviewScoringService.ts';
 import { computeNextMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
 import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
+import { callTurnScoring } from './llmRouter.js';
 
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
@@ -303,20 +304,45 @@ class RealtimeInterviewService {
       timestamp: Date.now(),
     }));
 
-    // 1. Evaluate answer quality using evaluateFresherAnswer for comprehensive semantic scoring
-    const evalResult = evaluateFresherAnswer(answer, context.stage, code);
+    // Baseline heuristic evaluation as immediate safety fallback
+    const fallbackEval = evaluateFresherAnswer(answer, context.stage, code);
 
-    // 2. Track score in history
+    // Generate calibrated feedback (via callTurnScoring 3D rubric) and next question in parallel
+    const [feedback, nextQuestion] = await Promise.all([
+      this.generateFeedback(context, answer, {
+        code,
+        language,
+        sessionId: ws?._sessionId || context.sessionId || null,
+        userId: session.userId || ws?._userId || null,
+      }),
+      this.generateNextQuestion(context),
+    ]);
+
+    // Calibrated score resolution: use 3D rubric score if finite, else fall back to semantic heuristic
+    const finalScore = Number.isFinite(feedback?.score)
+      ? feedback.score
+      : fallbackEval.score;
+
+    const finalRubric = feedback?.rubric || fallbackEval.rubric;
+    const finalStrengths = Array.isArray(feedback?.strengths) && feedback.strengths.length > 0
+      ? feedback.strengths
+      : fallbackEval.strengths;
+    const finalImprovements = Array.isArray(feedback?.improvements) && feedback.improvements.length > 0
+      ? feedback.improvements
+      : fallbackEval.improvements;
+    const feedbackComment = feedback?.comment || fallbackEval.feedbackSummary;
+
+    // 1. Track calibrated score in history
     context.scoreHistory = context.scoreHistory || [];
-    context.scoreHistory.push({ score: evalResult.score, turn: context.turns });
+    context.scoreHistory.push({ score: finalScore, turn: context.turns });
 
-    // 3. Score trend analysis
+    // 2. Score trend analysis
     const scoreTrend = InterviewScoringService.calculateTrendFromHistory(context.scoreHistory);
 
-    // 4. Adaptive difficulty progression
+    // 3. Adaptive difficulty progression
     const adaptiveDiff = InterviewScoringService.deriveAdaptiveDifficulty(
       context.difficulty,
-      evalResult.score / 10,
+      finalScore / 10,
       context.turns,
       scoreTrend,
       context.experienceLevel
@@ -325,7 +351,7 @@ class RealtimeInterviewService {
       context.difficulty = adaptiveDiff.newDifficulty;
     }
 
-    // 5. Emotional intelligence / Interviewer Mood state transition
+    // 4. Emotional intelligence / Interviewer Mood state transition
     const wordCount = String(answer || '').trim().split(/\s+/).filter(Boolean).length;
     const cumulativeScores = context.scoreHistory.map((entry) => entry.score);
     let consecutiveLowScores = 0;
@@ -334,7 +360,7 @@ class RealtimeInterviewService {
       else break;
     }
     const { nextMood } = computeNextMood(context.moodState || MOODS.NEUTRAL, {
-      score: evalResult.score,
+      score: finalScore,
       wordCount,
       cumulativeScores,
       consecutiveLowScores,
@@ -342,7 +368,7 @@ class RealtimeInterviewService {
     const moodProfile = getMoodProfile(nextMood);
     context.moodState = nextMood;
 
-    // 6. Proportional state machine stage progression
+    // 5. Proportional state machine stage progression
     const nextState = InterviewStateMachineService.advanceState({
       turns: context.turns,
       totalQuestions: context.totalQuestions,
@@ -352,22 +378,15 @@ class RealtimeInterviewService {
     });
     context.stage = nextState.stage;
 
-    // Generate feedback and next question in parallel
-    const [feedback, nextQuestion] = await Promise.all([
-      this.generateFeedback(context, answer),
-      this.generateNextQuestion(context),
-    ]);
-
-    const finalScore = Number.isFinite(feedback?.score) ? Math.round((feedback.score * 0.6) + (evalResult.score * 0.4)) : evalResult.score;
-
-    // Send feedback
+    // Send feedback with calibrated 3D rubric and evidence quote
     ws.send(JSON.stringify({
       type: 'feedback',
-      feedback: feedback?.comment || evalResult.feedbackSummary,
+      feedback: feedbackComment,
       score: finalScore,
-      rubric: evalResult.rubric,
-      strengths: evalResult.strengths,
-      improvements: evalResult.improvements,
+      rubric: finalRubric,
+      strengths: finalStrengths,
+      improvements: finalImprovements,
+      evidenceQuote: feedback?.evidenceQuote || null,
       stage: context.stage,
       difficulty: context.difficulty,
       mood: {
@@ -393,8 +412,9 @@ class RealtimeInterviewService {
 
     context.conversation.push({
       role: 'feedback',
-      content: feedback?.comment || evalResult.feedbackSummary,
-      score: feedback?.score ?? finalScore,
+      content: feedbackComment,
+      score: finalScore,
+      rubric: finalRubric,
       timestamp: Date.now(),
     });
 
@@ -491,54 +511,79 @@ Next question:`;
     }
   }
 
-  async generateFeedback(context, answer) {
-    const groq = await getGroqClient();
-    if (!groq) {
-      return {
-        comment: 'Good answer. Let me ask you a follow-up.',
-        score: 75,
-        strengths: ['Clear communication'],
-        improvements: ['Add more detail'],
-      };
+  async generateFeedback(context, answer, options = {}) {
+    // 1. Resolve previous question from conversation history
+    let previousQuestion = '';
+    if (Array.isArray(context?.conversation)) {
+      for (let i = context.conversation.length - 1; i >= 0; i--) {
+        const item = context.conversation[i];
+        if (item && item.role === 'interviewer') {
+          previousQuestion = item.content;
+          break;
+        }
+      }
+      if (!previousQuestion && context.conversation.length >= 2) {
+        previousQuestion = context.conversation[context.conversation.length - 2]?.content || '';
+      }
     }
+
+    const code = options.code || '';
+    const codeLanguage = options.language || '';
+    const sessionId = options.sessionId || context?.sessionId || null;
+    const userId = options.userId || context?.userId || null;
+    const company = context?.company || 'Tech Company';
+    const role = context?.role || 'Software Engineer';
+    const stage = context?.stage || 'Technical';
+    const difficultyTag = context?.difficulty || 'medium';
+    const questionNumber = context?.turns || 1;
 
     try {
-      const prompt = `Evaluate this interview answer:
-
-Question: ${context.conversation[context.conversation.length - 2]?.content || 'Previous question'}
-Answer: ${answer}
-
-Provide feedback in JSON format:
-{
-  "comment": "brief feedback (1-2 sentences)",
-  "score": number 0-100,
-  "strengths": ["strength1", "strength2"],
-  "improvements": ["improvement1", "improvement2"]
-}`;
-
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 300,
+      const scoringResult = await callTurnScoring({
+        previousQuestion,
+        userAnswer: answer,
+        code,
+        codeLanguage,
+        company,
+        role,
+        stage,
+        questionNumber,
+        difficultyTag,
+        sessionId,
+        userId,
       });
 
-      const raw = completion.choices[0]?.message?.content?.trim() || '';
-      const jsonMatch = raw.match(/\{[\s\S]+\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      if (scoringResult && Number.isFinite(scoringResult.score)) {
+        return {
+          comment: scoringResult.feedback || 'Answer recorded.',
+          score: scoringResult.score,
+          rubric: scoringResult.dimensions || {
+            correctness: 3,
+            depth: 3,
+            communication: 3,
+            rawWeighted: 3.0,
+          },
+          strengths: Array.isArray(scoringResult.strengths) ? scoringResult.strengths : ['Structured response'],
+          improvements: Array.isArray(scoringResult.improvements) ? scoringResult.improvements : [],
+          evidenceQuote: scoringResult.evidenceQuote || null,
+          evalModelUsed: scoringResult.evalModelUsed,
+          evalProvider: scoringResult.evalProvider,
+          isEstimated: Boolean(scoringResult.isEstimated),
+        };
       }
-
-      throw new Error('No JSON in response');
     } catch (err) {
-      console.error('[RealtimeInterview] Feedback error:', err);
-      return {
-        comment: 'Good answer. Let me ask you a follow-up.',
-        score: 75,
-        strengths: ['Clear communication'],
-        improvements: ['Add more detail'],
-      };
+      console.error('[RealtimeInterview] callTurnScoring error:', err);
     }
+
+    // Calibrated fallback using evaluateFresherAnswer semantic scoring
+    const fallback = evaluateFresherAnswer(answer, stage, code);
+    return {
+      comment: fallback.feedbackSummary || 'Good answer. Let me ask you a follow-up.',
+      score: fallback.score ?? 75,
+      rubric: fallback.rubric,
+      strengths: fallback.strengths || ['Clear communication'],
+      improvements: fallback.improvements || ['Add more detail'],
+      isEstimated: true,
+    };
   }
 
   getFallbackQuestion(context) {

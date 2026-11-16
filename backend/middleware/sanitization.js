@@ -188,21 +188,42 @@ function sanitizeObject(obj, allowHTML = false) {
 }
 
 /**
+ * Endpoints that legitimately accept source code or structured syntax
+ * and must not undergo destructive regex replacement (e.g. stripping on\w+= or expression())
+ */
+export const CODE_SUBMISSION_SKIP_PATHS = [
+  '/payment/webhook',
+  '/api/practice/submit',
+  '/api/practice/batch-execute',
+  '/api/dsa/submit',
+  '/api/dsa/run',
+  '/api/code-review',
+  '/practice/submit',
+  '/dsa',
+];
+
+/**
  * Middleware to sanitize request body, query, and params
  */
 export function sanitizeInput(options = {}) {
   const { allowHTML = false, skipPaths = [] } = options;
+  const allSkipPaths = Array.from(new Set([...CODE_SUBMISSION_SKIP_PATHS, ...skipPaths]));
   
   return (req, res, next) => {
     try {
-      // Skip sanitization for specific paths (e.g., webhooks).
-      // Use originalUrl for reliable matching regardless of mount context.
-      if (skipPaths.some(path => req.originalUrl.includes(path))) {
+      const url = (req.originalUrl || req.url || '').split('?')[0];
+
+      // Fully skip sanitization for specific webhook endpoints
+      if (skipPaths.some(path => url.includes(path)) && url.includes('/payment/webhook')) {
         return next();
       }
 
-      // Sanitize body
-      if (req.body && typeof req.body === 'object') {
+      // Check if current route is a code submission endpoint where raw code syntax
+      // (such as onload =, onclick =, expression(), <script>) must not be stripped
+      const isCodeSubmission = allSkipPaths.some(path => url.includes(path));
+
+      // Sanitize body (skip on code submission endpoints to avoid corrupting user code)
+      if (req.body && typeof req.body === 'object' && !isCodeSubmission) {
         req.body = sanitizeObject(req.body, allowHTML);
       }
 

@@ -490,9 +490,9 @@ export async function speechToText(filePath, _preferredProvider = null, options 
     if (providers.groq && groq && filePath) {
         try {
             const resolvedOptions = typeof options === 'string' ? { prompt: options } : (options || {});
-            const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION === 'true' ||
-                                    process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION === 'true' ||
-                                    process.env.FEATURE_STT_CORRECTION === '1';
+            const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION !== 'false' &&
+                                    process.env.FEATURE_STT_CORRECTION !== '0' &&
+                                    process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION !== 'false';
             const effectivePrompt = resolvedOptions.prompt || (isFeatureEnabled ? WHISPER_DOMAIN_VOCABULARY_PROMPT : null);
 
             const res = await _groqWhisperSTT(filePath, { ...resolvedOptions, prompt: effectivePrompt });
@@ -735,6 +735,34 @@ async function openAITTS(text, persona, gender = 'female') {
     return { audio: buffer, contentType: 'audio/mpeg', provider: 'openai', voice };
 }
 
+async function synthesizeEdgeToBuffer(tts, textToSynthesize) {
+    if (typeof tts.streamAudio === 'function') {
+        try {
+            const chunks = [];
+            for await (const chunk of tts.streamAudio(textToSynthesize)) {
+                if (Buffer.isBuffer(chunk)) {
+                    chunks.push(chunk);
+                }
+            }
+            if (chunks.length > 0) {
+                return Buffer.concat(chunks);
+            }
+        } catch (streamErr) {
+            console.warn('[EdgeTTS] In-memory stream failed, trying file fallback:', streamErr.message);
+        }
+    }
+
+    // Disk fallback if streamAudio is not available or failed
+    const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.mp3`);
+    try {
+        await tts.ttsPromise(textToSynthesize, tempFilePath);
+        const buffer = await fs.promises.readFile(tempFilePath);
+        return buffer;
+    } finally {
+        fs.promises.unlink(tempFilePath).catch(() => {});
+    }
+}
+
 async function edgeNeuralTTS(text, persona, gender = 'female') {
     // Premium Azure Neural voices — pinned to en-US-AriaNeural for 100% voice consistency with static clips
     const edgeVoices = {
@@ -775,10 +803,7 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
             outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
         });
         
-        const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.mp3`);
-        await tts.ttsPromise(text, tempFilePath);
-        const buffer = await fs.promises.readFile(tempFilePath);
-        fs.promises.unlink(tempFilePath).catch(() => {});
+        const buffer = await synthesizeEdgeToBuffer(tts, text);
         return { audio: buffer, contentType: 'audio/mpeg', provider: 'edge', voice };
     }
     
@@ -813,11 +838,8 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
             outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
         });
         
-        const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${i}.mp3`);
-        await tts.ttsPromise(sentence, tempFilePath);
-        const buf = await fs.promises.readFile(tempFilePath);
-        fs.promises.unlink(tempFilePath).catch(() => {});
-        return buf.length > 100 ? buf : null;
+        const buf = await synthesizeEdgeToBuffer(tts, sentence);
+        return buf && buf.length > 100 ? buf : null;
     });
 
     const results = await Promise.all(synthesisPromises);
@@ -935,9 +957,9 @@ async function kokoroTTS(text, persona, gender = 'female') {
 async function _groqWhisperSTT(_filePath, options = {}) {
     const safeFilePath = resolveSafeAudioPath(_filePath);
     const resolvedOptions = typeof options === 'string' ? { prompt: options } : (options || {});
-    const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION === 'true' ||
-                            process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION === 'true' ||
-                            process.env.FEATURE_STT_CORRECTION === '1';
+    const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION !== 'false' &&
+                            process.env.FEATURE_STT_CORRECTION !== '0' &&
+                            process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION !== 'false';
     const prompt = resolvedOptions.prompt || (isFeatureEnabled ? WHISPER_DOMAIN_VOCABULARY_PROMPT : null);
 
     const GROQ_WHISPER_TIMEOUT_MS = 15_000; // 15s max for Whisper STT

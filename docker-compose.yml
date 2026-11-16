@@ -39,7 +39,7 @@ services:
       # Local dev: use Docker Redis. Production: use UPSTASH_REDIS_REST_URL instead.
       - REDIS_URL=redis://:devredispassword@redis:6379
     volumes:
-      - ./backend/voices:/app/backend/voices:ro
+      - ./voices:/app/voices:ro
     networks:
       - preploop-network
     healthcheck:

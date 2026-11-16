@@ -10,24 +10,24 @@ RUN npm run build
 # Backend Dockerfile
 FROM node:22-alpine AS backend
 
+# SECURITY: Create non-root user early
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 WORKDIR /app
 # Copy built contracts into workspace
-COPY --from=contracts-build /app/packages/contracts /app/packages/contracts
+COPY --chown=appuser:appgroup --from=contracts-build /app/packages/contracts /app/packages/contracts
 
 WORKDIR /app/backend
 
 # Copy package files
-COPY backend/package*.json ./
+COPY --chown=appuser:appgroup backend/package*.json ./
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
 # Copy backend source
-COPY backend/ ./
+COPY --chown=appuser:appgroup backend/ ./
 
-# SECURITY: Run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN chown -R appuser:appgroup /app
 USER appuser
 
 # Expose port

@@ -35,10 +35,10 @@ jobs:
               - 'backend/package-lock.json'
               - '.github/workflows/ci.yml'
 
-  validate:
-    name: Validate Backend + Frontend
+  backend-checks:
+    name: Backend Checks (Typecheck, Lint, Tests, Boot)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -50,14 +50,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: |
-            package-lock.json
             packages/contracts/package-lock.json
             backend/package-lock.json
-            frontend/package-lock.json
-            mobile/package-lock.json
-
-      - name: Install root dependencies
-        run: npm ci
 
       - name: Install and build contracts
         run: |
@@ -66,13 +60,6 @@ jobs:
 
       - name: Install backend dependencies
         run: npm ci --prefix backend
-
-      - name: Install frontend dependencies
-        run: npm ci --prefix frontend
-
-      - name: Install mobile dependencies
-        if: hashFiles('mobile/package-lock.json') != ''
-        run: npm ci --prefix mobile
 
       - name: Backend type check
         run: npm run type-check --prefix backend
@@ -108,6 +95,35 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
           JWT_SECRET: test-jwt-secret-key-with-32-characters
 
+  frontend-checks:
+    name: Frontend Checks (Lint, Tests, Build, Budget)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            packages/contracts/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install and build contracts
+        run: |
+          npm ci --prefix packages/contracts
+          npm run build --prefix packages/contracts
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Frontend lint
+        run: npm run lint --prefix frontend
+
       - name: Frontend unit & component tests
         timeout-minutes: 10
         run: npm run test:ci --prefix frontend
@@ -115,18 +131,56 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
           CI: "true"
 
+      - name: Frontend build
+        run: npm run build --prefix frontend
+
+      - name: Frontend bundle budget check
+        run: npm run check:bundle --prefix frontend
+
+  mobile-checks:
+    name: Mobile Checks (Tests & Lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        if: hashFiles('mobile/package-lock.json') != ''
+        run: npm ci --prefix mobile
+
       - name: Mobile unit tests
+        if: hashFiles('mobile/package-lock.json') != ''
         run: npm test --prefix mobile
 
       - name: Mobile lint
         if: hashFiles('mobile/node_modules/eslint/bin/eslint.js') != ''
         run: npm run lint --prefix mobile
 
-      - name: Frontend build
-        run: npm run build --prefix frontend
+  security-audit:
+    name: Security & Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
 
-      - name: Frontend bundle budget check
-        run: npm run check:bundle --prefix frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scan for committed secrets
+        run: node scripts/scan-secrets.mjs
 
       - name: Dependency security advisory audit
         run: |
@@ -138,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
-      - validate
+      - backend-checks
       - changes
     if: ${{ needs.changes.outputs.dsa_editor == 'true' }}
 
@@ -212,7 +266,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs:
-      - validate
+      - backend-checks
+      - frontend-checks
 
     steps:
       - name: Checkout
@@ -242,5 +297,3 @@ jobs:
         run: npx playwright test tests/e2e/public-smoke.spec.js tests/e2e/critical-flows.spec.js --project=chromium
         env:
           CI: true
-
-

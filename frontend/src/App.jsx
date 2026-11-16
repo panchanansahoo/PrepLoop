@@ -118,10 +118,23 @@ const TimedPractice = lazyWithRecovery(() => import('./pages/TimedPractice'));
 const LiveCodingCopilot = lazyWithRecovery(() => import('./pages/LiveCodingCopilot'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
+function SkipLink() {
+  return (
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:font-medium focus:rounded-lg focus:shadow-xl focus:outline-none focus:ring-2 focus:ring-white"
+    >
+      Skip to main content
+    </a>
+  );
+}
+
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <RouteLoadingSkeleton />;
-  return user ? children : <Navigate to="/login" replace />;
+  const redirectTarget = encodeURIComponent(location.pathname + location.search);
+  return user ? children : <Navigate to={`/login?redirect=${redirectTarget}`} replace />;
 }
 
 function AdminRoute({ children }) {
@@ -253,7 +266,7 @@ function AppContent() {
 
   return (
     <div className="app-layout">
-      {/* <SkipLink /> */}
+      <SkipLink />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* <OfflineBanner /> */}
       {!isFullScreenRoute && !isCodingAssessmentRoute && (

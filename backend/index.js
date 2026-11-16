@@ -25,6 +25,7 @@ import {
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import { createDistributedRateLimitStore } from './config/rateLimitStore.js';
+import { initializeRedis } from './config/redis.ts';
 import cacheManager from './utils/cacheManager.js';
 import performanceMonitor from './utils/performanceMonitor.js';
 
@@ -254,7 +255,7 @@ async function initializeServer() {
     });
 
     // Input sanitization (skip for webhooks)
-    app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
+    app.use(sanitizeInput({ skipPaths: ['/payment/webhook', '/api/practice/submit', '/api/dsa', '/api/code-review'] }));
 
     // Rate limiting
     app.use('/api/auth', authLimiter);
@@ -513,6 +514,11 @@ startServer(DEFAULT_PORT)
     });
 
     console.log('✅ Graceful shutdown handlers registered');
+
+    // ── Connect Redis for multi-instance distributed rate limiting and caching ──
+    initializeRedis().catch((err) => {
+      console.warn('[startup] Redis initialization warning (falling back to memory):', err.message);
+    });
 
     // ── Eager model preload (fire-and-forget, non-blocking) ──
     cacheManager.connect().catch((err) => {

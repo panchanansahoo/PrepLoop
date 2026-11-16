@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { validateOutboundUrl, isSafeOutboundUrl } from '../../utils/ssrfGuard.js';
+import {
+  validateOutboundUrl,
+  isSafeOutboundUrl,
+  validateOutboundUrlAsync,
+  isSafeOutboundUrlAsync,
+} from '../../utils/ssrfGuard.js';
 
 describe('SSRF Protection Guardrails', () => {
   it('blocks loopback and localhost targets', () => {
@@ -86,5 +91,11 @@ describe('SSRF Protection Guardrails', () => {
       expect(res.parsedUrl).toBeDefined();
     }
   });
-});
 
+  it('asynchronously detects DNS rebinding and private IPs', async () => {
+    const res = await validateOutboundUrlAsync('https://127.0.0.1/webhook');
+    expect(res.safe).toBe(false);
+    expect(await isSafeOutboundUrlAsync('https://169.254.169.254/latest/meta-data/')).toBe(false);
+    expect(await isSafeOutboundUrlAsync('https://10.0.0.1/webhook')).toBe(false);
+  });
+});

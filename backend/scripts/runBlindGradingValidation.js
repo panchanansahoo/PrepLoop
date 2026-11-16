@@ -231,7 +231,7 @@ async function runValidation() {
   console.log('Now evaluating 20 unseen turns with live LLM using dimensional 1-5 evaluation...\n');
 
   const results = [];
-  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
   for (let i = 0; i < UNSEEN_EVAL_TURNS.length; i++) {
     const turn = UNSEEN_EVAL_TURNS[i];

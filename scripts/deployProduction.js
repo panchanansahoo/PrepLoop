@@ -14,6 +14,7 @@
 import fs from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
+import readline from 'readline';
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -448,16 +449,15 @@ ${COLORS.green}${COLORS.bright}Deployment completed successfully!${COLORS.reset}
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  async prompt(question) {
+  prompt(question) {
     return new Promise((resolve) => {
-      const { createInterface } = await import('readline');
-      const readline = createInterface({
+      const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
       });
-      
-      readline.question(question, (answer) => {
-        readline.close();
+
+      rl.question(question, (answer) => {
+        rl.close();
         resolve(answer);
       });
     });

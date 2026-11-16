@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import http from 'http';
 import WebSocket from 'ws';
 import { RealtimeInterviewService } from '../../services/realtimeInterviewService.js';
+import * as llmRouter from '../../services/llmRouter.js';
 import {
   reportCache,
   getCachedReport,
@@ -264,6 +265,153 @@ describe('AI Interview Regression & Verification: Areas #3 and #5', () => {
       const retrieved = getCachedReport('session:expired_cache');
       expect(retrieved).toBeNull();
       expect(reportCache.has('session:expired_cache')).toBe(false);
+    });
+  });
+
+  describe('Area #4 — Calibrated 3D Scoring Harmonization (WebSocket & HTTP Parity)', () => {
+    let service: RealtimeInterviewService;
+
+    beforeEach(() => {
+      service = new RealtimeInterviewService();
+      vi.restoreAllMocks();
+    });
+
+    it('generateFeedback calls callTurnScoring with session parameters and returns calibrated 3D dimensions', async () => {
+      const scoringSpy = vi.spyOn(llmRouter, 'callTurnScoring').mockResolvedValue({
+        score: 86,
+        isEstimated: false,
+        dimensions: { correctness: 4.5, depth: 4.0, communication: 4.5, rawWeighted: 4.33 },
+        evalModelUsed: 'llama-3.3-70b-versatile',
+        evalProvider: 'groq',
+        isFallbackModel: false,
+        isCascadeMidSession: false,
+        evidenceQuote: 'I optimized the query with a composite index',
+        feedback: 'Excellent explanation of database query optimization and indexing strategies.',
+        strengths: ['Accurate indexing terminology', 'Identified composite index advantage'],
+        improvements: ['Mention EXPLAIN ANALYZE execution cost'],
+        interviewerReaction: 'encouraging',
+        latencyMs: 120,
+        mode: 'NORMAL',
+        turnRecorded: true,
+      } as any);
+
+      const context = {
+        company: 'Uber',
+        role: 'Senior Backend Engineer',
+        stage: 'Technical',
+        difficulty: 'hard',
+        turns: 3,
+        conversation: [
+          { role: 'interviewer', content: 'How would you optimize a slow PostgreSQL query?' },
+        ],
+      };
+
+      const result = await service.generateFeedback(context, 'I would inspect execution plan with EXPLAIN, and add composite B-Tree index.', {
+        code: 'CREATE INDEX idx_user_created ON users(user_id, created_at);',
+        language: 'sql',
+        sessionId: 'session_uber_123',
+        userId: 'user_456',
+      });
+
+      expect(scoringSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company: 'Uber',
+          role: 'Senior Backend Engineer',
+          stage: 'Technical',
+          difficultyTag: 'hard',
+          questionNumber: 3,
+          previousQuestion: 'How would you optimize a slow PostgreSQL query?',
+          userAnswer: 'I would inspect execution plan with EXPLAIN, and add composite B-Tree index.',
+          code: 'CREATE INDEX idx_user_created ON users(user_id, created_at);',
+          codeLanguage: 'sql',
+          sessionId: 'session_uber_123',
+          userId: 'user_456',
+        })
+      );
+
+      expect(result.score).toBe(86);
+      expect(result.rubric).toEqual({ correctness: 4.5, depth: 4.0, communication: 4.5, rawWeighted: 4.33 });
+      expect(result.evidenceQuote).toBe('I optimized the query with a composite index');
+      expect(result.comment).toContain('Excellent explanation');
+      expect(result.isEstimated).toBe(false);
+    });
+
+    it('handleAnswer broadcasts calibrated 3D rubric and evidenceQuote in WebSocket feedback message', async () => {
+      const mockWs = { send: vi.fn(), _sessionId: 'ws_session_456', _userId: 'user_789' };
+      const session = {
+        ws: mockWs,
+        userId: 'user_789',
+        context: {
+          company: 'Stripe',
+          role: 'Infrastructure Engineer',
+          stage: 'Technical',
+          difficulty: 'medium',
+          experienceLevel: 'experienced',
+          totalQuestions: 8,
+          questionIndex: 1,
+          turns: 0,
+          scoreHistory: [],
+          moodState: 'neutral',
+          conversation: [
+            { role: 'interviewer', content: 'Explain idempotency in payment APIs.' },
+          ],
+        },
+        state: 'active_question',
+      };
+
+      vi.spyOn(service, 'generateFeedback').mockResolvedValue({
+        comment: 'Accurate definition of idempotency keys with cache deduplication.',
+        score: 88,
+        rubric: { correctness: 4.5, depth: 4.5, communication: 4.0, rawWeighted: 4.43 },
+        strengths: ['Clear definition of idempotency key', 'Covered distributed lock retry safety'],
+        improvements: ['Elaborate on database unique constraint fallback'],
+        evidenceQuote: 'Idempotency keys ensure identical operations produce the same outcome without side-effects.',
+        evalModelUsed: 'llama-3.3-70b-versatile',
+        evalProvider: 'groq',
+        isEstimated: false,
+      });
+      vi.spyOn(service, 'generateNextQuestion').mockResolvedValue('How would you handle concurrent duplicate requests?');
+
+      await service.handleAnswer(session, {
+        answer: 'Idempotency keys ensure identical operations produce the same outcome without side-effects.',
+        code: '',
+        language: '',
+      });
+
+      const sentPayloads = mockWs.send.mock.calls.map(([raw]: [string]) => JSON.parse(raw));
+      const feedbackMsg = sentPayloads.find((p: any) => p.type === 'feedback');
+
+      expect(feedbackMsg).toBeDefined();
+      expect(feedbackMsg.score).toBe(88);
+      expect(feedbackMsg.rubric).toEqual({
+        correctness: 4.5,
+        depth: 4.5,
+        communication: 4.0,
+        rawWeighted: 4.43,
+      });
+      expect(feedbackMsg.evidenceQuote).toBe('Idempotency keys ensure identical operations produce the same outcome without side-effects.');
+      expect(feedbackMsg.feedback).toContain('Accurate definition');
+      expect(session.context.scoreHistory[0].score).toBe(88);
+    });
+
+    it('generateFeedback falls back gracefully to evaluateFresherAnswer when callTurnScoring errors', async () => {
+      vi.spyOn(llmRouter, 'callTurnScoring').mockRejectedValue(new Error('Network timeout'));
+
+      const context = {
+        company: 'Meta',
+        role: 'Frontend Engineer',
+        stage: 'Technical',
+        difficulty: 'medium',
+        turns: 1,
+        conversation: [],
+      };
+
+      const result = await service.generateFeedback(context, 'Virtual DOM reduces direct manipulations of the actual DOM by diffing lightweight trees.');
+
+      expect(result.score).toBeGreaterThanOrEqual(25);
+      expect(result.isEstimated).toBe(true);
+      expect(result.comment).toBeTruthy();
+      expect(result.rubric).toBeDefined();
     });
   });
 });

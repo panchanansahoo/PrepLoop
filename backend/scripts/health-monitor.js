@@ -21,7 +21,12 @@ export async function checkEndpoint(endpoint) {
     });
 
     if (!response.ok) {
-      return { success: false, status: response.status, endpoint: endpoint.name };
+      return {
+        success: false,
+        status: response.status,
+        error: `HTTP ${response.status}: ${response.statusText || 'Request failed'}`,
+        endpoint: endpoint.name,
+      };
     }
 
     return { success: true, endpoint: endpoint.name };

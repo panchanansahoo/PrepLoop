@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { createLogger } from '../utils/structuredLogger.js';
-import { isSafeOutboundUrl } from '../utils/ssrfGuard.js';
+import { isSafeOutboundUrlAsync } from '../utils/ssrfGuard.js';
 import type { WebhookEventType, WebhookSubscription } from '../types/platform.js';
 
 const logger = createLogger('webhook-dispatcher');
@@ -56,7 +56,8 @@ export class WebhookDispatcher {
     eventType: WebhookEventType | string,
     payload: Record<string, unknown>
   ): Promise<DeliveryResult> {
-    if (!isSafeOutboundUrl(sub.url)) {
+    const isSafe = await isSafeOutboundUrlAsync(sub.url);
+    if (!isSafe) {
       logger.warn('SSRF defense blocked dispatch to unsafe webhook URL', { subId: sub.id, url: sub.url });
       return { success: false, error: 'Target webhook URL blocked by SSRF defense policy' };
     }
@@ -83,6 +84,7 @@ export class WebhookDispatcher {
           'User-Agent': 'PrepLoop-Webhook/1.0',
         },
         body: rawBody,
+        redirect: 'manual', // Prevent SSRF via 301/302 redirects to internal/metadata endpoints
         signal: AbortSignal.timeout(5000),
       });
 
@@ -115,4 +117,3 @@ export class WebhookDispatcher {
     }
   }
 }
-
