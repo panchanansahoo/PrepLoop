@@ -42,7 +42,7 @@ export class HrAuthService {
       id: user.id,
       fullName: user.full_name || user.fullName,
       email: user.email,
-      role: 'hr',
+      role: user.role || 'hr',
       ...(user.company ? { company: user.company } : {}),
       ...(user.designation ? { designation: user.designation } : {}),
       ...(user.experience_years !== undefined || user.experience !== undefined
@@ -108,7 +108,7 @@ export class HrAuthService {
     }
   }
 
-  async register({ fullName, email, password, company, designation, experience }) {
+  async register({ fullName, email, password, company, designation, experience, inviteCode }) {
     if (!fullName || !email || !password) {
       const err = new Error('Full name, email, and password are required');
       err.statusCode = 400;
@@ -169,16 +169,34 @@ export class HrAuthService {
       throw err;
     }
 
+    // SECURITY: Enforce HR invite secret or administrator approval gate to prevent privilege escalation
+    const configuredSecret = process.env.HR_INVITE_SECRET;
+    let assignedRole = 'hr';
+    let isPending = false;
+
+    if (configuredSecret) {
+      if (inviteCode && inviteCode === configuredSecret) {
+        assignedRole = 'hr';
+      } else {
+        assignedRole = 'hr_pending';
+        isPending = true;
+      }
+    } else if (process.env.NODE_ENV === 'production' || process.env.HR_REQUIRE_APPROVAL === 'true') {
+      assignedRole = 'hr_pending';
+      isPending = true;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const result = await this.pool.query(
       `INSERT INTO users (full_name, email, password, role, company, designation, experience_years, created_at)
-       VALUES ($1, $2, $3, 'hr', $4, $5, $6, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING id, full_name, email, role, company, designation, experience_years`,
       [
         trimmedFullName,
         trimmedEmail,
         hashedPassword,
+        assignedRole,
         trimmedCompany,
         trimmedDesignation,
         experience ? Number(experience) : null,
@@ -187,7 +205,7 @@ export class HrAuthService {
 
     const user = result.rows[0];
 
-    // Optional Supabase profile synchronization
+    // Optional Supabase profile synchronization (only elevate to 'hr' if fully verified)
     try {
       if (supabaseAdmin?.from) {
         await supabaseAdmin
@@ -196,13 +214,21 @@ export class HrAuthService {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
-            role: 'hr',
+            role: isPending ? 'user' : 'hr',
             updated_at: new Date().toISOString(),
           })
           .catch(() => {});
       }
     } catch (_sbErr) {
       // Non-blocking sync
+    }
+
+    if (isPending) {
+      return {
+        pendingApproval: true,
+        message: 'HR account registered. Awaiting administrator approval before HR access is activated.',
+        user: this.toPublicUser(user),
+      };
     }
 
     const token = this.issueToken({ ...user, fullName: user.full_name });
@@ -223,7 +249,7 @@ export class HrAuthService {
     const result = await this.pool.query(
       `SELECT id, full_name, email, password, role, company, designation, experience_years
        FROM users
-       WHERE email = $1 AND role = 'hr'`,
+       WHERE email = $1 AND role IN ('hr', 'hr_pending')`,
       [trimmedEmail]
     );
 
@@ -235,6 +261,12 @@ export class HrAuthService {
     }
 
     const user = result.rows[0];
+    if (user.role === 'hr_pending') {
+      const err = new Error('Your HR account is pending administrator approval.');
+      err.statusCode = 403;
+      err.code = 'HR_PENDING_APPROVAL';
+      throw err;
+    }
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       const err = new Error('Invalid HR credentials');

@@ -241,7 +241,7 @@ export default function CodingAssessmentPage() {
         const saved = window.localStorage.getItem('preploop_assessment_cam_pos');
         if (saved) return JSON.parse(saved);
       }
-    } catch {}
+    } catch { }
     return { preset: 'top-right', x: null, y: null };
   });
   const isCamDraggingRef = useRef(false);
@@ -292,7 +292,7 @@ export default function CodingAssessmentPage() {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('preploop_assessment_cam_pos', JSON.stringify(nextPos));
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const camStyle = useMemo(() => {
@@ -387,7 +387,7 @@ export default function CodingAssessmentPage() {
               if (typeof window !== 'undefined' && window.localStorage && current.preset === 'custom') {
                 window.localStorage.setItem('preploop_assessment_cam_pos', JSON.stringify(current));
               }
-            } catch {}
+            } catch { }
             return current;
           });
         }

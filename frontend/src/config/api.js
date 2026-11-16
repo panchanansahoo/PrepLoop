@@ -14,7 +14,8 @@ function resolveApiUrl() {
       hostname === 'preploop.me' ||
       hostname === 'www.preploop.me' ||
       hostname.endsWith('.preploop.me') ||
-      hostname.endsWith('.vercel.app')
+      hostname === 'preploop.vercel.app' ||
+      (hostname.startsWith('preploop') && hostname.endsWith('.vercel.app'))
     ) {
       return '';
     }

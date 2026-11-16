@@ -154,7 +154,8 @@ DROP POLICY IF EXISTS weekly_contests_read_policy ON weekly_contests;
 CREATE POLICY weekly_contests_read_policy
   ON weekly_contests
   FOR SELECT
-  USING (true);
+  TO authenticated, anon
+  USING (starts_at <= NOW());
 
 CREATE TABLE IF NOT EXISTS weekly_contest_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -182,8 +183,5 @@ CREATE POLICY weekly_contest_submissions_read_policy
   FOR SELECT
   USING (true);
 
+-- Client write policy removed: contest submissions are graded and recorded strictly server-side by backend APIs
 DROP POLICY IF EXISTS weekly_contest_submissions_write_policy ON weekly_contest_submissions;
-CREATE POLICY weekly_contest_submissions_write_policy
-  ON weekly_contest_submissions
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);

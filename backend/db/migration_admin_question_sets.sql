@@ -240,17 +240,19 @@ END $$;
 -- ─── admin_interview_attempts policies ────────────────────────────
 DO $$
 BEGIN
+  DROP POLICY IF EXISTS "Participants manage own interview attempts" ON admin_interview_attempts;
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'admin_interview_attempts'
-      AND policyname = 'Participants manage own interview attempts'
+      AND policyname = 'Candidates manage own interview attempts'
   ) THEN
-    CREATE POLICY "Participants manage own interview attempts"
+    CREATE POLICY "Candidates manage own interview attempts"
       ON admin_interview_attempts
       FOR ALL
-      USING (auth.uid() = user_id OR user_id IS NULL)
-      WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+      TO authenticated
+      USING (auth.uid() = user_id AND user_id IS NOT NULL)
+      WITH CHECK (auth.uid() = user_id AND user_id IS NOT NULL);
   END IF;
 END $$;
 

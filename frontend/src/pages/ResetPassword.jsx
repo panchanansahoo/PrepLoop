@@ -223,6 +223,15 @@ export default function ResetPassword() {
         const refreshToken = hashParams.get('refresh_token');
         const code = searchParams.get('code');
 
+        // Immediately scrub sensitive recovery tokens from URL address bar and history
+        if (typeof window !== 'undefined' && (accessToken || refreshToken || code || hash || search)) {
+            try {
+                window.history.replaceState(null, '', window.location.pathname);
+            } catch {
+                // Ignore if history API unavailable
+            }
+        }
+
         if (accessToken) {
             setResetAccessToken(accessToken);
             setReady(true);

@@ -13,7 +13,7 @@ const router = express.Router();
 // HR Registration
 router.post('/register', hrRegisterLimiter, async (req, res) => {
   try {
-    const { fullName, email, password, company, designation, experience } = req.body;
+    const { fullName, email, password, company, designation, experience, inviteCode } = req.body;
     const result = await hrAuthService.register({
       fullName,
       email,
@@ -21,7 +21,16 @@ router.post('/register', hrRegisterLimiter, async (req, res) => {
       company,
       designation,
       experience,
+      inviteCode,
     });
+
+    if (result.pendingApproval) {
+      return res.status(202).json({
+        message: result.message,
+        pendingApproval: true,
+        user: result.user,
+      });
+    }
 
     res.status(201).json({
       message: 'HR account created successfully',

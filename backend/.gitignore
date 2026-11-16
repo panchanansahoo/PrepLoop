@@ -2,3 +2,14 @@
 voices/
 
 backend-deploy.zip
+
+# Env and secrets
+.env
+.env.*
+.env*.local
+!.env.example
+*.pem
+*.key
+*.pfx
+*.cert
+*.crt

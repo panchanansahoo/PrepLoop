@@ -207,6 +207,8 @@ export function generateAvailableSlotWindows(startDate = new Date(), daysAhead =
   return slots;
 }
 
+const VALID_FEEDBACK_TOKEN_REGEX = /^[a-zA-Z0-9_-]{5,128}$/;
+
 // ─── GET /feedback-portal/:token (Public with Rate Limiter) ───
 router.get(['/feedback-portal/:token', '/feedback-portal'], customInterviewLimiter, async (req, res) => {
   try {
@@ -217,6 +219,9 @@ router.get(['/feedback-portal/:token', '/feedback-portal'], customInterviewLimit
     const token = rawToken.trim();
     if (!token) {
       return res.status(400).json({ error: 'Feedback report token is required' });
+    }
+    if (!VALID_FEEDBACK_TOKEN_REGEX.test(token)) {
+      return res.status(400).json({ error: 'Invalid feedback report token format' });
     }
 
     // Check mock/testing tokens
@@ -258,12 +263,12 @@ router.get(['/feedback-portal/:token', '/feedback-portal'], customInterviewLimit
     let submission = null;
     let questionSet = null;
 
-    // 1. Direct query by attempt_id or id in admin_interview_submissions
+    // 1. Direct query strictly by attempt_id (disallowing sequential ID lookups to prevent BOLA/IDOR)
     try {
       const { data: subData } = await supabaseAdmin
         .from('admin_interview_submissions')
         .select('*')
-        .or(`attempt_id.eq.${token},id.eq.${token}`)
+        .eq('attempt_id', token)
         .maybeSingle();
 
       if (subData) {
@@ -335,6 +340,9 @@ router.get('/feedback-portal/schedule/:token', customInterviewLimiter, async (re
       return res.status(400).json({ error: 'Invite token is required' });
     }
     const token = rawToken.trim();
+    if (!token || !VALID_FEEDBACK_TOKEN_REGEX.test(token)) {
+      return res.status(400).json({ error: 'Invalid invite token format' });
+    }
 
     let questionSetTitle = 'AI Technical Interview';
     let durationMinutes = 45;
@@ -411,8 +419,12 @@ router.post('/feedback-portal/schedule/:token/book', customInterviewLimiter, (re
     const rawToken = req.params.token;
     const { slotTimestamp, candidateTimezone = 'UTC' } = req.body || {};
 
-    if (!rawToken) {
+    if (!rawToken || typeof rawToken !== 'string') {
       return res.status(400).json({ error: 'Invite token is required' });
+    }
+    const token = rawToken.trim();
+    if (!token || !VALID_FEEDBACK_TOKEN_REGEX.test(token)) {
+      return res.status(400).json({ error: 'Invalid invite token format' });
     }
     if (!slotTimestamp) {
       return res.status(400).json({ error: 'Selected slot timestamp is required' });
@@ -427,7 +439,6 @@ router.post('/feedback-portal/schedule/:token/book', customInterviewLimiter, (re
       return res.status(400).json({ error: 'Cannot book a slot in the past' });
     }
 
-    const token = rawToken.trim();
     const joinUrl = `https://preploop.com/ai-interview?token=${token}`;
     const icsContent = generateCalendarIcs({
       title: 'Confirmed AI Technical Interview - PrepLoop',

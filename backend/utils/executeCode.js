@@ -51,6 +51,60 @@ const SANDBOX_ENV = Object.freeze({
     NODE_OPTIONS: '--no-warnings',
 });
 
+// SECURITY: Static pattern analysis to detect and reject dangerous system calls,
+// process execution, file exfiltration, and socket operations before compilation/execution.
+export const DANGEROUS_PATTERNS_BY_LANG = {
+    python: [
+        /\b(?:import\s+(?:os|subprocess|pty|shlex|shutil|ctypes|socket|urllib|requests|http(?:\.client)?|pathlib|winreg|multiprocessing|asyncio\.subprocess))\b/i,
+        /\b(?:from\s+(?:os|subprocess|pty|shlex|shutil|ctypes|socket|urllib|requests|http(?:\.client)?|pathlib|winreg|multiprocessing)\s+import)\b/i,
+        /\b__import__\s*\(/i,
+        /\b(?:eval|exec)\s*\(/i,
+        /\bopen\s*\([^)]*['"][rwa]/i,
+        /\bgetattr\s*\(\s*__builtins__/i,
+        /\b__subclasses__\b/i,
+        /\bos\.(?:system|popen|spawn|exec|remove|unlink|rmdir|mkdir|rename|chmod|chown)/i,
+    ],
+    javascript: [
+        /\b(?:require\s*\(|import\s*\(|import\s+.*?from\s*)\s*['"](?:child_process|fs|fs\/promises|net|http|https|tls|dgram|dns|cluster|worker_threads|process|v8|vm)['"]/i,
+        /\bprocess\.(?:exit|kill|binding|mainModule|abort)\b/i,
+        /\bchild_process\b/i,
+        /\b(?:eval|Function)\s*\(/i,
+    ],
+    c: [
+        /#\s*include\s*[<"](?:sys\/|unistd\.h|windows\.h|winsock|process\.h|direct\.h|io\.h)/i,
+        /\b(?:system|popen|fork|vfork|clone|exec[lvp]*e?|kill|socket|connect|remove|unlink)\s*\(/i,
+    ],
+    cpp: [
+        /#\s*include\s*[<"](?:sys\/|unistd\.h|windows\.h|winsock|process\.h|direct\.h|io\.h)/i,
+        /\b(?:system|popen|fork|vfork|clone|exec[lvp]*e?|kill|socket|connect|remove|unlink)\s*\(/i,
+    ],
+    java: [
+        /\b(?:Runtime\s*\.\s*getRuntime\s*\(\s*\)|ProcessBuilder|System\s*\.\s*(?:exit|load|loadLibrary))/i,
+        /\bjava\.(?:lang\.reflect|net|nio\.file)\b/i,
+    ],
+    go: [
+        /"(?:os\/exec|syscall|unsafe|net|net\/http)"/i,
+    ],
+    rust: [
+        /\b(?:std::process|std::net|Command::new|libc::)\b/i,
+    ],
+};
+
+export function detectDangerousCode(code, language) {
+    if (!code || typeof code !== 'string') return null;
+    const lang = normalizeLanguage(language);
+    const normalized = lang === 'typescript' ? 'javascript' : lang;
+    const patterns = DANGEROUS_PATTERNS_BY_LANG[normalized];
+    if (!patterns) return null;
+
+    for (const pattern of patterns) {
+        if (pattern.test(code)) {
+            return `Security violation: forbidden system call or module detected in submission.`;
+        }
+    }
+    return null;
+}
+
 const SANDBOX_MAX_BUFFER = 5 * 1024 * 1024; // 5MB max output
 
 export const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -535,6 +589,19 @@ export async function executeCode(code, language, input = '') {
             success: false, output: '',
             error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java, go, rust, sql.`,
             executionTime: 0, compileTime: 0, runTime: 0,
+        };
+    }
+
+    // SECURITY: Reject forbidden system calls, OS exec, network sockets, or unsafe modules
+    const dangerousViolation = detectDangerousCode(code, normalizedLanguage);
+    if (dangerousViolation) {
+        return {
+            success: false,
+            output: '',
+            error: dangerousViolation,
+            executionTime: 0,
+            compileTime: 0,
+            runTime: 0,
         };
     }
 

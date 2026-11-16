@@ -31,7 +31,9 @@ backend/dist/
 # Env variables
 .env
 .env.*
+.env*.local
 !.env.example
+!.env.*.example
 
 # Python
 __pycache__/
@@ -105,5 +107,14 @@ backend/backend_pid.txt
 # Stakpak session files
 .stakpak/session*
 
-# Secrets and Config
+# Secrets, Certificates and Config
 appsettings.json
+*.pem
+*.key
+*.pfx
+*.cert
+*.crt
+*.p8
+*.p12
+*.keystore
+*.jks

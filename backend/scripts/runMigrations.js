@@ -81,13 +81,15 @@ async function runMigrations() {
     await client.connect();
     console.log('✅ Connected successfully.\n');
 
-    // Create migrations history table if not exists
+    // Create migrations history table if not exists with RLS enabled
     await client.query(`
       CREATE TABLE IF NOT EXISTS public._schema_migrations (
         id SERIAL PRIMARY KEY,
         migration_name VARCHAR(255) UNIQUE NOT NULL,
         applied_at TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE public._schema_migrations ENABLE ROW LEVEL SECURITY;
+      REVOKE ALL ON public._schema_migrations FROM PUBLIC, anon, authenticated;
     `);
 
     // Fetch applied migrations

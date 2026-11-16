@@ -69,21 +69,23 @@ ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
 RUN npm run build
 
-# Frontend production stage with nginx
-FROM nginx:alpine AS frontend
+# Frontend production stage with nginx (unprivileged non-root user)
+FROM nginxinc/nginx-unprivileged:alpine AS frontend
 
 # Copy nginx config
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 
 # Copy built frontend
-COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
+COPY --chown=nginx:nginx --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 
-# Expose port
-EXPOSE 80
+USER nginx
+
+# Expose unprivileged port
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

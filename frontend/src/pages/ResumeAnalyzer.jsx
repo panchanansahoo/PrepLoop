@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
@@ -538,8 +539,25 @@ export default function ResumeAnalyzer() {
     // Remove contenteditable attributes for print
     clone.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
     clone.querySelectorAll('[data-edit-hover]').forEach(e => e.removeAttribute('data-edit-hover'));
+    
+    const rawTitle = String(generatedResume?.fullName || 'Resume')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    const sanitizedBody = DOMPurify.sanitize(clone.innerHTML, {
+      USE_PROFILES: { html: true }
+    });
+
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>${generatedResume?.fullName || 'Resume'}</title>
+    if (!w) return;
+    try {
+      w.opener = null;
+    } catch {
+      // ignore
+    }
+    w.document.write(`<!DOCTYPE html><html><head><title>${rawTitle}</title>
       <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Times New Roman',Times,Georgia,serif;color:#000;line-height:1.35;padding:36px 48px;max-width:820px;margin:0 auto;font-size:11pt}
@@ -559,7 +577,7 @@ export default function ResumeAnalyzer() {
         li{font-size:10pt;margin:2px 0;line-height:1.4}
         @media print{body{padding:24px 36px}@page{margin:0.5in}}
       </style>
-    </head><body>${clone.innerHTML}</body></html>`);
+    </head><body>${sanitizedBody}</body></html>`);
     w.document.close();
     setTimeout(() => { w.print(); }, 300);
   };

@@ -251,8 +251,10 @@ export default function SQLEditorScreen({ route, navigation }) {
                             ref={webViewRef}
                             source={{ uri: htmlContent }}
                             style={styles.webview}
-                            originWhitelist={["*"]}
-                            allowFileAccess={true}
+                            originWhitelist={["file://*", "https://unpkg.com"]}
+                            allowFileAccess={false}
+                            allowFileAccessFromFileURLs={false}
+                            allowUniversalAccessFromFileURLs={false}
                             onMessage={onMessage}
                             bounces={false}
                             scrollEnabled={false}

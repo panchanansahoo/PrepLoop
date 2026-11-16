@@ -17,6 +17,7 @@ import { executeCode, buildTestWrapper, parseTestResults } from '../utils/execut
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { generateMissingTestCases } from '../services/aiService.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { codeExecutionLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 const logger = createLogger('practice-routes');
@@ -1066,7 +1067,7 @@ router.post('/run', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/execute', optionalAuth, async (req, res) => {
+router.post('/execute', authenticateToken, codeExecutionLimiter, async (req, res) => {
   const { code, language, input = '', schemaId } = req.body;
 
   if (!language || typeof language !== 'string') {
@@ -1512,7 +1513,7 @@ router.post('/timed-session', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/execute-batch', optionalAuth, async (req, res) => {
+router.post('/execute-batch', authenticateToken, codeExecutionLimiter, async (req, res) => {
   const { code, language, inputs } = req.body;
   if (!code || !language || !Array.isArray(inputs)) {
     return res.status(400).json({ error: 'Missing required fields or inputs is not an array' });

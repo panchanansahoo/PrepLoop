@@ -269,8 +269,13 @@ DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (
+    auth.uid() = id
+    AND role = (SELECT p.role FROM public.profiles p WHERE p.id = auth.uid())
+  );
 DROP POLICY IF EXISTS "Users can view own progress" ON user_progress;
 DROP POLICY IF EXISTS "Users can view own progress" ON user_progress;
 CREATE POLICY "Users can view own progress" ON user_progress FOR SELECT USING (auth.uid() = user_id);
@@ -575,6 +580,34 @@ CREATE POLICY "Admins can update all profiles" ON profiles FOR UPDATE
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- Security: Revoke direct column updates on role, coins, email_verified from non-admin/client roles
+REVOKE UPDATE (role, coins, email_verified) ON public.profiles FROM authenticated, anon, PUBLIC;
+
+-- Security: Prevent unauthorized escalation via trigger
+CREATE OR REPLACE FUNCTION public.protect_sensitive_profile_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF NEW.role IS DISTINCT FROM OLD.role THEN
+      RAISE EXCEPTION 'Security violation: Users cannot modify their own role.';
+    END IF;
+    IF NEW.coins IS DISTINCT FROM OLD.coins THEN
+      RAISE EXCEPTION 'Security violation: Users cannot directly modify their coins balance.';
+    END IF;
+    IF NEW.email_verified IS DISTINCT FROM OLD.email_verified THEN
+      RAISE EXCEPTION 'Security violation: Users cannot directly modify their email verification status.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_sensitive_profile_columns ON public.profiles;
+CREATE TRIGGER trg_protect_sensitive_profile_columns
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_sensitive_profile_columns();
 
 -- Admin policies for other tables
 DO $$ BEGIN
@@ -967,6 +1000,9 @@ BEGIN
   RETURN QUERY SELECT TRUE, current_balance, NULL::TEXT;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT) TO service_role;
 
 
 -- ==========================================
@@ -1404,6 +1440,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.coin_apply_transaction(UUID, INTEGER, TEXT, TEXT, TEXT) TO service_role;
+
 
 -- ==========================================
 -- File: migration_community_likes.sql
@@ -1835,7 +1874,8 @@ CREATE INDEX IF NOT EXISTS idx_interview_analytics_user_id ON interview_analytic
 CREATE INDEX IF NOT EXISTS idx_feedback_history_interview_id ON feedback_history(interview_id);
 
 -- Create view for user dashboard statistics
-CREATE OR REPLACE VIEW user_interview_stats AS
+CREATE OR REPLACE VIEW user_interview_stats
+WITH (security_invoker = true) AS
 SELECT 
   mi.user_id,
   COUNT(mi.id) as total_interviews,
@@ -1846,6 +1886,33 @@ SELECT
   MAX(mi.completed_at) as last_interview_date
 FROM mock_interviews mi
 GROUP BY mi.user_id;
+
+REVOKE ALL ON public.user_interview_stats FROM anon;
+GRANT SELECT ON public.user_interview_stats TO authenticated;
+
+-- RLS for interview notes, recommendations, analytics, and feedback history
+ALTER TABLE interview_notes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage own interview notes" ON interview_notes;
+CREATE POLICY "Users can manage own interview notes" ON interview_notes
+  FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+ALTER TABLE learning_recommendations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own learning recommendations" ON learning_recommendations;
+CREATE POLICY "Users can view own learning recommendations" ON learning_recommendations
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own learning recommendations" ON learning_recommendations;
+CREATE POLICY "Users can update own learning recommendations" ON learning_recommendations
+  FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+ALTER TABLE interview_analytics ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own interview analytics" ON interview_analytics;
+CREATE POLICY "Users can view own interview analytics" ON interview_analytics
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+ALTER TABLE feedback_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own feedback history" ON feedback_history;
+CREATE POLICY "Users can view own feedback history" ON feedback_history
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
 
 -- ==========================================
@@ -2829,6 +2896,12 @@ CREATE INDEX IF NOT EXISTS idx_quiz_attempts_topic_attempted
 
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_attempted_at
   ON quiz_attempts(attempted_at DESC);
+
+ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own quiz attempts" ON quiz_attempts;
+CREATE POLICY "Users can view own quiz attempts" ON quiz_attempts
+  FOR SELECT TO authenticated USING (auth.uid() = user_id);
+-- Client insert disallowed: quiz scores are computed and inserted server-side
 
 
 -- ==========================================

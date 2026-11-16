@@ -897,8 +897,11 @@ router.get('/question-sets', async (req, res) => {
       .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, scheduled_at, scheduled_duration_minutes, created_at, updated_at', { count: 'exact' });
 
     if (search && typeof search === 'string' && search.trim()) {
-      const term = search.trim();
-      query = query.or(`title.ilike.%${term}%,interview_type.ilike.%${term}%`);
+      // SECURITY: Sanitize PostgREST filter injection characters (, . : () " ' % _ \)
+      const sanitizedTerm = search.trim().replace(/[,.():;"'%_\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
+      if (sanitizedTerm) {
+        query = query.or(`title.ilike.%${sanitizedTerm}%,interview_type.ilike.%${sanitizedTerm}%`);
+      }
     }
 
     const { data, count, error } = await query

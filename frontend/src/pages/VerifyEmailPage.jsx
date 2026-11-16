@@ -37,6 +37,13 @@ export default function VerifyEmailPage() {
 
       setEmail(emailParam);
 
+      // Scrub token from address bar to prevent leakage in referrer / history / analytics
+      if (typeof window !== 'undefined' && token) {
+        try {
+          window.history.replaceState(null, '', window.location.pathname);
+        } catch {}
+      }
+
       try {
         const response = await authFetch(
           buildApiUrl('/auth/verify-email', { rawBaseUrl: API_URL, apiPrefix: '/api' }),

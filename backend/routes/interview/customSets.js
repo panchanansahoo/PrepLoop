@@ -42,6 +42,35 @@ async function findQuestionSetByCodeOrInvite(code) {
   return { data: qsData, singleUseInvite: null };
 }
 
+/**
+ * SECURITY: Sanitize question set settings for public candidate endpoints.
+ * Whitelists candidate-facing display settings while stripping confidential admin configuration
+ * such as webhookSecret, webhookUrl, candidateInvites (other candidates' emails & tokens), etc.
+ */
+export function sanitizePublicCandidateSettings(settings) {
+  if (!settings || typeof settings !== 'object') return {};
+  const safeKeys = [
+    'companyName',
+    'roleName',
+    'scheduledAt',
+    'scheduledDurationMinutes',
+    'instructions',
+    'probingMode',
+    'allowRetries',
+    'timeLimitMinutes',
+    'evaluationCriteria',
+    'voiceEnabled',
+    'feedbackReleasePolicy',
+  ];
+  const safe = {};
+  for (const key of safeKeys) {
+    if (settings[key] !== undefined) {
+      safe[key] = settings[key];
+    }
+  }
+  return safe;
+}
+
 // ─── Get Question Set by Share Code (Public — no auth required) ───
 router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (req, res) => {
   try {
@@ -102,7 +131,7 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
           : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
         questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
         questions: [],
-        settings: data.settings || {},
+        settings: sanitizePublicCandidateSettings(data.settings),
         shareCode: data.share_code,
         token: code,
         isSingleUseInvite: Boolean(singleUseInvite),
@@ -176,7 +205,7 @@ router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, re
           : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
         questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
         questions: [],
-        settings: data.settings || {},
+        settings: sanitizePublicCandidateSettings(data.settings),
         shareCode: data.share_code,
         token: code,
         isSingleUseInvite: Boolean(singleUseInvite),

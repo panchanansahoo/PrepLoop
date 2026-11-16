@@ -35,7 +35,6 @@ const IGNORED_DIRS = new Set([
 ]);
 
 const IGNORED_FILES = new Set([
-  'appsettings.json',
   'package-lock.json',
 ]);
 

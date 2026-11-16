@@ -34,13 +34,5 @@ DO $$ BEGIN
   END IF;
 END $$;
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'quiz_attempts' AND policyname = 'Users can insert own quiz attempts'
-  ) THEN
-    CREATE POLICY "Users can insert own quiz attempts"
-      ON quiz_attempts
-      FOR INSERT
-      WITH CHECK (auth.uid() = user_id);
-  END IF;
-END $$;
+-- Client write policy removed: quiz scores must be validated and recorded server-side by backend APIs
+DROP POLICY IF EXISTS "Users can insert own quiz attempts" ON quiz_attempts;

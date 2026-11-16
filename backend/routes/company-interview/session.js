@@ -1180,7 +1180,10 @@ router.get('/sessions/:id', optionalAuth, async (req, res) => {
   if (!userId) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  const rawId = String(req.params.id || '');
+  const rawId = String(req.params.id || '').trim();
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(rawId)) {
+    return res.status(400).json({ error: 'Invalid session ID format' });
+  }
   const cleanId = rawId.replace(/^(interview_session_|mock_interview_)/, '');
 
   try {
@@ -1189,8 +1192,10 @@ router.get('/sessions/:id', optionalAuth, async (req, res) => {
     let query = supabaseAdmin.from('interview_sessions').select('*').eq('user_id', userId);
     if (isUuid) {
       query = query.eq('id', cleanId);
+    } else if (cleanId === rawId) {
+      query = query.eq('session_id', cleanId);
     } else {
-      query = query.or(`session_id.eq.${cleanId},session_id.eq.${rawId}`);
+      query = query.in('session_id', [cleanId, rawId]);
     }
 
     const { data, error } = await query.maybeSingle();

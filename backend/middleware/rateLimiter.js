@@ -117,3 +117,13 @@ export const hrRegisterLimiter = rateLimit({
     message: { error: 'Too many HR registration attempts. Please try again later.' },
     keyGenerator: (req) => req.ip,
 });
+
+/** Code execution: 30 requests per minute per IP / authenticated user */
+export const codeExecutionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: Number.parseInt(process.env.CODE_EXECUTION_RATE_LIMIT_MAX || (process.env.NODE_ENV === 'test' ? '1000' : '30'), 10),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many code execution requests. Please wait a minute before running code again.' },
+    keyGenerator: (req) => req.user?.id || req.ip,
+});

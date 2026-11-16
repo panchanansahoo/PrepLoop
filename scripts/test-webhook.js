@@ -1,7 +1,11 @@
 import crypto from 'crypto';
 
 async function testWebhook() {
-  const secret = '10042001@Sb';
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('RAZORPAY_WEBHOOK_SECRET environment variable is required to run test-webhook.');
+    process.exit(1);
+  }
   const payload = {
     event: 'payment.captured',
     payload: {

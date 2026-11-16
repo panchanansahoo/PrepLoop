@@ -3,6 +3,61 @@
  * Comprehensive analytics tracking and experimentation platform
  */
 
+const SENSITIVE_PARAM_NAMES = new Set([
+  'token',
+  'access_token',
+  'refreshtoken',
+  'refresh_token',
+  'code',
+  'key',
+  'secret',
+  'password',
+  'auth',
+  'authorization',
+]);
+
+function sanitizeUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  try {
+    const parsed = new URL(rawUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    for (const key of Array.from(parsed.searchParams.keys())) {
+      const lower = key.toLowerCase();
+      if (SENSITIVE_PARAM_NAMES.has(lower) || lower.includes('token') || lower.includes('secret') || lower.includes('key')) {
+        parsed.searchParams.set(key, '[REDACTED]');
+      }
+    }
+    if (parsed.hash) {
+      const hashLower = parsed.hash.toLowerCase();
+      if (hashLower.includes('token') || hashLower.includes('secret') || hashLower.includes('code')) {
+        parsed.hash = '#[REDACTED]';
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return rawUrl.split('?')[0].split('#')[0];
+  }
+}
+
+function sanitizeProperties(props) {
+  if (!props || typeof props !== 'object') return {};
+  const sanitized = { ...props };
+  for (const [key, value] of Object.entries(sanitized)) {
+    const lower = key.toLowerCase();
+    if (
+      SENSITIVE_PARAM_NAMES.has(lower) ||
+      lower.includes('token') ||
+      lower.includes('password') ||
+      lower.includes('secret') ||
+      lower.includes('credential')
+    ) {
+      sanitized[key] = '[REDACTED]';
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      sanitized[key] = sanitizeProperties(value);
+    }
+  }
+  return sanitized;
+}
+
 class AnalyticsService {
   constructor() {
     this.events = [];
@@ -31,14 +86,18 @@ class AnalyticsService {
    * Track custom event
    */
   track(eventName, properties = {}) {
+    const sanitizedProps = sanitizeProperties(properties);
+    const sanitizedUserProps = sanitizeProperties(this.userProperties);
+    const safeUrl = sanitizeUrl(typeof window !== 'undefined' ? window.location.href : null);
+
     const event = {
       name: eventName,
       properties: {
-        ...properties,
-        ...this.userProperties,
+        ...sanitizedProps,
+        ...sanitizedUserProps,
         sessionId: this.sessionId,
         timestamp: new Date().toISOString(),
-        url: typeof window !== 'undefined' ? window.location.href : null,
+        url: safeUrl,
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       },
     };
