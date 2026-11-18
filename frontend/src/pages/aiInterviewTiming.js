@@ -66,19 +66,37 @@ const TYPE_REACTIONS = {
     },
 };
 
-export function getInterviewerReaction(score, interviewType = null, difficulty = null) {
-    const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
+export function getInterviewerReaction(score, type = null, difficulty = null) {
+    const normalizedType = String(type || '').toLowerCase().replace('system_design', 'system-design');
     const typeReactions = TYPE_REACTIONS[normalizedType];
 
-    const normDiff = String(difficulty || '').toLowerCase().trim();
-    let highThreshold = 80;
+    const rawDiff = typeof difficulty === 'object' && difficulty !== null
+        ? (difficulty.level || difficulty.difficulty || difficulty.difficultyLevel || '')
+        : difficulty;
+    const normDiff = String(rawDiff || '').toLowerCase().trim();
+
+    // Thresholds default to medium (>= 78) when difficulty is omitted or medium
+    let highThreshold = 78;
     let midThreshold = 60;
+
     if (normDiff === 'easy') {
         highThreshold = 65;
         midThreshold = 48;
-    } else if (normDiff === 'hard' || normDiff === 'staff_architectural') {
+    } else if (
+        normDiff === 'hard' ||
+        normDiff === 'staff' ||
+        normDiff === 'staff_architectural' ||
+        normDiff === 'staff-architectural' ||
+        normDiff === 'staff architectural' ||
+        normDiff === 'hard/staff' ||
+        normDiff === 'hard_staff'
+    ) {
         highThreshold = 82;
         midThreshold = 62;
+    } else {
+        // 'medium' or default fallback
+        highThreshold = 78;
+        midThreshold = 60;
     }
 
     if (typeReactions) {
@@ -166,15 +184,99 @@ function stableJitter(str) {
     return Math.abs(hash % 1000) / 1000;           // 0.000 – 0.999
 }
 
+// ── Structure & Filler Words Heuristics for Communication ─────────
+export const FILLER_WORDS_REGEX = /\b(?:um|uh|uhh|umm|er|like|you know|i mean|basically|actually|sort of|kind of)\b/gi;
+
+export function countFillerWords(text = '') {
+    if (!text || typeof text !== 'string') return 0;
+    const matches = text.match(FILLER_WORDS_REGEX);
+    return matches ? matches.length : 0;
+}
+
+export function detectStructureBonus(text = '') {
+    if (!text || typeof text !== 'string') return 0;
+    const lower = text.toLowerCase();
+    let bonus = 0;
+
+    // STAR method: explicit STAR mention or combination of components
+    const hasExplicitStar = /\bstar\s+(?:method|framework|approach|format|technique)\b/i.test(text);
+    const starComponents = [
+        /\b(?:situation|context|background)\b/i.test(lower),
+        /\b(?:task|goal|objective|challenge)\b/i.test(lower),
+        /\b(?:action|implemented|executed|built|developed|initiated|resolved)\b/i.test(lower),
+        /\b(?:result|outcome|impact|achieved|improved|delivered)\b/i.test(lower),
+    ].filter(Boolean).length;
+
+    if (hasExplicitStar || starComponents >= 3) {
+        bonus = Math.max(bonus, 2);
+    } else if (starComponents === 2) {
+        bonus = Math.max(bonus, 1);
+    }
+
+    // Sequential structure: first/second/finally enumeration
+    const hasFirst = /\b(?:first|firstly|to start|initially)\b/i.test(lower);
+    const hasSecond = /\b(?:second|secondly|next|then|furthermore)\b/i.test(lower);
+    const hasFinally = /\b(?:finally|lastly|in conclusion|to summarize|in summary)\b/i.test(lower);
+
+    if (hasFirst && (hasSecond || hasFinally)) {
+        const sequentialBonus = (hasFirst && hasSecond && hasFinally) ? 2 : 1.5;
+        bonus = Math.max(bonus, sequentialBonus);
+    }
+
+    return Math.min(2.5, bonus);
+}
+
+export function detectFillerPenalty(text = '') {
+    if (!text || typeof text !== 'string') return 0;
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 0;
+    const fillers = countFillerWords(text);
+    const fillerRatio = fillers / words.length;
+
+    if (fillers >= 6 || (words.length >= 10 && fillerRatio > 0.12)) {
+        return 2;
+    }
+    if (fillers >= 3 || (words.length >= 10 && fillerRatio > 0.06)) {
+        return 1;
+    }
+    return 0;
+}
+
 /**
  * Compute deterministic communication score (0–10).
- * Factors: average response length, number of responses vs questions asked.
+ * Factors: average response length, number of responses vs questions asked,
+ * structure bonus (STAR, first/second/finally), and excessive filler word penalty.
  */
-export function communicationScore(avgResponseLength, userMsgCount, questionCount) {
-    const lengthPart = Math.min(3, (avgResponseLength / 50) * 3);
-    const engagementPart = Math.min(4, (userMsgCount / Math.max(questionCount, 1)) * 4);
-    const jitter = stableJitter(`comm-${avgResponseLength}-${userMsgCount}`) * 1.5;
-    return Math.min(10, Math.round(lengthPart + engagementPart + jitter));
+export function communicationScore(avgResponseLength, userMsgCount, questionCount, textOrOptions = null) {
+    let length = avgResponseLength;
+    let msgCount = userMsgCount;
+    let qCount = questionCount;
+    let text = '';
+
+    if (typeof avgResponseLength === 'object' && avgResponseLength !== null) {
+        const options = avgResponseLength;
+        length = options.avgResponseLength ?? 0;
+        msgCount = options.userMsgCount ?? 0;
+        qCount = options.questionCount ?? 1;
+        text = options.text || options.transcript || (Array.isArray(options.answers) ? options.answers.join(' ') : '');
+    } else if (typeof textOrOptions === 'string') {
+        text = textOrOptions;
+    } else if (Array.isArray(textOrOptions)) {
+        text = textOrOptions.join(' ');
+    } else if (textOrOptions && typeof textOrOptions === 'object') {
+        const options = textOrOptions;
+        text = options.text || options.transcript || (Array.isArray(options.answers) ? options.answers.join(' ') : '');
+    }
+
+    const lengthPart = Math.min(3, (Number(length || 0) / 50) * 3);
+    const engagementPart = Math.min(4, (Number(msgCount || 0) / Math.max(Number(qCount || 1), 1)) * 4);
+    const jitter = stableJitter(`comm-${length}-${msgCount}`) * 1.5;
+    const baseScore = lengthPart + engagementPart + jitter;
+
+    const structureBonus = detectStructureBonus(text);
+    const fillerPenalty = detectFillerPenalty(text);
+
+    return Math.max(0, Math.min(10, Math.round(baseScore + structureBonus - fillerPenalty)));
 }
 
 /**
@@ -255,9 +357,30 @@ const LOW_TRANSITIONS = [
     "Okay, let me ask you about this differently."
 ];
 
-export function getConversationalTransition(score = 70, stage = 'Technical', questionIndex = 1) {
+export function getConversationalTransition(score = 70, stage = 'Technical', questionIndex = 1, sessionOrOptions = null) {
     const list = score >= 80 ? HIGH_TRANSITIONS : (score >= 60 ? MID_TRANSITIONS : LOW_TRANSITIONS);
-    const index = Math.abs(questionIndex + Math.round(score)) % list.length;
+    let sessionOffset = 0;
+    if (typeof sessionOrOptions === 'number' && Number.isFinite(sessionOrOptions)) {
+        sessionOffset = Math.abs(Math.floor(sessionOrOptions));
+    } else if (typeof sessionOrOptions === 'string' && sessionOrOptions.length > 0) {
+        let hash = 0;
+        for (let i = 0; i < sessionOrOptions.length; i++) {
+            hash = ((hash << 5) - hash + sessionOrOptions.charCodeAt(i)) | 0;
+        }
+        sessionOffset = Math.abs(hash);
+    } else if (sessionOrOptions && typeof sessionOrOptions === 'object') {
+        const rawSeed = sessionOrOptions.sessionId || sessionOrOptions.sessionSeed || sessionOrOptions.id;
+        if (typeof rawSeed === 'number' && Number.isFinite(rawSeed)) {
+            sessionOffset = Math.abs(Math.floor(rawSeed));
+        } else if (typeof rawSeed === 'string' && rawSeed.length > 0) {
+            let hash = 0;
+            for (let i = 0; i < rawSeed.length; i++) {
+                hash = ((hash << 5) - hash + rawSeed.charCodeAt(i)) | 0;
+            }
+            sessionOffset = Math.abs(hash);
+        }
+    }
+    const index = Math.abs(questionIndex + Math.round(score) + sessionOffset) % list.length;
     return list[index];
 }
 
@@ -298,6 +421,112 @@ export const PACING_MODES = {
 
 export function getModeConfig(mode = 'realistic') {
     return PACING_MODES[mode] || PACING_MODES.realistic;
+}
+
+// ── P0-A Answer Classification Heuristics ───────────────────────────
+export const DONT_KNOW_REGEX = /\b(?:i\s*(?:don'?t|do\s*not)(?:\s+(?:really|actually|quite))?\s*know|not\s+(?:sure|quite\s+sure|certain|familiar)|no\s+idea|haven'?t\s+used|don'?t\s+remember|do\s*not\s+remember|can'?t\s+recall|cannot\s+recall|do\s*not\s+recall|don'?t\s+recall|no\s+clue|haven'?t\s+(?:implemented|worked)|have\s+not\s+(?:implemented|worked)|not\s+(?:very\s+)?familiar|blanking\s+on|drawing\s+a\s+blank|look\s+that\s+up|haven'?t\s+encountered|pass\s+on\s+this|not\s+sure\s+how\s+to\s+approach|skip\s+this\s+question)\b/i;
+
+export const CLARIFICATION_REGEX = /^(?:could\s+you|can\s+you|can\s+we|are\s+we|should\s+this|does\s+the|can\s+it|do\s+you\s+mean|what\s+do\s+you\s+mean|would\s+you|repeat|please\s+clarify|could\s+you\s+repeat|could\s+you\s+explain|what\s+are\s+the\s+constraints|what\s+is\s+the\s+expected\s+input|can\s+i\s+assume|should\s+i\s+assume)\b/i;
+
+export const OFF_TOPIC_REGEX = /\b(?:hiking|crypto|bitcoin|ethereum|laptop\s+battery|professor\s+was|vacation|weather|order\s+pizza|sports\s+score)\b/i;
+
+/**
+ * Classifies candidate answers into distinct turn routing categories:
+ * - 'skipped'
+ * - 'timed_out'
+ * - 'stuck_silence'
+ * - 'code_only'
+ * - 'clarification'
+ * - 'dont_know'
+ * - 'off_topic'
+ * - 'repeated'
+ * - 'strong_complete'
+ * - 'wrong'
+ * - 'partial' (accurate fallback, not blind default)
+ */
+export function classifyCandidateAnswer(answerText = '', options = {}) {
+    const {
+        code = '',
+        meta = {},
+        isAutoSkip = false,
+        previousAnswers = [],
+    } = options;
+
+    if (meta?.answerType) {
+        return meta.answerType;
+    }
+
+    if (meta?.submissionType === 'voluntary_skip' || (isAutoSkip && meta?.reason === 'user_skipped')) {
+        return 'skipped';
+    }
+
+    const trimmedText = String(answerText || '').trim();
+    const trimmedCode = String(code || '').trim();
+
+    if (meta?.submissionType === 'timeout_empty' || (isAutoSkip && !trimmedText && meta?.reason === 'silence_timeout')) {
+        return 'stuck_silence';
+    }
+
+    if (meta?.submissionType === 'timeout_partial' || meta?.answerType === 'timed_out') {
+        return 'timed_out';
+    }
+
+    const isDefaultNoResponse = !trimmedText ||
+        trimmedText === 'I do not have a response to this question.' ||
+        trimmedText === '[Code submitted]';
+
+    if (isDefaultNoResponse && trimmedCode.length > 0) {
+        return 'code_only';
+    }
+
+    if (isDefaultNoResponse) {
+        return isAutoSkip ? 'stuck_silence' : 'partial';
+    }
+
+    // Clarification question
+    if (CLARIFICATION_REGEX.test(trimmedText) || (trimmedText.endsWith('?') && /\b(clarify|repeat|constraints?|rephrase|mean by)\b/i.test(trimmedText))) {
+        return 'clarification';
+    }
+
+    // Don't know / surrender / pass
+    if (DONT_KNOW_REGEX.test(trimmedText)) {
+        return 'dont_know';
+    }
+
+    // Off-topic response
+    if (OFF_TOPIC_REGEX.test(trimmedText)) {
+        return 'off_topic';
+    }
+
+    // Explicit wrong marking in meta
+    if (meta?.isWrong === true) {
+        return 'wrong';
+    }
+
+    // Repeated answer detection
+    const lower = trimmedText.toLowerCase();
+    if (Array.isArray(previousAnswers) && previousAnswers.length > 0) {
+        const isRepeated = previousAnswers.some(prev => {
+            if (!prev || typeof prev !== 'string') return false;
+            const prevLower = prev.trim().toLowerCase();
+            return prevLower.length > 15 && (prevLower === lower || (lower.length > 25 && prevLower.includes(lower)) || (prevLower.length > 25 && lower.includes(prevLower)));
+        });
+        if (isRepeated || /\b(?:as\s+i\s+(?:already\s+)?(?:said|mentioned)|like\s+i\s+said\s+before|i\s+already\s+answered)\b/i.test(lower)) {
+            return 'repeated';
+        }
+    }
+
+    // Substantive complete answer with depth, trade-offs, or structure
+    const words = trimmedText.split(/\s+/).filter(Boolean);
+    const hasTechnicalKeywords = TECHNICAL_KEYWORDS.some(kw => lower.includes(kw));
+    const hasTradeOffs = /\b(trade-off|tradeoff|complexity|O\([1nlog\s]+\)|in terms of space|in terms of time|bottleneck|scalab|edge case)\b/i.test(trimmedText);
+    const hasStructure = /\b(first(?:ly)?|second(?:ly)?|finally|situation|task|action|result)\b/i.test(trimmedText);
+
+    if (words.length >= 35 || (words.length >= 12 && (hasTradeOffs || hasStructure || hasTechnicalKeywords) && (trimmedCode.length > 0 || hasTradeOffs))) {
+        return 'strong_complete';
+    }
+
+    return 'partial';
 }
 
 // ── Turn Routing Decision Engine ───────────────────────────────────

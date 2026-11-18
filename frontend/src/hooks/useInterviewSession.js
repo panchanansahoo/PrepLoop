@@ -14,6 +14,8 @@ import {
   logInterviewTelemetry,
   recordTurnEvent,
   PACING_MODES,
+  classifyCandidateAnswer,
+  decideNextTurnAction,
 } from "../pages/aiInterviewTiming";
 import {
   playTurnChime,
@@ -31,6 +33,7 @@ import {
   formatTime,
 } from "../pages/aiInterviewConfig";
 import { CODE_DELIMITER_MARKER } from "../pages/aiInterviewRuntime";
+import { getMoodProsody } from "../pages/aiInterviewVoiceUtils";
 import { correctSttTechnicalTerms, stripFillersForLlm, respellForTts } from "../utils/technicalPronunciation";
 
 export const INTERVIEW_LIFECYCLE = {
@@ -365,6 +368,7 @@ export function useInterviewSession(options = {}) {
   const currentTurnIdRef = useRef(0);
   const latestCompletedScoreRef = useRef(null);
   const completedScoresRef = useRef([]);
+  const rollingScoresRef = useRef([]);
   const totalTurnsCountRef = useRef(0);
   const resumedTurnsCountRef = useRef(0);
   const sttEndedAtRef = useRef(0);
@@ -844,7 +848,9 @@ export function useInterviewSession(options = {}) {
       // but do NOT start lip-sync/speaking video yet — that waits for actual audio playback.
       setInterviewerStatus("Preparing response...");
       try {
+        const prosody = getMoodProsody(interviewerMood);
         await voiceAI.speak(text, {
+          prosody,
           onStart: () => {
             // Audio is actually playing now — start lip-sync + speaking video
             setInterviewerStatus("");
@@ -857,7 +863,7 @@ export function useInterviewSession(options = {}) {
         setInterviewerStatus("");
       }
     },
-    [voiceAI, speakerMuted, realisticJitter],
+    [voiceAI, speakerMuted, realisticJitter, interviewerMood],
   );
 
   const speakSequenceCancelledRef = useRef(false);
@@ -2446,6 +2452,61 @@ export function useInterviewSession(options = {}) {
     }
   };
 
+  const fetchNextQuestion = useCallback(
+    async (options = {}) => {
+      try {
+        const resolvedStage = STAGE_API_MAP[interviewType] || "Technical";
+        const resolvedType = options.type || interviewType || "technical";
+        const resolvedDifficulty = options.difficulty || (experienceLevel === "fresher" ? "easy" : "medium");
+        const candidateResponses = options.previousResponses || conversation
+          .filter((m) => m.role === "candidate")
+          .map((m) => ({
+            question: m.question,
+            answer: m.cleanContent || m.content,
+          }));
+        const scores = options.previousScores || (rollingScoresRef.current.length > 0 ? rollingScoresRef.current : completedScoresRef.current) || [];
+
+        const payload = {
+          type: resolvedType,
+          difficulty: resolvedDifficulty,
+          previousResponses: candidateResponses,
+          previousScores: scores,
+          stage: resolvedStage,
+          ...options,
+        };
+
+        let res = await authFetch("/api/interview/next-question", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          res = await authFetch("/api/ai/interview/next-question", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }).catch(() => null);
+        }
+
+        if (!res || !res.ok) {
+          res = await authFetch("/api/ai/interview/v2/next-question", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          }).catch(() => null);
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          return data?.question || data;
+        }
+        return null;
+      } catch (err) {
+        console.warn("[Interview] /next-question API request error:", err);
+        return null;
+      }
+    },
+    [interviewType, experienceLevel, conversation],
+  );
+
   const sendAnswer = async (isAutoSkip = false, answerOverride = null, meta = {}) => {
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -2460,6 +2521,10 @@ export function useInterviewSession(options = {}) {
           const prevEvalRes = await pendingEvalPromiseRef.current;
           if (prevEvalRes && typeof prevEvalRes.score === "number") {
             latestCompletedScoreRef.current = prevEvalRes.score;
+            if (!rollingScoresRef.current.includes(prevEvalRes.score)) {
+              rollingScoresRef.current.push(prevEvalRes.score);
+              if (rollingScoresRef.current.length > 10) rollingScoresRef.current.shift();
+            }
           }
         } catch (err) {
           console.warn("[Interview] Prior eval settled with error:", err);
@@ -2572,6 +2637,40 @@ export function useInterviewSession(options = {}) {
       const resolvedCompany = targetCompany || "Google";
       const resolvedRole = targetRole || "Software Engineer";
 
+      // P0-A Answer Classification: before calling decideNextTurnAction, classify candidate answers accurately
+      const candidateAnswersHistory = conversation
+        .filter((m) => m.role === "candidate")
+        .map((m) => m.cleanContent || m.content);
+
+      const classifiedAnswerType = classifyCandidateAnswer(rawAnswer, {
+        code: currentCode,
+        meta,
+        isAutoSkip,
+        previousAnswers: candidateAnswersHistory,
+      });
+
+      const isLastQ = questionIndexRef.current >= totalQuestions;
+      const tradeOffsCovered = Boolean(
+        meta?.tradeOffsCovered ||
+        /\b(trade-offs?|tradeoffs?|space\s+complexity|time\s+complexity|O\([1nlog\s]+\))\b/i.test(rawAnswer)
+      );
+      const nextTurnDecision = decideNextTurnAction({
+        topicFollowUpCount: topicFollowUpCountRef.current,
+        answerType: classifiedAnswerType,
+        isLastQuestion: isLastQ,
+        tradeOffsCovered,
+      });
+
+      logInterviewTelemetry("turn_routing_decision", {
+        questionIndex: questionIndexRef.current,
+        answerType: classifiedAnswerType,
+        action: nextTurnDecision.action,
+        topicFollowUpCount: topicFollowUpCountRef.current,
+        nextTopicFollowUpCount: nextTurnDecision.nextTopicFollowUpCount,
+        needsRedirect: nextTurnDecision.needsRedirect,
+        neutralReaction: nextTurnDecision.neutralReaction,
+      });
+
       const technicalFollowUpFallbacks =
         experienceLevel === "fresher"
           ? [
@@ -2611,6 +2710,10 @@ export function useInterviewSession(options = {}) {
           questionNumber: questionIndexRef.current + 1,
           totalQuestions,
           topicFollowUpCount: topicFollowUpCountRef.current,
+          answerType: classifiedAnswerType,
+          nextAction: nextTurnDecision.action,
+          needsRedirect: nextTurnDecision.needsRedirect,
+          neutralReaction: nextTurnDecision.neutralReaction,
           company: resolvedCompany,
           role: resolvedRole,
           stage: resolvedStage,
@@ -2634,6 +2737,7 @@ export function useInterviewSession(options = {}) {
           wasRescued: wasRescuedRef.current,
           rescueCount: rescueCountRef.current,
           cumulativeScores: conversation.filter((m) => m.role === 'feedback' && typeof m.score === 'number').map((m) => m.score),
+          previousScores: rollingScoresRef.current,
           whiteboardSnapshot: whiteboardSnapshot || undefined,
         };
 
@@ -2646,6 +2750,7 @@ export function useInterviewSession(options = {}) {
 
         followUpPayload.lastScore = latestCompletedScoreRef.current;
         followUpPayload.cumulativeScores = completedScoresRef.current;
+        followUpPayload.previousScores = rollingScoresRef.current;
 
         let data = null;
         const finalAnswerTrimmed = (fullAnswer || "").trim();
@@ -2760,6 +2865,8 @@ export function useInterviewSession(options = {}) {
             if (evalData && typeof evalData.score === "number" && !evalData.isEstimated) {
               latestCompletedScoreRef.current = evalData.score;
               completedScoresRef.current.push(evalData.score);
+              rollingScoresRef.current.push(evalData.score);
+              if (rollingScoresRef.current.length > 10) rollingScoresRef.current.shift();
             }
             if (!speakSequenceCancelledRef.current) {
               setConversation((prev) => [
@@ -2801,10 +2908,14 @@ export function useInterviewSession(options = {}) {
           data.followUpQuestion || data.nextQuestion || data.question;
         const closingRemark = data.closingRemark;
         const reachedQuestionLimit = questionIndexRef.current >= totalQuestions;
-        const isInterviewOver = data.complete === true || reachedQuestionLimit;
+        const isInterviewOver = data.complete === true || nextTurnDecision.action === 'complete' || reachedQuestionLimit;
 
         // Micro-coaching toast update (Phase 5B)
         if (feedbackScore !== undefined) {
+          if (typeof feedbackScore === "number" && feedbackScore > 0 && !rollingScoresRef.current.includes(feedbackScore)) {
+            rollingScoresRef.current.push(feedbackScore);
+            if (rollingScoresRef.current.length > 10) rollingScoresRef.current.shift();
+          }
           const scoreBand = feedbackScore >= 85 ? { level: 'strong', text: 'Strong Answer', color: 'green' }
             : feedbackScore >= 70 ? { level: 'good', text: 'Good Response', color: 'yellow' }
             : feedbackScore >= 55 ? { level: 'fair', text: 'Fair Attempt', color: 'orange' }
@@ -2939,7 +3050,8 @@ export function useInterviewSession(options = {}) {
           setTimeout(() => endInterview(), 1500);
         } else {
           let finalMicroToSpeak = microToSpeak;
-          const isNeutralTurn = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'off_topic';
+          const effectiveAnswerType = data?.answerType || classifiedAnswerType;
+          const isNeutralTurn = nextTurnDecision.neutralReaction || effectiveAnswerType === 'wrong' || effectiveAnswerType === 'dont_know' || effectiveAnswerType === 'off_topic';
           if (isNeutralTurn) {
             setInterviewerStatus("Noted");
             const neutralReactions = [
@@ -2991,7 +3103,7 @@ export function useInterviewSession(options = {}) {
           }
 
           // Soften delivery for hard moments (Part B Section 4)
-          const isHardMoment = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'stuck_silence' || feedbackScore < 55;
+          const isHardMoment = effectiveAnswerType === 'wrong' || effectiveAnswerType === 'dont_know' || effectiveAnswerType === 'stuck_silence' || feedbackScore < 55;
           const interPhrasePauseMs = isHardMoment ? 650 : 450;
 
           // Voice consistency (Item 2): Determine voice source
@@ -3018,10 +3130,12 @@ export function useInterviewSession(options = {}) {
             return;
           }
 
-          if (
+          if (nextTurnDecision.action === 'follow_up' && typeof nextTurnDecision.nextTopicFollowUpCount === 'number') {
+            topicFollowUpCountRef.current = nextTurnDecision.nextTopicFollowUpCount;
+          } else if (
             data?.nextAction === 'follow_up' ||
             (topicFollowUpCountRef.current < 2 &&
-              (data?.answerType === 'partial' || data?.answerType === 'strong_complete'))
+              (effectiveAnswerType === 'partial' || effectiveAnswerType === 'strong_complete'))
           ) {
             topicFollowUpCountRef.current += 1;
           } else {
@@ -3039,7 +3153,7 @@ export function useInterviewSession(options = {}) {
               content: continueQ,
               turnId,
               timestamp: Date.now(),
-              answerType: data?.answerType,
+              answerType: effectiveAnswerType,
               quoteVerified: Boolean(data?.quoteVerified),
               evidenceQuote: data?.evidenceQuote || '',
               voiceSource,
@@ -3050,7 +3164,8 @@ export function useInterviewSession(options = {}) {
 
           logInterviewTelemetry("spoken_turn_telemetry", {
             turnIndex: questionIndexRef.current,
-            answerType: data?.answerType,
+            answerType: effectiveAnswerType,
+            turnAction: nextTurnDecision.action,
             quoteVerified: Boolean(data?.quoteVerified),
             evidenceQuote: data?.evidenceQuote || '',
             voiceSource,
@@ -3111,7 +3226,8 @@ export function useInterviewSession(options = {}) {
           await speakInterviewerText(closingFallback);
           setTimeout(() => endInterview(), 1500);
         } else {
-          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndexRef.current);
+          const sessionSeed = customAttemptIdRef.current || saveIdempotencyKeyRef.current || checkpointKeyRef.current || questionSetCode;
+          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndexRef.current, sessionSeed);
           const spokenFallback = transitionPhrase ? `${transitionPhrase} ${fallbackQ}` : fallbackQ;
           await voiceAI.prefetch(spokenFallback);
           setLoading(false);
@@ -3767,6 +3883,7 @@ export function useInterviewSession(options = {}) {
       tabSwitchCount: tabSwitchCountRef.current,
       pasteCount: pasteCountRef.current,
       proctoringSnapshots: proctoringSnapshotsRef.current,
+      rollingScores: rollingScoresRef.current,
     },
     refs: {
       voiceHookRef,
@@ -3781,6 +3898,7 @@ export function useInterviewSession(options = {}) {
       pasteCountRef,
       proctoringSnapshotsRef,
       questionIndexRef,
+      rollingScoresRef,
       timerRef,
       questionTimerRef,
       pauseStartRef,
@@ -3794,6 +3912,7 @@ export function useInterviewSession(options = {}) {
       videoRef,
     },
     actions: {
+      fetchNextQuestion,
       setPhase,
       setInterviewType,
       setRealtimeMode,
@@ -3903,4 +4022,5 @@ export function useInterviewSession(options = {}) {
   };
 }
 
+export { classifyCandidateAnswer };
 export default useInterviewSession;

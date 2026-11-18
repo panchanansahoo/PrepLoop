@@ -7,7 +7,9 @@ import crypto from 'crypto';
 import { verifySupabaseToken } from '../middleware/auth.ts';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { InterviewScoringService } from './interviewScoringService.ts';
-import { computeNextMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
+import InterviewMoodEngine, { computeNextMood, transitionMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
+import InterviewFollowUpRulesService from './interviewFollowUpRulesService.js';
+import { InterviewPromptService } from './interviewPromptService.js';
 import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
 import { callTurnScoring } from './llmRouter.js';
 
@@ -69,30 +71,78 @@ class RealtimeInterviewService {
         if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
         this.disconnectedSessions.delete(sessionId);
 
-        this.sessions.set(sessionId, {
+        if (saved.context) {
+          saved.context.turns = saved.context.turns || 0;
+          saved.context.scoreHistory = saved.context.scoreHistory || [];
+          saved.context.consecutiveLowScores = saved.context.consecutiveLowScores || 0;
+          saved.context.consecutiveHighScores = saved.context.consecutiveHighScores || 0;
+          saved.context.currentDifficulty = saved.context.currentDifficulty || saved.context.difficulty || 'medium';
+          saved.context.difficulty = saved.context.currentDifficulty;
+          saved.context.mood = saved.context.mood || saved.context.moodState || MOODS.NEUTRAL;
+          saved.context.moodState = saved.context.mood;
+          saved.context.rubricHistory = Array.isArray(saved.context.rubricHistory) ? saved.context.rubricHistory : [];
+          saved.context.usedProblemIds = Array.isArray(saved.context.usedProblemIds) ? saved.context.usedProblemIds : [];
+        }
+
+        const restoredSession = {
           ws,
           userId,
           context: saved.context,
           state: saved.state || 'idle',
-        });
+          turns: saved.context?.turns || 0,
+          scoreHistory: saved.context?.scoreHistory || [],
+          consecutiveLowScores: saved.context?.consecutiveLowScores || 0,
+          consecutiveHighScores: saved.context?.consecutiveHighScores || 0,
+          currentDifficulty: saved.context?.currentDifficulty || 'medium',
+          mood: saved.context?.mood || MOODS.NEUTRAL,
+          moodState: saved.context?.moodState || MOODS.NEUTRAL,
+          rubricHistory: saved.context?.rubricHistory || [],
+          usedProblemIds: saved.context?.usedProblemIds || [],
+        };
+        this.sessions.set(sessionId, restoredSession);
         resumed = true;
         console.log(`[RealtimeInterview] Resumed session: ${sessionId}`);
       } else {
         sessionId = sessionId || this.generateSessionId();
         console.log(`[RealtimeInterview] New connection: ${sessionId}`);
 
+        const newContext = {
+          conversation: [],
+          questionIndex: 0,
+          company: 'General',
+          role: 'Software Engineer',
+          stage: 'intake',
+          interviewType: 'dsa',
+          difficulty: 'medium',
+          currentDifficulty: 'medium',
+          turns: 0,
+          scoreHistory: [],
+          consecutiveLowScores: 0,
+          consecutiveHighScores: 0,
+          mood: MOODS.NEUTRAL,
+          moodState: MOODS.NEUTRAL,
+          rubricHistory: [],
+          usedProblemIds: [],
+          problemStatement: '',
+          problemRequirements: [],
+          tags: [],
+        };
+
         // Initialize session
         this.sessions.set(sessionId, {
           ws,
           userId,
-          context: {
-            conversation: [],
-            questionIndex: 0,
-            company: 'General',
-            role: 'Software Engineer',
-            stage: 'Technical',
-          },
+          context: newContext,
           state: 'idle',
+          turns: 0,
+          scoreHistory: [],
+          consecutiveLowScores: 0,
+          consecutiveHighScores: 0,
+          currentDifficulty: 'medium',
+          mood: MOODS.NEUTRAL,
+          moodState: MOODS.NEUTRAL,
+          rubricHistory: [],
+          usedProblemIds: [],
         });
       }
 
@@ -219,11 +269,34 @@ class RealtimeInterviewService {
 
       this.sessions.delete(currentSessionId);
       session.ws._sessionId = resumeId;
+
+      if (saved.context) {
+        saved.context.turns = saved.context.turns || 0;
+        saved.context.scoreHistory = saved.context.scoreHistory || [];
+        saved.context.consecutiveLowScores = saved.context.consecutiveLowScores || 0;
+        saved.context.consecutiveHighScores = saved.context.consecutiveHighScores || 0;
+        saved.context.currentDifficulty = saved.context.currentDifficulty || saved.context.difficulty || 'medium';
+        saved.context.difficulty = saved.context.currentDifficulty;
+        saved.context.mood = saved.context.mood || saved.context.moodState || MOODS.NEUTRAL;
+        saved.context.moodState = saved.context.mood;
+        saved.context.rubricHistory = Array.isArray(saved.context.rubricHistory) ? saved.context.rubricHistory : [];
+        saved.context.usedProblemIds = Array.isArray(saved.context.usedProblemIds) ? saved.context.usedProblemIds : [];
+      }
+
       this.sessions.set(resumeId, {
         ws: session.ws,
         userId: session.userId || saved.userId,
         context: saved.context,
         state: saved.state || 'idle',
+        turns: saved.context?.turns || 0,
+        scoreHistory: saved.context?.scoreHistory || [],
+        consecutiveLowScores: saved.context?.consecutiveLowScores || 0,
+        consecutiveHighScores: saved.context?.consecutiveHighScores || 0,
+        currentDifficulty: saved.context?.currentDifficulty || 'medium',
+        mood: saved.context?.mood || MOODS.NEUTRAL,
+        moodState: saved.context?.moodState || MOODS.NEUTRAL,
+        rubricHistory: saved.context?.rubricHistory || [],
+        usedProblemIds: saved.context?.usedProblemIds || [],
       });
 
       session.ws.send(JSON.stringify({
@@ -244,34 +317,85 @@ class RealtimeInterviewService {
 
   async handleStart(session, message) {
     const { ws, context } = session;
-    const { company, role, stage, experienceLevel, interviewType, difficulty, totalQuestions } = message;
+    const {
+      company,
+      role,
+      stage,
+      experienceLevel,
+      interviewType,
+      difficulty,
+      totalQuestions,
+      problemStatement,
+      problemRequirements,
+      tags,
+      usedProblemIds: rawUsedProblemIds,
+    } = message;
+    const initialDifficulty = difficulty || 'medium';
+    const usedProblemIds = (Array.isArray(rawUsedProblemIds) ? rawUsedProblemIds : (context.usedProblemIds || [])).map(String).filter(Boolean);
 
     // Update context
     Object.assign(context, {
+      conversation: context.conversation || [],
+      questionIndex: 0,
       company: company || 'General',
       role: role || 'Software Engineer',
       stage: stage || 'intake',
       experienceLevel: experienceLevel || 'fresher',
       interviewType: interviewType || 'dsa',
-      difficulty: difficulty || 'medium',
+      difficulty: initialDifficulty,
+      currentDifficulty: initialDifficulty,
       totalQuestions: Number(totalQuestions) || 10,
       turns: 0,
       topicFollowUpCount: 0,
       scoreHistory: [],
+      consecutiveLowScores: 0,
+      consecutiveHighScores: 0,
+      mood: MOODS.NEUTRAL,
       moodState: MOODS.NEUTRAL,
+      rubricHistory: [],
+      usedProblemIds,
+      problemStatement: problemStatement || '',
+      problemRequirements: Array.isArray(problemRequirements) ? problemRequirements : [],
+      tags: Array.isArray(tags) ? tags : [],
     });
+
+    session.turns = 0;
+    session.scoreHistory = [];
+    session.consecutiveLowScores = 0;
+    session.consecutiveHighScores = 0;
+    session.currentDifficulty = initialDifficulty;
+    session.mood = MOODS.NEUTRAL;
+    session.moodState = MOODS.NEUTRAL;
+    session.rubricHistory = [];
+    session.usedProblemIds = context.usedProblemIds;
 
     // Generate first question
     const question = await this.generateQuestion(context);
+    context.currentQuestion = question;
+    if (!context.problemStatement) {
+      context.problemStatement = question;
+    }
+    const qText = typeof question === 'string' ? question : question?.question || '';
+    const problemId = context.problemId || `q_${crypto.createHash('md5').update(qText).digest('hex').slice(0, 10)}`;
+    context.problemId = problemId;
+    if (!context.usedProblemIds.includes(problemId)) {
+      context.usedProblemIds.push(problemId);
+    }
+    session.usedProblemIds = context.usedProblemIds;
 
     // Send question
     ws.send(JSON.stringify({
       type: 'question',
       question,
       questionIndex: 1,
+      problemId,
+      usedProblemIds: context.usedProblemIds,
       stage: context.stage,
-      difficulty: context.difficulty,
-      mood: context.moodState,
+      difficulty: context.currentDifficulty || context.difficulty,
+      currentDifficulty: context.currentDifficulty || context.difficulty,
+      mood: context.moodState || context.mood,
+      consecutiveLowScores: context.consecutiveLowScores || 0,
+      consecutiveHighScores: context.consecutiveHighScores || 0,
       timestamp: Date.now(),
     }));
 
@@ -287,7 +411,16 @@ class RealtimeInterviewService {
     const { ws, context } = session;
     const { answer, code, language } = message;
 
+    context.conversation = context.conversation || [];
     context.turns = (context.turns || 0) + 1;
+    context.stage = context.stage || 'Technical';
+    context.consecutiveLowScores = context.consecutiveLowScores || 0;
+    context.consecutiveHighScores = context.consecutiveHighScores || 0;
+    context.currentDifficulty = context.currentDifficulty || context.difficulty || 'medium';
+    context.difficulty = context.currentDifficulty;
+    context.questionIndex = Number.isFinite(context.questionIndex) ? context.questionIndex : 1;
+    context.moodState = context.moodState || context.mood || MOODS.NEUTRAL;
+    context.mood = context.moodState;
 
     // Add answer to conversation
     context.conversation.push({
@@ -304,19 +437,27 @@ class RealtimeInterviewService {
       timestamp: Date.now(),
     }));
 
-    // Baseline heuristic evaluation as immediate safety fallback
-    const fallbackEval = evaluateFresherAnswer(answer, context.stage, code);
+    const problemStatement = context.problemStatement || context.currentQuestion || '';
+    const problemRequirements = context.problemRequirements || [];
+    const tags = context.tags || [];
 
-    // Generate calibrated feedback (via callTurnScoring 3D rubric) and next question in parallel
-    const [feedback, nextQuestion] = await Promise.all([
-      this.generateFeedback(context, answer, {
-        code,
-        language,
-        sessionId: ws?._sessionId || context.sessionId || null,
-        userId: session.userId || ws?._userId || null,
-      }),
-      this.generateNextQuestion(context),
-    ]);
+    // Baseline heuristic evaluation as immediate safety fallback
+    const fallbackEval = evaluateFresherAnswer(answer, context.stage, code, {
+      problemStatement,
+      problemRequirements,
+      tags,
+    });
+
+    // Generate calibrated feedback (via callTurnScoring 3D rubric)
+    const feedback = await this.generateFeedback(context, answer, {
+      code,
+      language,
+      problemStatement,
+      problemRequirements,
+      tags,
+      sessionId: ws?._sessionId || context.sessionId || null,
+      userId: session.userId || ws?._userId || null,
+    });
 
     // Calibrated score resolution: use 3D rubric score if finite, else fall back to semantic heuristic
     const finalScore = Number.isFinite(feedback?.score)
@@ -331,52 +472,167 @@ class RealtimeInterviewService {
       ? feedback.improvements
       : fallbackEval.improvements;
     const feedbackComment = feedback?.comment || fallbackEval.feedbackSummary;
+    const nextStep = feedback?.nextStep || fallbackEval?.nextStep || null;
+    const misconceptionsDetected = Array.isArray(feedback?.misconceptionsDetected) && feedback.misconceptionsDetected.length > 0
+      ? feedback.misconceptionsDetected
+      : Array.isArray(fallbackEval?.misconceptionsDetected) ? fallbackEval.misconceptionsDetected : [];
 
     // 1. Track calibrated score in history
     context.scoreHistory = context.scoreHistory || [];
+    const previousScore = context.scoreHistory.length > 0
+      ? (typeof context.scoreHistory[context.scoreHistory.length - 1] === 'number'
+          ? context.scoreHistory[context.scoreHistory.length - 1]
+          : context.scoreHistory[context.scoreHistory.length - 1]?.score)
+      : null;
+
     context.scoreHistory.push({ score: finalScore, turn: context.turns });
+
+    // Track Rubric History (capped at last 10 turns)
+    const rubricEntry = {
+      turn: context.turns,
+      ...(finalRubric || {}),
+      score: finalScore,
+    };
+    context.rubricHistory = context.rubricHistory || [];
+    context.rubricHistory.push(rubricEntry);
+    if (context.rubricHistory.length > 10) {
+      context.rubricHistory.splice(0, context.rubricHistory.length - 10);
+    }
+    session.rubricHistory = context.rubricHistory;
 
     // 2. Score trend analysis
     const scoreTrend = InterviewScoringService.calculateTrendFromHistory(context.scoreHistory);
 
-    // 3. Adaptive difficulty progression
+    // 3. Adaptive difficulty progression (InterviewScoringService.deriveAdaptiveDifficulty)
+    const currentDiff = context.currentDifficulty || context.difficulty || 'medium';
     const adaptiveDiff = InterviewScoringService.deriveAdaptiveDifficulty(
-      context.difficulty,
+      currentDiff,
       finalScore / 10,
       context.turns,
       scoreTrend,
       context.experienceLevel
     );
-    if (adaptiveDiff.changed) {
+    if (adaptiveDiff?.changed && adaptiveDiff.newDifficulty) {
+      context.currentDifficulty = adaptiveDiff.newDifficulty;
       context.difficulty = adaptiveDiff.newDifficulty;
+    } else {
+      context.currentDifficulty = currentDiff;
+      context.difficulty = currentDiff;
     }
 
-    // 4. Emotional intelligence / Interviewer Mood state transition
+    // 4. Follow-up decision rules (InterviewFollowUpRulesService.decideBranch)
+    const followUpDecision = InterviewFollowUpRulesService.decideBranch({
+      analysis: {
+        score: finalScore,
+        rubric: finalRubric,
+        strengths: finalStrengths,
+        improvements: finalImprovements,
+      },
+      interviewContext: {
+        ...context,
+        currentDifficulty: context.currentDifficulty,
+        previousDifficulty: currentDiff,
+        previousScore: previousScore ?? finalScore,
+        hasPriorScore: previousScore !== null,
+      },
+      candidateResponse: answer || '',
+      candidateCode: code || '',
+      scoreHistory: context.scoreHistory,
+      scoreTrend,
+      turnNumber: context.turns,
+    });
+
+    // 5. Emotional intelligence / Interviewer Mood state transition (InterviewMoodEngine.transitionMood)
     const wordCount = String(answer || '').trim().split(/\s+/).filter(Boolean).length;
-    const cumulativeScores = context.scoreHistory.map((entry) => entry.score);
-    let consecutiveLowScores = 0;
+    const cumulativeScores = context.scoreHistory.map((entry) =>
+      typeof entry === 'number' ? entry : entry?.score ?? 0
+    );
+    let consecutiveLow = 0;
     for (let i = cumulativeScores.length - 1; i >= 0; i -= 1) {
-      if (cumulativeScores[i] < 50) consecutiveLowScores += 1;
+      if (cumulativeScores[i] < 50) consecutiveLow += 1;
       else break;
     }
-    const { nextMood } = computeNextMood(context.moodState || MOODS.NEUTRAL, {
+
+    const currentMood = context.mood || context.moodState || MOODS.NEUTRAL;
+    const moodTransitionFn = typeof InterviewMoodEngine?.transitionMood === 'function'
+      ? InterviewMoodEngine.transitionMood
+      : typeof transitionMood === 'function'
+        ? transitionMood
+        : computeNextMood;
+
+    const { nextMood } = moodTransitionFn(currentMood, {
       score: finalScore,
       wordCount,
       cumulativeScores,
-      consecutiveLowScores,
+      consecutiveLowScores: consecutiveLow,
     });
     const moodProfile = getMoodProfile(nextMood);
+    context.mood = nextMood;
     context.moodState = nextMood;
 
-    // 5. Proportional state machine stage progression
-    const nextState = InterviewStateMachineService.advanceState({
-      turns: context.turns,
-      totalQuestions: context.totalQuestions,
-      stage: context.stage,
-      interviewType: context.interviewType,
-      difficulty: context.difficulty,
-    });
+    // 6. Proportional / Adaptive state machine stage progression (InterviewStateMachineService.advanceState)
+    const nextState = InterviewStateMachineService.advanceState(
+      {
+        ...context,
+        turns: context.turns,
+        totalQuestions: context.totalQuestions,
+        stage: context.stage,
+        interviewType: context.interviewType,
+        difficulty: context.currentDifficulty,
+        currentDifficulty: context.currentDifficulty,
+        consecutiveLowScores: context.consecutiveLowScores || 0,
+        consecutiveHighScores: context.consecutiveHighScores || 0,
+        lastScoredDifficulty: context.lastScoredDifficulty || null,
+      },
+      {
+        score: finalScore,
+        rawScore: finalScore,
+        difficulty: context.currentDifficulty,
+        turnType: 'scored',
+        forceEnabled: context.forceEnabled ?? true,
+      }
+    );
     context.stage = nextState.stage;
+    context.consecutiveLowScores = typeof nextState.consecutiveLowScores === 'number'
+      ? nextState.consecutiveLowScores
+      : consecutiveLow;
+    context.consecutiveHighScores = typeof nextState.consecutiveHighScores === 'number'
+      ? nextState.consecutiveHighScores
+      : 0;
+    context.lastScoredDifficulty = nextState.lastScoredDifficulty || null;
+
+    // Sync session root fields and session.state
+    session.turns = context.turns;
+    session.scoreHistory = context.scoreHistory;
+    session.consecutiveLowScores = context.consecutiveLowScores;
+    session.consecutiveHighScores = context.consecutiveHighScores;
+    session.currentDifficulty = context.currentDifficulty;
+    session.mood = context.mood;
+    session.moodState = context.moodState;
+    if (session.state && typeof session.state === 'object') {
+      session.state.turns = context.turns;
+      session.state.scoreHistory = context.scoreHistory;
+      session.state.consecutiveLowScores = context.consecutiveLowScores;
+      session.state.consecutiveHighScores = context.consecutiveHighScores;
+      session.state.currentDifficulty = context.currentDifficulty;
+      session.state.mood = context.mood;
+      session.state.rubricHistory = context.rubricHistory;
+    }
+
+    // 7. Generate next question (informed by follow-up decision)
+    const nextQuestion = await this.generateNextQuestion(context, followUpDecision);
+    context.currentQuestion = nextQuestion;
+    const nextQText = typeof nextQuestion === 'string' ? nextQuestion : nextQuestion?.question || '';
+    const nextProblemId = `q_${crypto.createHash('md5').update(nextQText).digest('hex').slice(0, 10)}`;
+    context.problemId = nextProblemId;
+    context.usedProblemIds = context.usedProblemIds || [];
+    if (!context.usedProblemIds.includes(nextProblemId)) {
+      context.usedProblemIds.push(nextProblemId);
+    }
+    session.usedProblemIds = context.usedProblemIds;
+    if (session.state && typeof session.state === 'object') {
+      session.state.usedProblemIds = context.usedProblemIds;
+    }
 
     // Send feedback with calibrated 3D rubric and evidence quote
     ws.send(JSON.stringify({
@@ -386,9 +642,14 @@ class RealtimeInterviewService {
       rubric: finalRubric,
       strengths: finalStrengths,
       improvements: finalImprovements,
+      nextStep,
+      misconceptionsDetected,
       evidenceQuote: feedback?.evidenceQuote || null,
       stage: context.stage,
-      difficulty: context.difficulty,
+      difficulty: context.currentDifficulty,
+      currentDifficulty: context.currentDifficulty,
+      problemId: context.problemId,
+      usedProblemIds: context.usedProblemIds,
       mood: {
         state: context.moodState,
         expression: moodProfile.expression,
@@ -396,6 +657,17 @@ class RealtimeInterviewService {
         ttsProsody: moodProfile.ttsProsody,
       },
       adaptiveDifficulty: adaptiveDiff,
+      followUpDecision: {
+        nextAction: followUpDecision?.nextAction,
+        branchReason: followUpDecision?.branchReason,
+        recoveryDetected: Boolean(followUpDecision?.recoveryDetected),
+        recoveryPhrase: followUpDecision?.recoveryPhrase || null,
+        momentum: followUpDecision?.momentum || 'neutral',
+      },
+      consecutiveLowScores: context.consecutiveLowScores,
+      consecutiveHighScores: context.consecutiveHighScores,
+      turns: context.turns,
+      rubricHistory: context.rubricHistory,
       timestamp: Date.now(),
     }));
 
@@ -404,9 +676,16 @@ class RealtimeInterviewService {
       type: 'question',
       question: nextQuestion,
       questionIndex: context.questionIndex + 1,
+      problemId: nextProblemId,
+      usedProblemIds: context.usedProblemIds,
       stage: context.stage,
-      difficulty: context.difficulty,
+      difficulty: context.currentDifficulty,
+      currentDifficulty: context.currentDifficulty,
       mood: context.moodState,
+      consecutiveLowScores: context.consecutiveLowScores,
+      consecutiveHighScores: context.consecutiveHighScores,
+      followUpAction: followUpDecision?.nextAction || 'deepen',
+      recoveryPhrase: followUpDecision?.recoveryPhrase || null,
       timestamp: Date.now(),
     }));
 
@@ -447,7 +726,8 @@ class RealtimeInterviewService {
     }
 
     try {
-      const prompt = `You are a ${context.company} interviewer conducting a ${context.stage} interview for a ${context.role} position.
+      const difficulty = context.currentDifficulty || context.difficulty || 'medium';
+      const prompt = `You are a ${context.company} interviewer conducting a ${context.stage} interview for a ${context.role} position at difficulty level ${difficulty}.
 
 Generate ONE interview question appropriate for this stage.
 
@@ -472,19 +752,63 @@ Question:`;
     }
   }
 
-  async generateNextQuestion(context) {
+  async generateNextQuestion(context, followUpDecision = null) {
     const groq = await getGroqClient();
     if (!groq) {
-      return this.getFallbackQuestion(context);
+      const fallback = this.getFallbackQuestion(context);
+      if (followUpDecision?.recoveryPhrase && !fallback.includes(followUpDecision.recoveryPhrase)) {
+        return `${followUpDecision.recoveryPhrase} ${fallback}`;
+      }
+      return fallback;
     }
 
     try {
-      const recentConversation = context.conversation.slice(-6).map(m => ({
-        role: m.role === 'interviewer' ? 'assistant' : 'user',
-        content: m.content,
-      }));
+      const lastCandidate = Array.isArray(context?.conversation)
+        ? [...context.conversation].reverse().find(m => m.role === 'candidate')
+        : null;
+      const candidateResponse = lastCandidate?.content || '';
+      const transcript = Array.isArray(context?.conversation)
+        ? context.conversation.map(m => ({ role: m.role, text: m.content }))
+        : [];
 
-      const prompt = `Based on the conversation, generate the next interview question.
+      let prompt = '';
+      if (typeof InterviewPromptService?.buildFollowUpPrompt === 'function') {
+        try {
+          prompt = InterviewPromptService.buildFollowUpPrompt({
+            problemStatement: context.problemStatement || context.currentQuestion || 'Technical interview problem',
+            transcript,
+            candidateResponse,
+            interviewType: context.interviewType || 'dsa',
+            interviewContext: {
+              ...context,
+              rubricHistory: context.rubricHistory || [],
+              adaptiveFollowUp: followUpDecision,
+            },
+            interviewMode: 'full_realtime',
+          });
+        } catch {
+          prompt = '';
+        }
+      }
+
+      if (!prompt) {
+        let guidance = 'Increase depth gradually';
+        if (followUpDecision?.nextAction === 'targeted_correction') {
+          guidance = 'Address missed concepts with a targeted corrective follow-up';
+        } else if (followUpDecision?.nextAction === 'star_completion') {
+          guidance = 'Ask the candidate to elaborate on the missing STAR components (Situation, Task, Action, or Result)';
+        } else if (followUpDecision?.nextAction === 'confidence_rebuild') {
+          guidance = 'Ask an encouraging, foundational follow-up to rebuild candidate confidence';
+        } else if (followUpDecision?.nextAction === 'depth_probe') {
+          guidance = 'Probe deeper into the technical mechanics, edge cases, and trade-offs';
+        } else if (followUpDecision?.nextAction === 'affirm_recovery') {
+          guidance = 'Acknowledge the candidate recovery and build on the improved direction';
+        }
+
+        prompt = `Based on the conversation, generate the next interview question.
+Stage: ${context.stage || 'Technical'}
+Difficulty: ${context.currentDifficulty || context.difficulty || 'medium'}
+Guidance: ${guidance}
 
 Rules:
 - Build on previous answers
@@ -493,6 +817,12 @@ Rules:
 - No markdown
 
 Next question:`;
+      }
+
+      const recentConversation = context.conversation.slice(-6).map(m => ({
+        role: m.role === 'interviewer' ? 'assistant' : 'user',
+        content: m.content,
+      }));
 
       const completion = await groq.chat.completions.create({
         model: 'llama-3.1-8b-instant',
@@ -504,10 +834,30 @@ Next question:`;
         max_tokens: 200,
       });
 
-      return completion.choices[0]?.message?.content?.trim() || this.getFallbackQuestion(context);
+      const rawContent = completion.choices[0]?.message?.content?.trim();
+      let generated = '';
+      if (rawContent && (rawContent.startsWith('{') || rawContent.includes('"message"'))) {
+        try {
+          const parsed = JSON.parse(rawContent);
+          generated = parsed.message || parsed.question || rawContent;
+        } catch {
+          generated = rawContent;
+        }
+      } else {
+        generated = rawContent || this.getFallbackQuestion(context);
+      }
+
+      if (followUpDecision?.recoveryPhrase && !generated.includes(followUpDecision.recoveryPhrase)) {
+        generated = `${followUpDecision.recoveryPhrase} ${generated}`;
+      }
+      return generated;
     } catch (err) {
       console.error('[RealtimeInterview] Next question error:', err);
-      return this.getFallbackQuestion(context);
+      const fallback = this.getFallbackQuestion(context);
+      if (followUpDecision?.recoveryPhrase && !fallback.includes(followUpDecision.recoveryPhrase)) {
+        return `${followUpDecision.recoveryPhrase} ${fallback}`;
+      }
+      return fallback;
     }
   }
 
@@ -534,12 +884,18 @@ Next question:`;
     const company = context?.company || 'Tech Company';
     const role = context?.role || 'Software Engineer';
     const stage = context?.stage || 'Technical';
-    const difficultyTag = context?.difficulty || 'medium';
+    const difficultyTag = context?.currentDifficulty || context?.difficulty || 'medium';
     const questionNumber = context?.turns || 1;
+    const problemStatement = options.problemStatement || context?.problemStatement || previousQuestion;
+    const problemRequirements = options.problemRequirements || context?.problemRequirements || [];
+    const tags = options.tags || context?.tags || [];
 
     try {
       const scoringResult = await callTurnScoring({
-        previousQuestion,
+        previousQuestion: problemStatement || previousQuestion,
+        problemStatement,
+        problemRequirements,
+        tags,
         userAnswer: answer,
         code,
         codeLanguage,
@@ -564,6 +920,8 @@ Next question:`;
           },
           strengths: Array.isArray(scoringResult.strengths) ? scoringResult.strengths : ['Structured response'],
           improvements: Array.isArray(scoringResult.improvements) ? scoringResult.improvements : [],
+          nextStep: scoringResult.nextStep || null,
+          misconceptionsDetected: Array.isArray(scoringResult.misconceptionsDetected) ? scoringResult.misconceptionsDetected : [],
           evidenceQuote: scoringResult.evidenceQuote || null,
           evalModelUsed: scoringResult.evalModelUsed,
           evalProvider: scoringResult.evalProvider,
@@ -575,13 +933,19 @@ Next question:`;
     }
 
     // Calibrated fallback using evaluateFresherAnswer semantic scoring
-    const fallback = evaluateFresherAnswer(answer, stage, code);
+    const fallback = evaluateFresherAnswer(answer, stage, code, {
+      problemStatement,
+      problemRequirements,
+      tags,
+    });
     return {
       comment: fallback.feedbackSummary || 'Good answer. Let me ask you a follow-up.',
       score: fallback.score ?? 75,
       rubric: fallback.rubric,
       strengths: fallback.strengths || ['Clear communication'],
       improvements: fallback.improvements || ['Add more detail'],
+      nextStep: fallback.nextStep || null,
+      misconceptionsDetected: Array.isArray(fallback.misconceptionsDetected) ? fallback.misconceptionsDetected : [],
       isEstimated: true,
     };
   }
@@ -630,7 +994,13 @@ Next question:`;
               : 'Technical';
 
     const questions = fallbacks[poolKey] || fallbacks['Technical'];
-    return questions[context.questionIndex % questions.length];
+    const used = Array.isArray(context?.usedProblemIds) ? context.usedProblemIds : [];
+    const unused = questions.filter(q => {
+      const qId = `q_${crypto.createHash('md5').update(q).digest('hex').slice(0, 10)}`;
+      return !used.includes(qId);
+    });
+    const pool = unused.length > 0 ? unused : questions;
+    return pool[context.questionIndex % pool.length];
   }
 
   async extractUserId(req) {

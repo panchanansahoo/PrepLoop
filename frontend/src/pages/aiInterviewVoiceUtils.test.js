@@ -5,6 +5,7 @@ import {
   buildAiInterviewTtsPayload,
   buildAiInterviewVoiceApiUrl,
   buildInterviewEndCleanup,
+  getMoodProsody,
   WHISPER_DOMAIN_VOCABULARY_PROMPT,
   isSttCorrectionEnabled,
   setSttCorrectionFeatureFlag,
@@ -35,9 +36,45 @@ describe('aiInterviewVoiceUtils - Core Voice Utilities (Baseline Tests)', () => 
       persona: 'interviewer',
       language: 'en',
       gender: 'male',
+      prosody: { rate: 1.05, pitch: 1.00 },
     });
 
     expect(buildAiInterviewTtsPayload({ text: 'Hi', interviewerGender: 'unknown' }).gender).toBe('female');
+  });
+
+  it('computes dynamic TTS prosody per interviewer mood', () => {
+    expect(getMoodProsody('impressed')).toEqual({ rate: 1.10, pitch: 1.05 });
+    expect(getMoodProsody('skeptical')).toEqual({ rate: 0.95, pitch: 0.95 });
+    expect(getMoodProsody('curious')).toEqual({ rate: 1.05, pitch: 1.02 });
+    expect(getMoodProsody('impatient')).toEqual({ rate: 1.15, pitch: 1.00 });
+    expect(getMoodProsody('neutral')).toEqual({ rate: 1.05, pitch: 1.00 });
+    expect(getMoodProsody(null)).toEqual({ rate: 1.05, pitch: 1.00 });
+    expect(getMoodProsody(undefined)).toEqual({ rate: 1.05, pitch: 1.00 });
+    expect(getMoodProsody('UNKNOWN_MOOD')).toEqual({ rate: 1.05, pitch: 1.00 });
+  });
+
+  it('attaches mood prosody and supports custom ttsProsody override in TTS payload', () => {
+    const impressedPayload = buildAiInterviewTtsPayload({
+      text: 'Great explanation!',
+      interviewerGender: 'female',
+      mood: 'impressed',
+    });
+    expect(impressedPayload.prosody).toEqual({ rate: 1.10, pitch: 1.05 });
+
+    const skepticalPayload = buildAiInterviewTtsPayload({
+      text: 'Are you sure about that complexity?',
+      interviewerGender: 'male',
+      mood: 'skeptical',
+    });
+    expect(skepticalPayload.prosody).toEqual({ rate: 0.95, pitch: 0.95 });
+
+    const overridePayload = buildAiInterviewTtsPayload({
+      text: 'Custom speech rate test',
+      interviewerGender: 'female',
+      mood: 'curious',
+      ttsProsody: { rate: 1.25, pitch: 0.90 },
+    });
+    expect(overridePayload.prosody).toEqual({ rate: 1.25, pitch: 0.90 });
   });
 
   it('normalizes voice endpoint paths under /api', () => {

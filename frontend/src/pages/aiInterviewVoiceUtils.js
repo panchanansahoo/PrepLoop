@@ -109,7 +109,24 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
   return chunks.filter(Boolean);
 }
 
-export function buildAiInterviewTtsPayload({ text, interviewerGender }) {
+export function getMoodProsody(mood) {
+  const normMood = String(mood || '').toLowerCase().trim();
+  switch (normMood) {
+    case 'impressed':
+      return { rate: 1.10, pitch: 1.05 };
+    case 'skeptical':
+      return { rate: 0.95, pitch: 0.95 };
+    case 'curious':
+      return { rate: 1.05, pitch: 1.02 };
+    case 'impatient':
+      return { rate: 1.15, pitch: 1.00 };
+    case 'neutral':
+    default:
+      return { rate: 1.05, pitch: 1.00 };
+  }
+}
+
+export function buildAiInterviewTtsPayload({ text, interviewerGender, mood, ttsProsody }) {
   const sanitizedText = sanitizeTtsInput(text);
 
   return {
@@ -117,6 +134,7 @@ export function buildAiInterviewTtsPayload({ text, interviewerGender }) {
     persona: 'interviewer',
     language: 'en',
     gender: interviewerGender === 'male' ? 'male' : 'female',
+    prosody: ttsProsody || getMoodProsody(mood),
   };
 }
 

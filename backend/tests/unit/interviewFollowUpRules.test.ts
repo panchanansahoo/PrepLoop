@@ -330,6 +330,12 @@ describe('Milestone 3: Recovery Branching & Momentum Tracking Unit Tests', () =>
       expect(DONT_KNOW_REGEX.test("no clue")).toBe(true);
       expect(DONT_KNOW_REGEX.test("not familiar with it")).toBe(true);
       expect(DONT_KNOW_REGEX.test("haven't implemented")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("I'm blanking on this right now")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("Drawing a blank here")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("I'd have to look that up")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("I haven't encountered that before")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("I'll pass on this")).toBe(true);
+      expect(DONT_KNOW_REGEX.test("Not sure how to approach this problem")).toBe(true);
       expect(DONT_KNOW_REGEX.test("We can use an inverted index")).toBe(false);
     });
   });
@@ -471,6 +477,10 @@ describe('Milestone 3: Recovery Branching & Momentum Tracking Unit Tests', () =>
       expect(OFF_TOPIC_REGEX.test('My professor was telling a story')).toBe(true);
       expect(OFF_TOPIC_REGEX.test('Summer vacation plans')).toBe(true);
       expect(OFF_TOPIC_REGEX.test('Terrible weather outside')).toBe(true);
+      expect(OFF_TOPIC_REGEX.test('We went camping in the mountains')).toBe(true);
+      expect(OFF_TOPIC_REGEX.test('Discussing cryptocurrency and dogecoin')).toBe(true);
+      expect(OFF_TOPIC_REGEX.test('My battery died earlier today')).toBe(true);
+      expect(OFF_TOPIC_REGEX.test('My professor recommended reading this')).toBe(true);
       expect(OFF_TOPIC_REGEX.test('We implement a hash table with bucket chaining')).toBe(false);
     });
   });

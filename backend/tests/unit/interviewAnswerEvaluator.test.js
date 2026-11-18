@@ -1,14 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   evaluateFresherAnswer,
   detectStarBreakdown,
   evaluateAnswerWithSemanticRubric,
+  isHybridScoringEnabled,
   generateExecutiveSummary,
   generateTestRunnerFeedback,
   evaluateTestRunnerResults,
   evaluateAssessmentIntegrity,
   _evaluateFresherAnswer,
+  evaluateAnswerLength,
+  detectComplexityMismatch,
+  pickImprovements,
+  generateFeedbackSummary,
 } from '../../services/interviewAnswerEvaluator.js';
+
+vi.mock('../../services/llmRouter.js', () => ({
+  callTurnScoring: vi.fn().mockResolvedValue({
+    score: 85,
+    evalProvider: 'mock-llm',
+    evalModelUsed: 'mock-model',
+    dimensions: { communication: 4, depth: 4, correctness: 4 },
+    strengths: ['Clear explanation'],
+    improvements: ['Consider edge cases'],
+    feedback: 'Good structured answer with solid depth.',
+    nextStep: 'Practice drill: Review advanced edge cases.',
+    reaction: 'impressed',
+  }),
+}));
 
 describe('interviewAnswerEvaluator (Track 1.3 Semantic Rubrics)', () => {
   it('evaluates empty answer with minimal score and valid rubric structure', () => {
@@ -72,6 +91,80 @@ describe('interviewAnswerEvaluator (Track 1.3 Semantic Rubrics)', () => {
     expect(res.score).toBeGreaterThanOrEqual(25);
     expect(res.rubric).toBeDefined();
     expect(res.rubric.clarity).toBeGreaterThanOrEqual(1);
+  });
+
+  describe('evaluateAnswerWithSemanticRubric feature flags & hybrid scoring', () => {
+    const originalFlag1 = process.env.FEATURE_FLAG_HYBRID_SCORING;
+    const originalFlag2 = process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING;
+
+    beforeEach(() => {
+      delete process.env.FEATURE_FLAG_HYBRID_SCORING;
+      delete process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING;
+    });
+
+    afterEach(() => {
+      if (originalFlag1 !== undefined) process.env.FEATURE_FLAG_HYBRID_SCORING = originalFlag1;
+      else delete process.env.FEATURE_FLAG_HYBRID_SCORING;
+      if (originalFlag2 !== undefined) process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING = originalFlag2;
+      else delete process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING;
+    });
+
+    it('returns baseEvaluation with evalProvider: "disabled" when feature flag is disabled', async () => {
+      const res = await evaluateAnswerWithSemanticRubric({
+        userAnswer: 'I implemented binary search with O(log n) time complexity.',
+        stage: 'Technical',
+        question: 'How does binary search work?',
+        difficultyTag: 'medium',
+      });
+      expect(res.evalProvider).toBe('disabled');
+      expect(res.score).toBeGreaterThanOrEqual(25);
+      expect(res.rubric).toBeDefined();
+    });
+
+    it('enables hybrid scoring via FEATURE_FLAG_HYBRID_SCORING="true"', async () => {
+      process.env.FEATURE_FLAG_HYBRID_SCORING = 'true';
+      expect(isHybridScoringEnabled()).toBe(true);
+
+      const res = await evaluateAnswerWithSemanticRubric({
+        userAnswer: 'I implemented binary search with O(log n) time complexity.',
+        stage: 'Technical',
+        question: 'How does binary search work?',
+        difficultyTag: 'medium',
+      });
+      expect(res.evalProvider).not.toBe('disabled');
+    });
+
+    it('enables hybrid scoring via alias FEATURE_AI_INTERVIEW_HYBRID_SCORING="1"', async () => {
+      process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING = '1';
+      expect(isHybridScoringEnabled()).toBe(true);
+
+      const res = await evaluateAnswerWithSemanticRubric({
+        userAnswer: 'I implemented binary search with O(log n) time complexity.',
+        stage: 'Technical',
+        question: 'How does binary search work?',
+        difficultyTag: 'medium',
+      });
+      expect(res.evalProvider).not.toBe('disabled');
+    });
+
+    it('allows options.forceEnabled to override feature flag state', async () => {
+      // Force enabled when flag is off
+      delete process.env.FEATURE_FLAG_HYBRID_SCORING;
+      expect(isHybridScoringEnabled({ forceEnabled: true })).toBe(true);
+
+      // Force disabled when flag is on
+      process.env.FEATURE_FLAG_HYBRID_SCORING = 'true';
+      expect(isHybridScoringEnabled({ forceEnabled: false })).toBe(false);
+
+      const res = await evaluateAnswerWithSemanticRubric({
+        userAnswer: 'I implemented binary search with O(log n) time complexity.',
+        stage: 'Technical',
+        question: 'How does binary search work?',
+        difficultyTag: 'medium',
+        options: { forceEnabled: false },
+      });
+      expect(res.evalProvider).toBe('disabled');
+    });
   });
 
   describe('generateExecutiveSummary (Stage 4 Recruiter Intelligence)', () => {
@@ -334,6 +427,109 @@ describe('interviewAnswerEvaluator (Track 1.3 Semantic Rubrics)', () => {
       expect(summary.hiringRecommendation).toContain('secondary voice interference');
       expect(summary.hiringRecommendation).toContain('AI-generated speech patterns');
       expect(summary.bullets[2]).toContain('Do Not Proceed (Integrity Alert)');
+    });
+  });
+
+  describe('Phase B Improvements (Track B.1 - B.5)', () => {
+    describe('Stage-Aware & Type-Aware Length Scoring (B.5)', () => {
+      const makeWords = (n) => Array(n).fill('word').join(' ');
+
+      it('scores Technical and DSA stages using 5-point tiers', () => {
+        expect(evaluateAnswerLength(makeWords(65), 'Technical')).toBe(5);
+        expect(evaluateAnswerLength(makeWords(45), 'DSA / Coding')).toBe(4);
+        expect(evaluateAnswerLength(makeWords(25), 'Technical')).toBe(3);
+        expect(evaluateAnswerLength(makeWords(12), 'DSA / Coding')).toBe(2);
+        expect(evaluateAnswerLength(makeWords(5), 'Technical')).toBe(1);
+      });
+
+      it('rewards structured long answers in HR, Behavioral, and System Design with up to 7 points', () => {
+        expect(evaluateAnswerLength(makeWords(160), 'Behavioral')).toBe(7);
+        expect(evaluateAnswerLength(makeWords(110), 'HR')).toBe(6);
+        expect(evaluateAnswerLength(makeWords(65), 'System Design')).toBe(5);
+        expect(evaluateAnswerLength(makeWords(45), 'Behavioral')).toBe(4);
+        expect(evaluateAnswerLength(makeWords(25), 'HR')).toBe(3);
+        expect(evaluateAnswerLength(makeWords(12), 'System Design')).toBe(2);
+        expect(evaluateAnswerLength(makeWords(5), 'Behavioral')).toBe(1);
+      });
+
+      it('respects interviewType parameter for stage/type override', () => {
+        expect(evaluateAnswerLength(makeWords(155), 'Technical', 'system-design')).toBe(7);
+        expect(evaluateAnswerLength(makeWords(105), 'Technical', 'behavioral')).toBe(6);
+        expect(evaluateAnswerLength(makeWords(155), 'Technical', 'dsa')).toBe(5);
+      });
+    });
+
+    describe('Complexity Mismatch & Misconceptions (B.1)', () => {
+      it('detects complexity mismatch when candidate claims inferior complexity', () => {
+        const answer = 'I implemented a nested loop solution which takes O(n^2) time complexity.';
+        const mismatch = detectComplexityMismatch(answer, {
+          problemRequirements: 'Expected time complexity: O(n)',
+        });
+        expect(mismatch).not.toBeNull();
+        expect(mismatch.expected).toBe('O(n)');
+        expect(mismatch.actual).toBe('O(n^2)');
+      });
+
+      it('records misconception in misconceptionsDetected and deducts 2 points on correctness', () => {
+        const answer = 'I solved this problem with two loops resulting in O(n^2) runtime complexity.';
+        const resultWithoutReq = evaluateFresherAnswer(answer, 'Technical');
+        const resultWithReq = evaluateFresherAnswer(answer, 'Technical', '', {
+          problemRequirements: { expectedComplexity: 'O(n)' },
+        });
+
+        expect(resultWithReq.misconceptionsDetected.length).toBeGreaterThan(0);
+        expect(resultWithReq.misconceptionsDetected[0]).toContain('Complexity mismatch');
+        expect(resultWithReq.rubric.correctness).toBe(Math.max(1, resultWithoutReq.rubric.correctness - 2));
+      });
+
+      it('does not record misconception when candidate achieves expected or better complexity', () => {
+        const answer = 'I used two pointers achieving O(n) linear time complexity.';
+        const result = evaluateFresherAnswer(answer, 'Technical', '', {
+          problemRequirements: 'Expected time complexity: O(n)',
+        });
+        expect(result.misconceptionsDetected).toEqual([]);
+      });
+    });
+
+    describe('Question-Linked Improvements (B.2)', () => {
+      it('generates targeted improvement advice for missing tags', () => {
+        const answer = 'We can build a microservice architecture and use a relational database.';
+        const improvements = pickImprovements(answer, 'System Design', {
+          tags: ['caching', 'rate-limiting', 'sharding'],
+        });
+
+        expect(improvements.some((imp) => imp.includes('caching') || imp.includes('rate-limiting') || imp.includes('sharding'))).toBe(true);
+      });
+
+      it('advises targeting expected complexity when requirements specify it', () => {
+        const answer = 'I can iterate through the list with nested loops.';
+        const improvements = pickImprovements(answer, 'Technical', {
+          problemRequirements: 'Expected time complexity: O(n)',
+        });
+        expect(improvements.some((imp) => imp.toLowerCase().includes('complexity'))).toBe(true);
+      });
+    });
+
+    describe('Actionable NextStep & generateFeedbackSummary (B.3)', () => {
+      it('constructs an actionable nextStep practice directive in generateFeedbackSummary', () => {
+        const feedback = generateFeedbackSummary(
+          72,
+          ['Good structure'],
+          ['State time and space complexity explicitly'],
+          'Technical'
+        );
+        expect(feedback.summary).toContain('Solid attempt');
+        expect(typeof feedback.nextStep).toBe('string');
+        expect(feedback.nextStep).toContain('Practice drill:');
+        expect(feedback.nextStep).toContain('State time and space complexity explicitly');
+      });
+
+      it('returns nextStep and misconceptionsDetected on evaluateFresherAnswer return object', () => {
+        const result = evaluateFresherAnswer('We can use binary search with O(log n) complexity.', 'Technical');
+        expect(typeof result.nextStep).toBe('string');
+        expect(result.nextStep.length).toBeGreaterThan(0);
+        expect(Array.isArray(result.misconceptionsDetected)).toBe(true);
+      });
     });
   });
 });

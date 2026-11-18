@@ -1,6 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { InterviewScoringService } from '../../services/interviewScoringService.ts';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { InterviewScoringService, deriveStartingDifficulty } from '../../services/interviewScoringService.ts';
 import { InterviewFollowUpRulesService } from '../../services/interviewFollowUpRules.ts';
+import {
+  DEDUP_WINDOW,
+  recordUsedProblem,
+  getRecentProblems,
+  clearRecentProblems,
+} from '../../services/aiService.js';
+import aiService from '../../services/aiService.js';
+const { InterviewSimulatorService } = aiService;
 
 describe('Interview Scoring & Adaptive Difficulty Rules', () => {
   it('computes rolling scores and scales them properly between 0 and 10', () => {
@@ -39,12 +47,56 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
     const sparseResult = InterviewScoringService.calculateRollingScores(sparseAnalysis, [], 'dsa', 'fresher');
     expect(sparseResult.scoringConfidence).toBe(0.33);
     expect(sparseResult.fresherBonusApplied).toBe(false);
+    expect(sparseResult.communication).toBe(6.0);
+    expect(sparseResult.problem_solving).toBeNull();
+    expect(sparseResult.technical_depth).toBeNull();
 
     // 2 metrics: fresher bonus should be applied
     const adequateAnalysis = { metrics: { communication: 60, problemDecomposition: 65 } };
     const adequateResult = InterviewScoringService.calculateRollingScores(adequateAnalysis, [], 'dsa', 'fresher');
     expect(adequateResult.scoringConfidence).toBe(0.67);
     expect(adequateResult.fresherBonusApplied).toBe(true);
+    expect(adequateResult.communication).toBe(6.0);
+    expect(adequateResult.problem_solving).toBe(6.5);
+    expect(adequateResult.technical_depth).toBeNull();
+  });
+
+  it('replaces || 65 fallback with ?? null and propagates unscored status when all dimensions are null', () => {
+    // When explicit null dimensions are passed
+    const nullDims = { metrics: { communication: null, problemDecomposition: null, efficiency: null } };
+    const nullDimsResult = InterviewScoringService.calculateRollingScores(nullDims, [], 'dsa');
+    expect(nullDimsResult.isUnscored).toBe(true);
+    expect(nullDimsResult.overall).toBeNull();
+    expect(nullDimsResult.communication).toBeNull();
+    expect(nullDimsResult.problem_solving).toBeNull();
+    expect(nullDimsResult.technical_depth).toBeNull();
+    expect(nullDimsResult.metricsMissing).toBe(true);
+    expect(nullDimsResult.scoringConfidence).toBe(0);
+
+    // Even if top-level analysis has a score, missing dimensions propagate unscored
+    const scoreWithoutDims = { score: 75, metrics: {} };
+    const scoreResult = InterviewScoringService.calculateRollingScores(scoreWithoutDims, [], 'dsa');
+    expect(scoreResult.isUnscored).toBe(true);
+    expect(scoreResult.overall).toBeNull();
+    expect(scoreResult.communication).toBeNull();
+    expect(scoreResult.problem_solving).toBeNull();
+    expect(scoreResult.technical_depth).toBeNull();
+  });
+
+  it('supports alias dimension names (problemSolving, technicalDepth) without 65 fallback', () => {
+    const aliasAnalysis = {
+      metrics: {
+        communication: 80,
+        problemSolving: 85,
+        technicalDepth: 90,
+      },
+    };
+    const result = InterviewScoringService.calculateRollingScores(aliasAnalysis, [], 'dsa');
+    expect(result.communication).toBe(8.0);
+    expect(result.problem_solving).toBe(8.5);
+    expect(result.technical_depth).toBe(9.0);
+    expect(result.isUnscored).toBe(false);
+    expect(result.scoringConfidence).toBe(1.0);
   });
 
   it('derives adaptive difficulty based on rolling candidate performance', () => {
@@ -96,6 +148,157 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
     const adaptive = InterviewScoringService.deriveAdaptiveDifficulty('medium', 7.0, 5);
     expect(adaptive.changed).toBe(false);
     expect(adaptive.newDifficulty).toBe('medium');
+  });
+
+  // ── Horizon 1.2: Cross-Session Starting Difficulty Calibration ────────────
+  describe('deriveStartingDifficulty (Horizon 1.2)', () => {
+    it('returns preferredDifficulty when recentSessions is empty or has no scored sessions', () => {
+      expect(deriveStartingDifficulty([], 'medium')).toBe('medium');
+      expect(deriveStartingDifficulty([], 'hard')).toBe('hard');
+      expect(deriveStartingDifficulty([], 'easy')).toBe('easy');
+      expect(deriveStartingDifficulty(null as any)).toBe('medium');
+      expect(deriveStartingDifficulty([{ status: 'abandoned' } as any], 'medium')).toBe('medium');
+    });
+
+    it('escalates to "hard" when recent completed sessions average >= 80 on medium/hard difficulty', () => {
+      const mediumSessions = [
+        { score: 82, difficulty: 'medium' },
+        { score: 86, difficulty: 'medium' },
+      ];
+      expect(deriveStartingDifficulty(mediumSessions, 'medium')).toBe('hard');
+
+      const hardSessions = [
+        { overall_score: 80, difficulty_level: 'hard' },
+        { interview_score: 90, difficulty: 'hard' },
+      ];
+      expect(deriveStartingDifficulty(hardSessions, 'medium')).toBe('hard');
+    });
+
+    it('does not escalate to "hard" when high score (>=80) was achieved only on easy difficulty', () => {
+      const easySessions = [
+        { score: 88, difficulty: 'easy' },
+        { score: 92, difficulty: 'easy' },
+      ];
+      expect(deriveStartingDifficulty(easySessions, 'easy')).toBe('easy');
+      expect(deriveStartingDifficulty(easySessions, 'medium')).toBe('medium');
+    });
+
+    it('de-escalates by one tier when recent completed sessions average < 50', () => {
+      // hard -> medium
+      const lowHard = [{ score: 45, difficulty: 'hard' }];
+      expect(deriveStartingDifficulty(lowHard, 'hard')).toBe('medium');
+
+      // medium -> easy
+      const lowMed = [{ score: 42, difficulty: 'medium' }];
+      expect(deriveStartingDifficulty(lowMed, 'medium')).toBe('easy');
+
+      // easy stays easy
+      const lowEasy = [{ score: 35, difficulty: 'easy' }];
+      expect(deriveStartingDifficulty(lowEasy, 'easy')).toBe('easy');
+    });
+
+    it('retains preferredDifficulty when average score is in normal range (50-79)', () => {
+      const midSessions = [
+        { score: 65, difficulty: 'medium' },
+        { score: 72, difficulty: 'medium' },
+      ];
+      expect(deriveStartingDifficulty(midSessions, 'medium')).toBe('medium');
+      expect(deriveStartingDifficulty(midSessions, 'hard')).toBe('hard');
+    });
+
+    it('filters completed sessions by matching interview type when supplied', () => {
+      const mixedTypeSessions = [
+        { score: 90, difficulty: 'medium', interview_type: 'dsa' },
+        { score: 40, difficulty: 'medium', interview_type: 'behavioral' },
+      ];
+
+      // Matching 'dsa' averages 90 -> hard
+      expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'dsa')).toBe('hard');
+
+      // Matching 'behavioral' averages 40 -> easy
+      expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'behavioral')).toBe('easy');
+
+      // Unmatched type 'system-design' falls back to overall average (65) -> medium
+      expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'system-design')).toBe('medium');
+    });
+
+    it('works as a static method on InterviewScoringService', () => {
+      const sessions = [{ score: 85, difficulty: 'medium' }];
+      expect(InterviewScoringService.deriveStartingDifficulty(sessions, 'medium')).toBe('hard');
+    });
+  });
+
+  // ── Horizon 1.1: Problem Deduplication ────────────────────────────────────
+  describe('Problem Deduplication (Horizon 1.1)', () => {
+    beforeEach(() => {
+      clearRecentProblems();
+    });
+
+    it('defines DEDUP_WINDOW as 30', () => {
+      expect(DEDUP_WINDOW).toBe(30);
+    });
+
+    it('records and retrieves user recent problems up to window cap of 30', () => {
+      const userId = 'user-test-dedup-1';
+      expect(getRecentProblems(userId)).toEqual([]);
+
+      for (let i = 1; i <= 35; i++) {
+        recordUsedProblem(userId, `prob-${i}`);
+      }
+
+      const recent = getRecentProblems(userId);
+      expect(recent.length).toBe(30);
+      // First 5 (prob-1 to prob-5) should be evicted
+      expect(recent).not.toContain('prob-1');
+      expect(recent).not.toContain('prob-5');
+      // Latest 30 (prob-6 to prob-35) should remain
+      expect(recent).toContain('prob-6');
+      expect(recent).toContain('prob-35');
+    });
+
+    it('clears recent problems by user or globally', () => {
+      recordUsedProblem('u1', 'p1');
+      recordUsedProblem('u2', 'p2');
+
+      clearRecentProblems('u1');
+      expect(getRecentProblems('u1')).toEqual([]);
+      expect(getRecentProblems('u2')).toEqual(['p2']);
+
+      clearRecentProblems();
+      expect(getRecentProblems('u2')).toEqual([]);
+    });
+
+    it('filters out usedProblemIds or excludeProblemIds passed in options', () => {
+      const allSelectedIds = new Set<string>();
+
+      // Generate 5 problems with usedProblemIds passed
+      const usedIds: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const prob = InterviewSimulatorService._generateProblemStatement('dsa', 'medium', null, {
+          usedProblemIds: usedIds,
+        });
+        expect(prob).toBeDefined();
+        if (prob.problem_id) {
+          expect(usedIds).not.toContain(prob.problem_id);
+          usedIds.push(prob.problem_id);
+          allSelectedIds.add(prob.problem_id);
+        }
+      }
+
+      expect(allSelectedIds.size).toBe(5);
+    });
+
+    it('supports excludeProblemIds alias in options', () => {
+      const prob1 = InterviewSimulatorService._generateProblemStatement('dsa', 'medium', null);
+      if (prob1.problem_id) {
+        const prob2 = InterviewSimulatorService._generateProblemStatement('dsa', 'medium', null, {
+          excludeProblemIds: [prob1.problem_id],
+        });
+        if (prob2.problem_id) {
+          expect(prob2.problem_id).not.toBe(prob1.problem_id);
+        }
+      }
+    });
   });
 });
 

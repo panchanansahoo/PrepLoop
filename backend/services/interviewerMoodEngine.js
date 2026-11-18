@@ -226,3 +226,23 @@ export function getMoodProfile(mood = MOODS.NEUTRAL) {
   };
 }
 
+export const transitionMood = computeNextMood;
+
+export class InterviewMoodEngine {
+  static transitionMood(currentMood = MOODS.NEUTRAL, params = {}) {
+    return computeNextMood(currentMood, params);
+  }
+  static computeNextMood(currentMood = MOODS.NEUTRAL, params = {}) {
+    return computeNextMood(currentMood, params);
+  }
+  static getMicroReaction(mood, options) {
+    return getMicroReaction(mood, options);
+  }
+  static getMoodProfile(mood) {
+    return getMoodProfile(mood);
+  }
+}
+
+export default InterviewMoodEngine;
+
+

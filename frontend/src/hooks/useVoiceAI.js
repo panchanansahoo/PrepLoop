@@ -177,7 +177,7 @@ export function isAudioContentType(contentType = "") {
 
 function playBrowserSpeechFallback(
   text,
-  { voice, gender, controller, guardMs, onStartCb },
+  { voice, gender, controller, guardMs, onStartCb, prosody },
 ) {
   if (!("speechSynthesis" in window)) return Promise.resolve();
 
@@ -218,35 +218,6 @@ function playBrowserSpeechFallback(
       settle();
     }, guardMs || 30000);
 
-    // --- Prosody variation for realistic, friendly voice ---
-    // Base rates and pitches (warm and conversational)
-    const baseRate = gender === "male" ? 0.93 : 0.94;
-    const basePitch = gender === "male" ? 0.92 : 1.08;
-
-    // Get per-sentence prosody variation — avoids monotone robotic cadence
-    const getSentenceProsody = (sentence, idx) => {
-      // Questions get slightly higher pitch, slower rate
-      const isQuestion = sentence.trim().endsWith("?");
-      // Exclamations get slightly more energy
-      const isExclamation = sentence.trim().endsWith("!");
-      // First sentence slightly slower (warm opening)
-      const isFirst = idx === 0;
-
-      // Rate variation: ±0.04 around base, questions slower
-      let rate = baseRate + (Math.random() * 0.08 - 0.04);
-      if (isQuestion) rate -= 0.03;
-      if (isFirst) rate -= 0.02;
-      rate = Math.max(0.82, Math.min(1.0, rate));
-
-      // Pitch variation: ±0.04 around base, questions rise
-      let pitch = basePitch + (Math.random() * 0.08 - 0.04);
-      if (isQuestion) pitch += 0.06;
-      if (isExclamation) pitch += 0.03;
-      pitch = Math.max(0.75, Math.min(1.2, pitch));
-
-      return { rate, pitch };
-    };
-
     // Get pause duration based on sentence-ending punctuation
     const getInterSentencePause = (sentence) => {
       const trimmed = sentence.trim();
@@ -267,11 +238,11 @@ function playBrowserSpeechFallback(
       const utter = new SpeechSynthesisUtterance(sentence);
       if (voice) utter.voice = voice;
 
-      // Apply per-sentence prosody variation for natural cadence
-      const prosody = getSentenceProsody(sentence, currentIdx);
-      utter.rate = prosody.rate;
-      utter.pitch = prosody.pitch;
-      utter.volume = 1.0;
+      // Apply dynamic prosody or default conversational rate/pitch
+      const u = utter;
+      u.rate = (prosody && typeof prosody.rate === "number") ? prosody.rate : 1.05;
+      u.pitch = (prosody && typeof prosody.pitch === "number") ? prosody.pitch : 1.00;
+      u.volume = 1.0;
 
       // Fire onStartCb when the first utterance actually starts playing
       utter.onstart = () => {
@@ -2134,7 +2105,7 @@ export function useVoiceAI({
   );
 
   const speak = useCallback(
-    async (text, { onStart, onEnd, addTransition = false } = {}) => {
+    async (text, { onStart, onEnd, addTransition = false, prosody } = {}) => {
       if (!text || !text.trim()) {
         onEnd?.();
         return;
@@ -2318,6 +2289,7 @@ export function useVoiceAI({
             gender: personaGender,
             controller,
             guardMs: TTS_PLAYBACK_GUARD_MS,
+            prosody,
             onStartCb: () => {
               // Browser speech actually started — now activate speaking state
               speakingStartedAtRef.current = Date.now();
@@ -2368,6 +2340,7 @@ export function useVoiceAI({
                 gender: personaGender,
                 controller,
                 guardMs: TTS_PLAYBACK_GUARD_MS,
+                prosody,
                 onStartCb: () => {
                   speakingStartedAtRef.current = Date.now();
                   setState("speaking");

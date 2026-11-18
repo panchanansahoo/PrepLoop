@@ -37,8 +37,32 @@ function countTechnicalKeywords(text) {
     return countKeywordMatches(lower, allKeywords);
 }
 
-function evaluateAnswerLength(text) {
-    const wordCount = text.split(/\s+/).filter(Boolean).length;
+export function evaluateAnswerLength(text, stage = 'Technical', interviewType = null) {
+    const wordCount = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+    const normStage = String(stage || '').toLowerCase().trim();
+    const normType = String(interviewType || '').toLowerCase().trim();
+
+    const isStructuredLong =
+        normStage.includes('hr') ||
+        normStage.includes('behavioral') ||
+        normStage.includes('system') ||
+        normStage.includes('design') ||
+        normType.includes('hr') ||
+        normType.includes('behavioral') ||
+        normType.includes('system') ||
+        normType.includes('design');
+
+    if (isStructuredLong) {
+        if (wordCount >= 150) return 7;
+        if (wordCount >= 100) return 6;
+        if (wordCount >= 60) return 5;
+        if (wordCount >= 40) return 4;
+        if (wordCount >= 20) return 3;
+        if (wordCount >= 10) return 2;
+        return 1;
+    }
+
+    // Default for Technical / DSA
     if (wordCount >= 60) return 5;
     if (wordCount >= 40) return 4;
     if (wordCount >= 20) return 3;
@@ -230,10 +254,105 @@ function pickStrengths(answer, stage) {
     return strengths.slice(0, 3);
 }
 
-function pickImprovements(answer, stage) {
-    const improvements = [];
-    const wordCount = answer.split(/\s+/).filter(Boolean).length;
+export function detectComplexityMismatch(answerText, options = {}) {
+    const reqText = typeof options.problemRequirements === 'string'
+        ? options.problemRequirements
+        : (typeof options.problemRequirements === 'object' && options.problemRequirements !== null
+            ? (options.problemRequirements.expectedComplexity || options.problemRequirements.timeComplexity || JSON.stringify(options.problemRequirements))
+            : '');
+    const statementText = typeof options.problemStatement === 'string' ? options.problemStatement : '';
+    const expectedExplicit = typeof options.expectedComplexity === 'string' ? options.expectedComplexity : '';
+    const targetSource = `${expectedExplicit} ${reqText} ${statementText}`.trim();
 
+    if (!targetSource) return null;
+
+    const parseComplexity = (str) => {
+        if (!str || typeof str !== 'string') return null;
+        if (/\bo\s*\(\s*n!\s*\)/i.test(str)) return { name: 'O(n!)', rank: 8 };
+        if (/\bo\s*\(\s*2\s*\^\s*n\s*\)/i.test(str)) return { name: 'O(2^n)', rank: 7 };
+        if (/\bo\s*\(\s*n\s*(?:\^3|³|\*\s*n\s*\*\s*n)\s*\)|\bcubic\b/i.test(str)) return { name: 'O(n^3)', rank: 6 };
+        if (/\bo\s*\(\s*n\s*(?:\^2|²|\*\s*n)\s*\)|\bquadratic\b/i.test(str)) return { name: 'O(n^2)', rank: 5 };
+        if (/\bo\s*\(\s*n\s*(?:\*\s*)?log(?:\s*n)?\s*\)/i.test(str)) return { name: 'O(n log n)', rank: 4 };
+        if (/\bo\s*\(\s*n\s*\)|\blinear(?:\s+time)?\b/i.test(str)) return { name: 'O(n)', rank: 3 };
+        if (/\bo\s*\(\s*log(?:\s*n)?\s*\)|\blogarithmic(?:\s+time)?\b/i.test(str)) return { name: 'O(log n)', rank: 2 };
+        if (/\bo\s*\(\s*1\s*\)|\bconstant(?:\s+time)?\b/i.test(str)) return { name: 'O(1)', rank: 1 };
+        return null;
+    };
+
+    const expected = parseComplexity(targetSource);
+    if (!expected) return null;
+
+    const ans = String(answerText || '');
+    const candidateComplexities = [];
+    if (/\bo\s*\(\s*n!\s*\)/i.test(ans)) candidateComplexities.push({ name: 'O(n!)', rank: 8 });
+    if (/\bo\s*\(\s*2\s*\^\s*n\s*\)/i.test(ans)) candidateComplexities.push({ name: 'O(2^n)', rank: 7 });
+    if (/\bo\s*\(\s*n\s*(?:\^3|³|\*\s*n\s*\*\s*n)\s*\)|\bcubic\b/i.test(ans)) candidateComplexities.push({ name: 'O(n^3)', rank: 6 });
+    if (/\bo\s*\(\s*n\s*(?:\^2|²|\*\s*n)\s*\)|\bquadratic\b/i.test(ans)) candidateComplexities.push({ name: 'O(n^2)', rank: 5 });
+    if (/\bo\s*\(\s*n\s*(?:\*\s*)?log(?:\s*n)?\s*\)/i.test(ans)) candidateComplexities.push({ name: 'O(n log n)', rank: 4 });
+    if (/\bo\s*\(\s*n\s*\)|\blinear(?:\s+time)?\b/i.test(ans)) candidateComplexities.push({ name: 'O(n)', rank: 3 });
+    if (/\bo\s*\(\s*log(?:\s*n)?\s*\)|\blogarithmic(?:\s+time)?\b/i.test(ans)) candidateComplexities.push({ name: 'O(log n)', rank: 2 });
+    if (/\bo\s*\(\s*1\s*\)|\bconstant(?:\s+time)?\b/i.test(ans)) candidateComplexities.push({ name: 'O(1)', rank: 1 });
+
+    if (candidateComplexities.length === 0) return null;
+
+    const bestCandidate = candidateComplexities.reduce((prev, curr) => curr.rank < prev.rank ? curr : prev, candidateComplexities[0]);
+
+    if (bestCandidate.rank > expected.rank) {
+        return {
+            expected: expected.name,
+            actual: bestCandidate.name,
+            message: `Complexity mismatch: Expected ${expected.name}, but candidate claimed inferior ${bestCandidate.name}.`,
+        };
+    }
+
+    return null;
+}
+
+export function pickImprovements(answer, stage = 'Technical', options = {}) {
+    const improvements = [];
+    const lower = String(answer || '').toLowerCase();
+    const wordCount = String(answer || '').trim().split(/\s+/).filter(Boolean).length;
+    const opts = typeof options === 'object' && options !== null ? options : {};
+
+    // 1. Question-Linked Improvements: Missing Tags (e.g., caching, rate-limiting, sharding)
+    const rawTags = Array.isArray(opts.tags)
+        ? opts.tags
+        : (typeof opts.tags === 'string'
+            ? opts.tags.split(',').map((t) => t.trim())
+            : (Array.isArray(opts.problemRequirements?.tags) ? opts.problemRequirements.tags : []));
+
+    for (const tag of rawTags) {
+        if (!tag || typeof tag !== 'string') continue;
+        const normTag = tag.trim().toLowerCase();
+        if (!normTag) continue;
+        const tagRegex = new RegExp(`\\b${normTag.replace(/[-_]/g, '[-_ ]?')}\\b`, 'i');
+        if (!tagRegex.test(lower)) {
+            improvements.push(`Address ${tag.trim()} explicitly in your solution design.`);
+        }
+    }
+
+    // 2. Question-Linked Improvements: Missing / Mismatched Complexity Requirements
+    const reqText = typeof opts.problemRequirements === 'string'
+        ? opts.problemRequirements
+        : (typeof opts.problemRequirements === 'object' && opts.problemRequirements !== null
+            ? (opts.problemRequirements.expectedComplexity || opts.problemRequirements.timeComplexity || JSON.stringify(opts.problemRequirements))
+            : '');
+    const statementText = typeof opts.problemStatement === 'string' ? opts.problemStatement : '';
+    const complexitySource = `${opts.expectedComplexity || ''} ${reqText} ${statementText}`.trim();
+
+    if (COMPLEXITY_PATTERN.test(complexitySource)) {
+        const candidateHasComplexity = COMPLEXITY_PATTERN.test(lower);
+        if (!candidateHasComplexity) {
+            improvements.push('State time and space complexity explicitly to meet problem requirements.');
+        } else {
+            const mismatch = detectComplexityMismatch(answer, opts);
+            if (mismatch) {
+                improvements.push(`Target the expected ${mismatch.expected} complexity rather than ${mismatch.actual}.`);
+            }
+        }
+    }
+
+    // 3. Length heuristics
     if (wordCount < 20) {
         improvements.push('Provide more detail in your response');
         improvements.push('Add a concrete example to support your point');
@@ -241,13 +360,14 @@ function pickImprovements(answer, stage) {
         improvements.push('Add more specific examples to strengthen your answer');
     }
 
+    // 4. Stage-specific improvements
     if (stage === 'Technical' || stage === 'DSA / Coding') {
         const techCount = countTechnicalKeywords(answer);
         if (techCount < 3) improvements.push('Use more technical terminology');
-        if (!COMPLEXITY_PATTERN.test(answer)) {
+        if (!COMPLEXITY_PATTERN.test(answer) && !improvements.some((i) => i.toLowerCase().includes('complexity'))) {
             improvements.push('State time and space complexity explicitly');
         }
-        if (!/\b(trade-off|alternative|pros and cons)\b/.test(answer.toLowerCase())) {
+        if (!/\b(trade-off|alternative|pros and cons)\b/.test(lower)) {
             improvements.push('Discuss trade-offs and alternatives');
         }
     }
@@ -267,21 +387,44 @@ function pickImprovements(answer, stage) {
     return improvements.slice(0, 3);
 }
 
-function generateFeedbackSummary(score, strengths, improvements, _stage) {
+export function generateFeedbackSummary(score, strengths = [], improvements = [], _stage = 'Technical', _options = {}) {
     const tone = score >= 80 ? 'Strong answer.' : score >= 60 ? 'Solid attempt with growth areas.' : 'Needs deeper development.';
     const strengthPart = strengths.length > 0 ? ` Well done on: ${strengths.join(', ')}.` : '';
     const improvementPart = improvements.length > 0 ? ` Focus on: ${improvements[0]}.` : '';
-    return `${tone}${strengthPart}${improvementPart}`;
+    const summary = `${tone}${strengthPart}${improvementPart}`;
+
+    let nextStep;
+    if (improvements.length > 0) {
+        const topImp = improvements[0].replace(/\.$/, '');
+        nextStep = `Practice drill: ${topImp}. Review related problem patterns to reinforce this area.`;
+    } else if (score >= 80) {
+        nextStep = 'Practice drill: Maintain mastery by exploring complex edge cases and distributed scale scenarios.';
+    } else {
+        nextStep = 'Practice drill: Structure your responses with clear problem decomposition and explicit trade-offs.';
+    }
+
+    return {
+        summary,
+        feedbackSummary: summary,
+        nextStep,
+        toString() {
+            return summary;
+        },
+    };
 }
 
 /**
  * Evaluate a fresher answer based on actual content quality and semantic rubric.
  * @param {string} userAnswer - The candidate's answer text
  * @param {string} stage - Interview stage (HR, Technical, etc.)
- * @param {string} codeText - Any code submitted
- * @returns {{ score: number, rubric: Object, strengths: string[], improvements: string[], feedbackSummary: string }}
+ * @param {string|Object} codeText - Any code submitted or options object
+ * @param {Object} [options] - Additional evaluation options (tags, problemStatement, problemRequirements)
+ * @returns {{ score: number, rubric: Object, strengths: string[], improvements: string[], feedbackSummary: string, nextStep: string, misconceptionsDetected: string[] }}
  */
-export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
+export function evaluateFresherAnswer(userAnswer, stage = 'Technical', codeText = '', options = {}) {
+    const opts = typeof codeText === 'object' && codeText !== null ? codeText : (options || {});
+    const code = typeof codeText === 'string' ? codeText : (opts.codeText || opts.code || '');
+
     const answer = String(userAnswer || '').trim();
     if (!answer) {
         return {
@@ -296,16 +439,19 @@ export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
             strengths: ['Attempted to answer'],
             improvements: ['Provide a complete response with examples and reasoning'],
             feedbackSummary: 'No answer provided. Please provide a substantive response with reasoning.',
+            nextStep: 'Practice drill: Provide a complete response with examples and reasoning. Review related problem patterns to reinforce this area.',
+            misconceptionsDetected: [],
         };
     }
 
-    const lengthScore = evaluateAnswerLength(answer);
+    const interviewType = opts.interviewType || opts.type || null;
+    const lengthScore = evaluateAnswerLength(answer, stage, interviewType);
     const structureScore = evaluateStructure(answer);
     const concreteScore = evaluateConcreteness(answer);
     const keywordScore = Math.min(countTechnicalKeywords(answer), 5);
-    const codeScore = evaluateCodeQuality(codeText);
+    const codeScore = evaluateCodeQuality(code);
 
-    const hasCode = Boolean(codeText && codeText.trim().length > 0);
+    const hasCode = Boolean(code && code.trim().length > 0);
     const stageWeights = stage === 'Technical' || stage === 'DSA / Coding'
         ? { length: 2, structure: 2, concrete: 1.5, keywords: 2.5, code: hasCode ? 2 : 0 }
         : stage === 'HR' || stage === 'Behavioral'
@@ -325,7 +471,15 @@ export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
     const maxRawScore = maxPerCategory;
     let normalizedScore = Math.round((rawScore / maxRawScore) * 100);
 
-    const rubric = calculateRubric(answer, stage, codeText);
+    const rubric = calculateRubric(answer, stage, code);
+
+    // Complexity Mismatch & Misconceptions (B.1)
+    const misconceptionsDetected = [];
+    const complexityMismatch = detectComplexityMismatch(answer, opts);
+    if (complexityMismatch) {
+        misconceptionsDetected.push(complexityMismatch.message);
+        rubric.correctness = Math.max(1, rubric.correctness - 2);
+    }
 
     // Reward exceptional rubric attributes (metrics, complexity, strong star structure)
     if (rubric.depth >= 7) normalizedScore += 4;
@@ -334,8 +488,10 @@ export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
 
     const clampedScore = Math.max(25, Math.min(98, normalizedScore));
     const strengths = pickStrengths(answer, stage);
-    const improvements = pickImprovements(answer, stage);
-    const feedbackSummary = generateFeedbackSummary(clampedScore, strengths, improvements, stage);
+    const improvements = pickImprovements(answer, stage, opts);
+    const feedbackResult = generateFeedbackSummary(clampedScore, strengths, improvements, stage, opts);
+    const feedbackSummary = typeof feedbackResult === 'string' ? feedbackResult : feedbackResult.summary;
+    const nextStep = typeof feedbackResult === 'object' && feedbackResult.nextStep ? feedbackResult.nextStep : '';
 
     return {
         score: clampedScore,
@@ -343,7 +499,24 @@ export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
         strengths,
         improvements,
         feedbackSummary,
+        nextStep,
+        misconceptionsDetected,
     };
+}
+
+/**
+ * Check if hybrid LLM scoring is enabled via feature flag or options override.
+ */
+export function isHybridScoringEnabled(options = {}) {
+    if (typeof options?.forceEnabled === 'boolean') {
+        return options.forceEnabled;
+    }
+    if (typeof options?.enabled === 'boolean') {
+        return options.enabled;
+    }
+    const flag1 = process.env.FEATURE_FLAG_HYBRID_SCORING;
+    const flag2 = process.env.FEATURE_AI_INTERVIEW_HYBRID_SCORING;
+    return flag1 === 'true' || flag1 === '1' || flag2 === 'true' || flag2 === '1';
 }
 
 /**
@@ -361,9 +534,17 @@ export async function evaluateAnswerWithSemanticRubric({
     sessionId = null,
     userId = null,
     ip = null,
-    options: _options = {}
+    options = {}
 }) {
-    const baseEvaluation = evaluateFresherAnswer(userAnswer, stage, codeText);
+    const baseEvaluation = evaluateFresherAnswer(userAnswer, stage, codeText, options);
+
+    // Top-level feature flag check before importing or executing LLM scoring
+    if (!isHybridScoringEnabled(options)) {
+        return {
+            ...baseEvaluation,
+            evalProvider: 'disabled',
+        };
+    }
 
     try {
         const { callTurnScoring } = await import('./llmRouter.js');
@@ -395,6 +576,8 @@ export async function evaluateAnswerWithSemanticRubric({
                     strengths: Array.isArray(llmResult.strengths) && llmResult.strengths.length > 0 ? llmResult.strengths : baseEvaluation.strengths,
                     improvements: Array.isArray(llmResult.improvements) && llmResult.improvements.length > 0 ? llmResult.improvements : baseEvaluation.improvements,
                     feedbackSummary: llmResult.feedback || baseEvaluation.feedbackSummary,
+                    nextStep: llmResult.nextStep || baseEvaluation.nextStep,
+                    misconceptionsDetected: baseEvaluation.misconceptionsDetected || [],
                     evalModelUsed: llmResult.evalModelUsed || 'semantic-rubric',
                     evalProvider: llmResult.evalProvider || 'heuristic',
                     reaction: llmResult.reaction || 'neutral',

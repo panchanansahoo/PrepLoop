@@ -12,6 +12,11 @@ import {
     QUESTION_TIME_LIMITS,
     decideNextTurnAction,
     PACING_MODES,
+    getConversationalTransition,
+    classifyCandidateAnswer,
+    countFillerWords,
+    detectStructureBonus,
+    detectFillerPenalty,
 } from './aiInterviewTiming';
 
 describe('aiInterviewTiming', () => {
@@ -68,27 +73,61 @@ describe('aiInterviewTiming', () => {
             expect(reaction.text).toContain('explore');
         });
 
-        it('uses correct boundary thresholds', () => {
-            expect(getInterviewerReaction(80).emoji).toBe('👍');  // exactly 80
-            expect(getInterviewerReaction(79).emoji).toBe('🤔');  // just below
+        it('uses correct boundary thresholds (defaulting to medium difficulty >= 78)', () => {
+            expect(getInterviewerReaction(78).emoji).toBe('👍');  // exactly 78 (medium threshold)
+            expect(getInterviewerReaction(77).emoji).toBe('🤔');  // just below 78
             expect(getInterviewerReaction(60).emoji).toBe('🤔');  // exactly 60
             expect(getInterviewerReaction(59).emoji).toBe('😐');  // just below
         });
 
         it('adjusts reaction thresholds based on question difficulty', () => {
-            // For easy questions normalized <= 70, score of 68 should qualify for high
-            const easyHigh = getInterviewerReaction(68, 'dsa', 'easy');
-            expect(easyHigh.emoji).toBe('🎯');
+            // For easy questions (high threshold >= 65)
+            const easyHighBoundary = getInterviewerReaction(65, 'dsa', 'easy');
+            expect(easyHighBoundary.emoji).toBe('🎯');
+
+            const easyBelowHigh = getInterviewerReaction(64, 'dsa', 'easy');
+            expect(easyBelowHigh.emoji).toBe('🤔');
 
             const easyMid = getInterviewerReaction(52, 'dsa', 'easy');
             expect(easyMid.emoji).toBe('🤔');
 
-            // For hard questions, threshold is higher (82)
+            const easyLow = getInterviewerReaction(40, 'dsa', 'easy');
+            expect(easyLow.emoji).toBe('💡');
+
+            // For medium questions (high threshold >= 78)
+            const medHigh = getInterviewerReaction(78, 'dsa', 'medium');
+            expect(medHigh.emoji).toBe('🎯');
+
+            const medBelowHigh = getInterviewerReaction(77, 'dsa', 'medium');
+            expect(medBelowHigh.emoji).toBe('🤔');
+
+            // For hard / staff questions (high threshold >= 82)
             const hardBelowHigh = getInterviewerReaction(81, 'dsa', 'hard');
             expect(hardBelowHigh.emoji).toBe('🤔');
 
-            const hardHigh = getInterviewerReaction(85, 'dsa', 'hard');
+            const hardHigh = getInterviewerReaction(82, 'dsa', 'hard');
             expect(hardHigh.emoji).toBe('🎯');
+
+            const staffBelowHigh = getInterviewerReaction(81, 'dsa', 'staff');
+            expect(staffBelowHigh.emoji).toBe('🤔');
+
+            const staffHigh = getInterviewerReaction(82, 'dsa', 'staff');
+            expect(staffHigh.emoji).toBe('🎯');
+
+            const hardStaffHigh = getInterviewerReaction(82, 'dsa', 'hard/staff');
+            expect(hardStaffHigh.emoji).toBe('🎯');
+
+            const staffArchHigh = getInterviewerReaction(82, 'dsa', 'staff_architectural');
+            expect(staffArchHigh.emoji).toBe('🎯');
+        });
+
+        it('defaults to medium thresholds when difficulty is not provided', () => {
+            expect(getInterviewerReaction(78, 'dsa').emoji).toBe('🎯');
+            expect(getInterviewerReaction(77, 'dsa').emoji).toBe('🤔');
+            expect(getInterviewerReaction(78, null, null).emoji).toBe('👍');
+            expect(getInterviewerReaction(77, null, null).emoji).toBe('🤔');
+            expect(getInterviewerReaction(78, null, undefined).emoji).toBe('👍');
+            expect(getInterviewerReaction(77, null, undefined).emoji).toBe('🤔');
         });
 
         // ── Type-specific reaction tests ──────────────────────────────
@@ -413,6 +452,125 @@ describe('aiInterviewTiming', () => {
             expect(PACING_MODES.realistic.nudgeMs).toBe(12000);
             expect(PACING_MODES.realistic.checkInMs).toBe(25000);
             expect(PACING_MODES.realistic.autoAdvanceMs).toBe(40000);
+        });
+    });
+
+    describe('Conversational Transitions with Session Seeding', () => {
+        it('returns expected transitions without session seed (backward compatible)', () => {
+            const t1 = getConversationalTransition(85, 'Technical', 1);
+            const t2 = getConversationalTransition(85, 'Technical', 1);
+            expect(t1).toBe(t2);
+            expect(typeof t1).toBe('string');
+            expect(t1.length).toBeGreaterThan(0);
+        });
+
+        it('seeds phrase rotation with sessionId so repeat users get varied transitions', () => {
+            // Test with a few different session seeds
+            const results = new Set();
+            for (let i = 1; i <= 6; i++) {
+                const phrase = getConversationalTransition(85, 'Technical', 1, `session-user-${i}`);
+                results.add(phrase);
+            }
+            // With distinct session seeds across 6 calls, there should be more than 1 distinct phrase
+            expect(results.size).toBeGreaterThan(1);
+        });
+
+        it('supports numeric sessionSeed and object { sessionId }', () => {
+            const byNum = getConversationalTransition(70, 'Technical', 2, 42);
+            const byObj = getConversationalTransition(70, 'Technical', 2, { sessionId: 'attempt-42' });
+            expect(typeof byNum).toBe('string');
+            expect(typeof byObj).toBe('string');
+        });
+    });
+
+    describe('Enhanced communicationScore (Structure & Filler Words)', () => {
+        it('rewards STAR framework structure in answers', () => {
+            const plainScore = communicationScore(50, 3, 3, "I built a service to handle data processing and delivered it.");
+            const starScore = communicationScore(50, 3, 3, "Using the STAR approach: in that situation, my task was to reduce latency. My action was caching hot keys in Redis, and the result was 50% lower response times.");
+            expect(starScore).toBeGreaterThan(plainScore);
+        });
+
+        it('rewards sequential structure (first, second, finally)', () => {
+            const plainScore = communicationScore(50, 3, 3, "We can do this by checking items in the list and returning values.");
+            const structuredScore = communicationScore(50, 3, 3, "First, we validate inputs. Second, we traverse the graph with BFS. Finally, we return the shortest path.");
+            expect(structuredScore).toBeGreaterThan(plainScore);
+        });
+
+        it('penalizes excessive filler words', () => {
+            const cleanScore = communicationScore(60, 3, 3, "The system scales by partitioning database shards across regions.");
+            const fillerScore = communicationScore(60, 3, 3, "Um like basically the system like uh you know sort of basically scales um like actually uh across regions.");
+            expect(fillerScore).toBeLessThan(cleanScore);
+        });
+
+        it('clamps scores within [0, 10]', () => {
+            const minScore = communicationScore(0, 0, 10, "um uh like you know basically actually sort of kind of er");
+            const maxScore = communicationScore(200, 10, 1, "STAR method: Situation, Task, Action, Result. First, second, finally.");
+            expect(minScore).toBeGreaterThanOrEqual(0);
+            expect(maxScore).toBeLessThanOrEqual(10);
+        });
+
+        it('supports object argument with avgResponseLength and text', () => {
+            const res = communicationScore({
+                avgResponseLength: 60,
+                userMsgCount: 4,
+                questionCount: 4,
+                text: "First we sort the items. Second we binary search.",
+            });
+            expect(res).toBeGreaterThanOrEqual(0);
+            expect(res).toBeLessThanOrEqual(10);
+        });
+    });
+
+    describe('P0-A Answer Classification (classifyCandidateAnswer)', () => {
+        it('classifies clarification questions', () => {
+            expect(classifyCandidateAnswer("Could you clarify if the array can contain negative integers?")).toBe('clarification');
+            expect(classifyCandidateAnswer("Can you repeat the question please?")).toBe('clarification');
+            expect(classifyCandidateAnswer("What are the constraints on memory?")).toBe('clarification');
+        });
+
+        it('classifies dont_know responses including expanded phrases', () => {
+            expect(classifyCandidateAnswer("I don't know the exact syntax for that.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I am blanking on the name of this algorithm.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I'm drawing a blank right now.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I haven't encountered this design pattern before.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I'd like to pass on this question.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I am not sure how to approach this.")).toBe('dont_know');
+            expect(classifyCandidateAnswer("I have no clue how that works.")).toBe('dont_know');
+        });
+
+        it('classifies off-topic statements', () => {
+            expect(classifyCandidateAnswer("Let's talk about bitcoin and crypto trading.")).toBe('off_topic');
+            expect(classifyCandidateAnswer("I went hiking last weekend and the weather was nice.")).toBe('off_topic');
+        });
+
+        it('classifies code_only answers', () => {
+            const ans = classifyCandidateAnswer("", { code: "function twoSum(nums, target) { return []; }" });
+            expect(ans).toBe('code_only');
+
+            const ans2 = classifyCandidateAnswer("[Code submitted]", { code: "const x = 1;" });
+            expect(ans2).toBe('code_only');
+        });
+
+        it('classifies strong_complete answers with trade-offs and structure', () => {
+            const substantiveAnswer = "To solve this problem efficiently, we can use a two-pointer approach with a hash map. First, we sort the array which takes O(n log n) time. Then, we advance the pointers to find complement pairs. The trade-off is O(n) space complexity to store frequencies, but it reduces runtime from O(n^2) to O(n log n). Finally, edge cases like duplicates and negative numbers are handled properly.";
+            expect(classifyCandidateAnswer(substantiveAnswer)).toBe('strong_complete');
+        });
+
+        it('classifies brief/simple answers as partial', () => {
+            expect(classifyCandidateAnswer("We can use an array.")).toBe('partial');
+        });
+
+        it('classifies explicit skips and silence timeouts', () => {
+            expect(classifyCandidateAnswer("", { meta: { submissionType: 'voluntary_skip' } })).toBe('skipped');
+            expect(classifyCandidateAnswer("", { meta: { submissionType: 'timeout_empty', reason: 'silence_timeout' } })).toBe('stuck_silence');
+            expect(classifyCandidateAnswer("I was sayi-", { meta: { submissionType: 'timeout_partial', reason: 'silence_timeout' } })).toBe('timed_out');
+        });
+
+        it('detects repeated answers from conversation history', () => {
+            const previous = ["We should use a hash table to store key value pairs for caching."];
+            const answer = "We should use a hash table to store key value pairs for caching.";
+            expect(classifyCandidateAnswer(answer, { previousAnswers: previous })).toBe('repeated');
+            expect(classifyCandidateAnswer("Like I said before, we cache the results.", { previousAnswers: previous })).toBe('repeated');
         });
     });
 });

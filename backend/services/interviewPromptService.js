@@ -80,12 +80,13 @@ export function resolveInterviewerVoice({ companyFocus, personaPreset, mood } = 
 }
 
 // ── Natural speech prefixes (30% injection rate) ────────────────────
-const _NATURAL_PREFIXES = [
+export const NATURAL_PREFIXES = [
   'Okay, ', 'Right, ', 'Interesting — ', 'Got it. ', 'Mm-hmm. ',
   'Sure. ', 'Alright, ', 'Fair enough. ', 'Makes sense. ',
 ];
+const _NATURAL_PREFIXES = NATURAL_PREFIXES;
 
-function _deterministicHash(str) {
+export function deterministicHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -94,21 +95,24 @@ function _deterministicHash(str) {
   }
   return Math.abs(hash);
 }
+const _deterministicHash = deterministicHash;
+
+const ALREADY_PREFIXED_REGEX = /^(?:okay|right|interesting|got it|mm-hmm|sure|alright|fair enough|makes sense|yes|no|great|good|thank you|thanks|noted|understood|i see|well)(?:[,.—\s]|$)/i;
 
 export function maybeAddNaturalPrefix(message, options = {}) {
   if (!message || typeof message !== 'string') return message;
   const trimmed = message.trim();
   if (trimmed.length < 20) return message;
 
-  // Skip if already starts with one of the natural prefixes
+  // Skip if already starts with one of the natural prefixes from pool
   for (const prefix of _NATURAL_PREFIXES) {
     if (trimmed.toLowerCase().startsWith(prefix.trim().toLowerCase())) {
       return message;
     }
   }
 
-  // Skip if message already starts with a conversational acknowledgment
-  if (/^(?:yes|no|great|good|thank you|thanks|noted|understood|i see|well)[,.]/i.test(trimmed)) {
+  // Skip if message already starts with a conversational acknowledgment or prefix word
+  if (ALREADY_PREFIXED_REGEX.test(trimmed)) {
     return message;
   }
 
@@ -126,16 +130,83 @@ export function maybeAddNaturalPrefix(message, options = {}) {
   return message;
 }
 
+// ── Stage-aware word limits (A.5) ───────────────────────────────────
+export const STAGE_WORD_LIMITS = {
+  intake:    { realtime: 45, default: 50 },
+  warmup:    { realtime: 30, default: 35 },
+  technical: { realtime: 35, default: 40 },
+  followup:  { realtime: 30, default: 35 },
+  'follow-up': { realtime: 30, default: 35 },
+  challenge: { realtime: 50, default: 60 },
+  feedback:  { realtime: 55, default: 70 },
+};
+
+export function resolveStageWordLimit(stage, interviewMode = 'full_realtime') {
+  const norm = String(stage || '').toLowerCase().trim();
+  const limits = STAGE_WORD_LIMITS[norm] || { realtime: 35, default: 40 };
+  return interviewMode === 'full_realtime' ? limits.realtime : limits.default;
+}
+
 // ── Conversation summary builder ────────────────────────────────────
-function buildConversationSummary(turnSummaries = [], askedTopics = []) {
+export function buildConversationSummary(turnSummaries = [], askedTopics = []) {
   const parts = [];
   if (turnSummaries.length > 0) {
-    parts.push(`KEY CLAIMS FROM EARLIER TURNS:\n${turnSummaries.slice(-5).map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
+    parts.push(`KEY CLAIMS FROM EARLIER TURNS:\n${turnSummaries.slice(-8).map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
   }
   if (askedTopics.length > 0) {
     parts.push(`ALREADY ASKED (do not repeat these topics):\n${askedTopics.slice(-6).map(t => `- ${t}`).join('\n')}`);
   }
   return parts.length > 0 ? '\n' + parts.join('\n\n') : '';
+}
+
+// ── Rubric trend builder (B.4) ──────────────────────────────────────
+export function buildRubricTrendSection(rubricHistory = []) {
+  if (!Array.isArray(rubricHistory) || rubricHistory.length === 0) return '';
+
+  const recent = rubricHistory.slice(-3);
+  let totalClarity = 0;
+  let totalDepth = 0;
+  let totalCorrectness = 0;
+
+  const lines = recent.map((entry, idx) => {
+    const turnNum = entry.turn ?? idx + 1;
+    const clarity = Number(entry.clarity ?? entry.rubric?.clarity ?? 0);
+    const depth = Number(entry.depth ?? entry.rubric?.depth ?? 0);
+    const correctness = Number(entry.correctness ?? entry.rubric?.correctness ?? 0);
+
+    totalClarity += clarity;
+    totalDepth += depth;
+    totalCorrectness += correctness;
+
+    return `- Turn ${turnNum}: Clarity=${clarity}/10, Depth=${depth}/10, Correctness=${correctness}/10`;
+  });
+
+  const count = recent.length;
+  const avgClarity = totalClarity / count;
+  const avgDepth = totalDepth / count;
+  const avgCorrectness = totalCorrectness / count;
+
+  let weakest = 'depth';
+  let minScore = avgDepth;
+
+  if (avgClarity < minScore) {
+    weakest = 'clarity';
+    minScore = avgClarity;
+  }
+  if (avgCorrectness < minScore) {
+    weakest = 'correctness';
+  }
+
+  let cue;
+  if (weakest === 'clarity') {
+    cue = 'Candidate has struggled with clarity. Probe for clearer structure and precise communication.';
+  } else if (weakest === 'correctness') {
+    cue = 'Candidate has struggled with correctness. Probe assumptions, boundary conditions, or edge case accuracy.';
+  } else {
+    cue = 'Candidate has struggled with technical depth. Probe deeper into implementation trade-offs, internal mechanics, or scale limits.';
+  }
+
+  return `\nRUBRIC TREND (recent turns):\n${lines.join('\n')}\nTARGET WEAKEST DIMENSION (${weakest.toUpperCase()}): ${cue}`;
 }
 
 // ── Code excerpt sanitizer ──────────────────────────────────────────
@@ -265,8 +336,11 @@ export class InterviewPromptService {
       ? `\nFOLLOW-UP INTELLIGENCE:\n${followUpSignals.map(s => `- ${s}`).join('\n')}`
       : '';
 
-    // ── Voice constraint (relaxed for realtime: 35 words, was 24) ─────
-    const wordLimit = interviewMode === 'full_realtime' ? 35 : 38;
+    // ── Stage-aware word limit (A.5) ──────────────────────────────────
+    const wordLimit = resolveStageWordLimit(currentStage, interviewMode);
+
+    // ── Rubric trend context (B.4) ────────────────────────────────────
+    const rubricTrendSection = buildRubricTrendSection(interviewContext.rubricHistory);
 
     // ── Conversation memory: summary + anti-repetition ──────────────
     const conversationMemory = buildConversationSummary(
@@ -289,9 +363,10 @@ PROBLEM: ${problemStatement}
 CANDIDATE JUST SAID: "${candidateResponse.slice(0, 500)}"
 ${codeSection}
 
-INTERVIEW HISTORY (last 2 exchanges):
-${transcript.slice(-4).map((t) => `${t.role}: ${t.text}`).join('\n')}
+INTERVIEW HISTORY (last 3 exchanges):
+${transcript.slice(-6).map((t) => `${t.role}: ${t.text}`).join('\n')}
 ${resumeSection}
+${rubricTrendSection}
 ${conversationMemory}
 
 INTERVIEW CONTEXT:

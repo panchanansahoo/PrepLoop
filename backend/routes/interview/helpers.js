@@ -2,6 +2,12 @@ import { getGroqClient } from '../../utils/groqClient.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { applyCoinTransaction } from '../../utils/coinTransactions.js';
+import { InterviewStateMachineService } from '../../services/interviewStateMachine.js';
+import {
+  DONT_KNOW_REGEX,
+  OFF_TOPIC_REGEX,
+  CLARIFICATION_REGEX,
+} from '../../services/interviewFollowUpRules.ts';
 
 export const groq = getGroqClient();
 export const INTERVIEW_START_COIN_COST = Number(process.env.AI_INTERVIEW_COIN_COST || 5);
@@ -359,7 +365,13 @@ export function buildInterviewAnalytics(interviews = []) {
   };
 }
 
-export const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
+export const generateAIQuestion = async (
+  type,
+  difficulty,
+  previousQuestions = [],
+  optionsOrTopics = {},
+  maybeScores = []
+) => {
   if (!groq) return null;
 
   try {
@@ -379,6 +391,41 @@ export const generateAIQuestion = async (type, difficulty, previousQuestions = [
       })
       .filter(Boolean);
 
+    let previousTopics = [];
+    let previousScores = [];
+
+    if (Array.isArray(optionsOrTopics)) {
+      previousTopics = optionsOrTopics;
+      if (Array.isArray(maybeScores)) {
+        previousScores = maybeScores;
+      }
+    } else if (optionsOrTopics && typeof optionsOrTopics === 'object') {
+      previousTopics = Array.isArray(optionsOrTopics.previousTopics) ? optionsOrTopics.previousTopics : [];
+      previousScores = Array.isArray(optionsOrTopics.previousScores) ? optionsOrTopics.previousScores : [];
+    }
+
+    const safeTopics = previousTopics
+      .map(t => String(t || '').replace(/[\r\n\t]/g, ' ').replace(/["\\]/g, '').trim().slice(0, 100))
+      .filter(Boolean)
+      .slice(-10);
+
+    const safeScores = previousScores
+      .map(s => (typeof s === 'number' ? s : Number(s?.score ?? s?.overall ?? s)))
+      .filter(Number.isFinite)
+      .slice(-10);
+
+    const avgScore = safeScores.length > 0
+      ? Math.round(safeScores.reduce((sum, val) => sum + val, 0) / safeScores.length)
+      : null;
+
+    const topicDirective = safeTopics.length > 0
+      ? `\n          Previous topics covered in this session: ${JSON.stringify(safeTopics)}. Branch to a relevant new or deeper topic.`
+      : '';
+
+    const scoreDirective = avgScore !== null
+      ? `\n          Candidate's recent score trend average: ${avgScore}/100. Target difficulty level ${difficulty} accordingly.`
+      : '';
+
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -387,7 +434,7 @@ export const generateAIQuestion = async (type, difficulty, previousQuestions = [
             role: 'system',
             content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
           The candidate may have limited professional experience — frame questions around college projects, internships, coursework, or learning.
-          Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.${safePrevious.length > 0 ? `\n          Avoid repeating these previously asked questions: ${JSON.stringify(safePrevious)}.` : ''}
+          Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.${safePrevious.length > 0 ? `\n          Avoid repeating these previously asked questions: ${JSON.stringify(safePrevious)}.` : ''}${topicDirective}${scoreDirective}
           
           Format as JSON with "question" and "context" fields. Respond ONLY with valid JSON.`
           },
@@ -416,4 +463,217 @@ export const generateAIQuestion = async (type, difficulty, previousQuestions = [
     return null;
   }
 };
+
+/**
+ * Resolves dynamic difficulty level based on candidate score trends.
+ * Supports explicit tiers ('easy', 'medium', 'hard') and 'adaptive'.
+ */
+export function resolveDynamicDifficulty(difficulty = 'medium', previousScores = [], type = 'technical') {
+  const DIFFICULTY_TIERS = ['easy', 'medium', 'hard'];
+  const baseDifficulty = difficulty === 'adaptive'
+    ? 'medium'
+    : (DIFFICULTY_TIERS.includes(String(difficulty).toLowerCase()) ? String(difficulty).toLowerCase() : 'medium');
+
+  const scores = (Array.isArray(previousScores) ? previousScores : [])
+    .map(s => (typeof s === 'number' ? s : Number(s?.score ?? s?.overall ?? s)))
+    .filter(Number.isFinite);
+
+  if (scores.length === 0) {
+    return baseDifficulty;
+  }
+
+  // Use InterviewStateMachineService when available
+  try {
+    const adaptive = InterviewStateMachineService.computeAdaptiveDifficulty({
+      currentDifficulty: baseDifficulty,
+      scoreHistory: scores,
+      recentScores: scores,
+      interviewType: type,
+    });
+    let recommended = adaptive?.recommendedDifficulty || adaptive?.difficulty;
+    if (recommended === 'staff_architectural') recommended = 'hard';
+    if (DIFFICULTY_TIERS.includes(recommended)) {
+      return recommended;
+    }
+  } catch {
+    // fall through to heuristic
+  }
+
+  const recent = scores.slice(-3);
+  const avg = recent.reduce((sum, s) => sum + s, 0) / recent.length;
+  const latest = recent[recent.length - 1];
+
+  if (scores.length >= 2 && avg >= 80 && latest >= 75) {
+    if (baseDifficulty === 'easy') return 'medium';
+    return 'hard';
+  }
+
+  if (latest < 55 && avg < 60) {
+    if (baseDifficulty === 'hard') return 'medium';
+    return 'easy';
+  }
+
+  if (difficulty === 'adaptive') {
+    if (avg >= 80) return 'hard';
+    if (avg < 60) return 'easy';
+    return 'medium';
+  }
+
+  return baseDifficulty;
+}
+
+/**
+ * Classifies a candidate speech turn into canonical interview answer categories:
+ * 'strong_complete' | 'partial' | 'wrong' | 'dont_know' | 'off_topic' | 'clarification' | 'stuck_silence' | 'skipped'
+ */
+export function classifyCandidateAnswer(answerOrPayload, maybeOptions = {}) {
+  let answer = '';
+  let _question = '';
+  let _previousQuestion = '';
+  let interviewType = 'technical';
+
+  if (typeof answerOrPayload === 'string') {
+    answer = answerOrPayload;
+    if (maybeOptions && typeof maybeOptions === 'object') {
+      _question = maybeOptions.question || '';
+      _previousQuestion = maybeOptions.previousQuestion || '';
+      interviewType = maybeOptions.interviewType || 'technical';
+    }
+  } else if (answerOrPayload && typeof answerOrPayload === 'object') {
+    answer = answerOrPayload.answer || answerOrPayload.response || answerOrPayload.candidateResponse || answerOrPayload.text || '';
+    _question = answerOrPayload.question || answerOrPayload.currentQuestion || '';
+    _previousQuestion = answerOrPayload.previousQuestion || '';
+    interviewType = answerOrPayload.interviewType || 'technical';
+  }
+
+  const text = String(answer || '').trim();
+  const lower = text.toLowerCase();
+
+  // 1. Skipped turn (check before length guard so 'skip' or 'pass' are recognized)
+  if (/^(?:skip|pass|next question|let's move on)\b/i.test(lower)) {
+    return {
+      answerType: 'skipped',
+      isStuckSilence: false,
+      isDontKnow: false,
+      isOffTopic: false,
+      isClarification: false,
+      isSkipped: true,
+      confidence: 0.95,
+      explanation: 'Candidate explicitly requested to skip or move to next question.'
+    };
+  }
+
+  // 2. Stuck / Silence / Empty turn
+  if (
+    !text ||
+    text.length < 3 ||
+    /^(\.|\?|-|uh|um|umm|\s)+$/i.test(text) ||
+    /^(?:i am|i'm|uh|um)\s*[.\s]*(?:uh|um|umm)*$/i.test(text)
+  ) {
+    return {
+      answerType: 'stuck_silence',
+      isStuckSilence: true,
+      isDontKnow: false,
+      isOffTopic: false,
+      isClarification: false,
+      isSkipped: false,
+      confidence: 0.95,
+      explanation: 'Candidate response is too brief, empty, or consists only of filler sounds.'
+    };
+  }
+
+  // 3. Clarification request
+  if (
+    CLARIFICATION_REGEX.test(text) ||
+    /^(?:could you|can you|can we|are we|should this|does the|can it|do you mean|what do you mean|would you|repeat|please clarify)\b/i.test(lower) ||
+    (lower.endsWith('?') && lower.length < 90 && !lower.includes('because'))
+  ) {
+    return {
+      answerType: 'clarification',
+      isStuckSilence: false,
+      isDontKnow: false,
+      isOffTopic: false,
+      isClarification: true,
+      isSkipped: false,
+      confidence: 0.9,
+      explanation: 'Candidate is asking for clarification or constraints about the question.'
+    };
+  }
+
+  // 4. Don't know / uncertainty / admission of lack of knowledge
+  if (DONT_KNOW_REGEX.test(text)) {
+    return {
+      answerType: 'dont_know',
+      isStuckSilence: false,
+      isDontKnow: true,
+      isOffTopic: false,
+      isClarification: false,
+      isSkipped: false,
+      confidence: 0.9,
+      explanation: 'Candidate expressed lack of familiarity or inability to recall/solve.'
+    };
+  }
+
+  // 5. Off topic personal stories or unrelated tangents
+  const hasTechnicalTerms = /\b(?:algorithm|database|cache|redis|postgres|query|index|latency|throughput|tree|graph|api|node|react|function|complexity|memory|cpu|network)\b/i.test(lower);
+  if (OFF_TOPIC_REGEX.test(text) && !hasTechnicalTerms) {
+    return {
+      answerType: 'off_topic',
+      isStuckSilence: false,
+      isDontKnow: false,
+      isOffTopic: true,
+      isClarification: false,
+      isSkipped: false,
+      confidence: 0.85,
+      explanation: 'Candidate went off-topic with unrelated personal story or non-technical topic.'
+    };
+  }
+
+  // 6. Wrong technical claims (check canonical misconceptions)
+  if (
+    /\b(?:unsorted.*o\(1\)|o\(1\).*unsorted|hash map.*ascending sorted|get requests are never idempotent|delete messages immediately as soon as one consumer reads|udp is used when packet ordering is required|distributes javascript execution threads|secondary indexes always speeds up|strictly volatile ram-only|atomic writes for all 64-bit)\b/i.test(lower)
+  ) {
+    return {
+      answerType: 'wrong',
+      isStuckSilence: false,
+      isDontKnow: false,
+      isOffTopic: false,
+      isClarification: false,
+      isSkipped: false,
+      confidence: 0.85,
+      explanation: 'Answer contains a known factually incorrect technical claim.'
+    };
+  }
+
+  // 7. Strong complete answers
+  const isBehavioral = interviewType === 'behavioral' || interviewType === 'hr';
+  if (
+    /\b(?:base62|singleflight|xfetch|confluent schema registry|avro|protobuf|eviction|ttl|circuit breaker|two-phase commit|saga pattern|compensating|token bucket|lua scripts|median-of-three|partitioned.*customer id)\b/i.test(lower) ||
+    (text.length > 120 && /\b(?:trade-offs?|mitigate|consistency|latency|worst case|partitioned|time complexity|space complexity)\b/i.test(lower)) ||
+    (isBehavioral && text.length > 120 && /\b(?:situation|task|action|result|impact|improved|reduced|led|managed)\b/i.test(lower))
+  ) {
+    return {
+      answerType: 'strong_complete',
+      isStuckSilence: false,
+      isDontKnow: false,
+      isOffTopic: false,
+      isClarification: false,
+      isSkipped: false,
+      confidence: 0.85,
+      explanation: 'Candidate provided a detailed, strong, well-structured response.'
+    };
+  }
+
+  // Default to partial
+  return {
+    answerType: 'partial',
+    isStuckSilence: false,
+    isDontKnow: false,
+    isOffTopic: false,
+    isClarification: false,
+    isSkipped: false,
+    confidence: 0.75,
+    explanation: 'Candidate response is on topic but may benefit from deeper elaboration.'
+  };
+}
 

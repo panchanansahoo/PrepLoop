@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "../context/AuthContext";
 import { useVoiceAI } from "./useVoiceAI";
-import useInterviewSession, { INTERVIEW_LIFECYCLE } from "./useInterviewSession";
+import useInterviewSession, { INTERVIEW_LIFECYCLE, classifyCandidateAnswer } from "./useInterviewSession";
 
 const createMemoryStorage = () => {
   let store = {};
@@ -631,5 +631,37 @@ describe("useInterviewSession", () => {
     });
 
     expect(sessionStorage.getItem("preploop_active_interview_session")).toBeNull();
+  });
+
+  it("tracks rolling scores and passes previousScores into fetchNextQuestion API request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ question: "Explain caching strategies." }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const { result } = renderHook(() => useInterviewSession());
+
+    expect(result.current.state.rollingScores).toBeDefined();
+    expect(Array.isArray(result.current.state.rollingScores)).toBe(true);
+
+    await act(async () => {
+      await result.current.actions.fetchNextQuestion({
+        previousScores: [75, 85, 90],
+      });
+    });
+
+    expect(fetchMock).toHaveBeenCalled();
+    const nextQuestionCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("next-question"));
+    expect(nextQuestionCall).toBeDefined();
+    const body = JSON.parse(nextQuestionCall[1].body);
+    expect(body.previousScores).toEqual([75, 85, 90]);
+  });
+
+  it("exports classifyCandidateAnswer and classifies candidate speech accurately", () => {
+    expect(classifyCandidateAnswer("I don't know the answer to this")).toBe("dont_know");
+    expect(classifyCandidateAnswer("Could you clarify the question?")).toBe("clarification");
+    expect(classifyCandidateAnswer("", { code: "const x = 1;" })).toBe("code_only");
+    expect(classifyCandidateAnswer("We can use dynamic programming with memoization to solve this in linear time.", { code: "function solve() {}" })).toBe("strong_complete");
   });
 });

@@ -42,18 +42,28 @@ function loadProblemBank() {
   return _problemBank;
 }
 
-// Per-user dedup: track last 10 problem IDs used to avoid repeats
+// Per-user dedup: track last 30 problem IDs used to avoid repeats (Horizon 1.1)
 const _userRecentProblems = new Map(); // userId -> string[]
-const DEDUP_WINDOW = 10;
-function recordUsedProblem(userId, problemId) {
+export const DEDUP_WINDOW = 30;
+
+export function recordUsedProblem(userId, problemId) {
   if (!userId || !problemId) return;
   const recent = _userRecentProblems.get(userId) || [];
   recent.push(problemId);
   if (recent.length > DEDUP_WINDOW) recent.shift();
   _userRecentProblems.set(userId, recent);
 }
-function getRecentProblems(userId) {
+
+export function getRecentProblems(userId) {
   return _userRecentProblems.get(userId) || [];
+}
+
+export function clearRecentProblems(userId = null) {
+  if (userId) {
+    _userRecentProblems.delete(userId);
+  } else {
+    _userRecentProblems.clear();
+  }
 }
 
 // Initialize Gemini provider safely. The GoogleGenAI class may not be
@@ -728,7 +738,8 @@ export class InterviewSimulatorService {
     companyFocus = null,
     requestId = null,
     interviewMode = null,
-    totalQuestions = null
+    totalQuestions = null,
+    options = {}
   ) {
     try {
       const normalizedMode = this._normalizeInterviewMode(interviewMode);
@@ -860,7 +871,7 @@ export class InterviewSimulatorService {
       const problem = await interviewTelemetryService.withSpan(
         'interview.session.problem_select',
         { attributes: telemetryAttributes },
-        () => this._generateProblemStatement(interviewType, difficulty, companyFocus, userId)
+        () => this._generateProblemStatement(interviewType, difficulty, companyFocus, userId, options)
       );
 
       // Update session with problem
@@ -1639,7 +1650,24 @@ export class InterviewSimulatorService {
     return `${focusLine} Here is your problem: ${problem.statement} ${difficultyTone[difficulty] || difficultyTone.medium}`;
   }
 
-  static _generateProblemStatement(interviewType, difficulty, companyFocus, userId = null) {
+  static generateProblemStatement(interviewType, difficulty, companyFocus, userIdOrOptions = null, maybeOptions = {}) {
+    return this._generateProblemStatement(interviewType, difficulty, companyFocus, userIdOrOptions, maybeOptions);
+  }
+
+  static _generateProblemStatement(interviewType, difficulty, companyFocus, userIdOrOptions = null, maybeOptions = {}) {
+    let userId = null;
+    let options = {};
+
+    if (typeof userIdOrOptions === 'string') {
+      userId = userIdOrOptions;
+      options = maybeOptions && typeof maybeOptions === 'object' ? maybeOptions : {};
+    } else if (userIdOrOptions && typeof userIdOrOptions === 'object') {
+      options = userIdOrOptions;
+      userId = options.userId || null;
+    } else if (maybeOptions && typeof maybeOptions === 'object') {
+      options = maybeOptions;
+    }
+
     const bank = loadProblemBank();
     const normalizedType = String(interviewType || 'dsa').toLowerCase().replace('system-design', 'system_design');
     const normalizedDifficulty = String(difficulty || 'medium').toLowerCase();
@@ -1658,9 +1686,15 @@ export class InterviewSimulatorService {
       ];
     }
 
-    // Dedup: filter out recently-used problems for this user
+    // Dedup: filter out recently-used problems for this user and explicit used/excluded IDs (Horizon 1.1)
+    const explicitExcluded = [
+      ...(Array.isArray(options?.usedProblemIds) ? options.usedProblemIds : []),
+      ...(Array.isArray(options?.excludeProblemIds) ? options.excludeProblemIds : [])
+    ];
     const recentIds = userId ? getRecentProblems(userId) : [];
-    let candidates = pool.filter(p => !recentIds.includes(p.id));
+    const allExcluded = new Set([...recentIds, ...explicitExcluded]);
+
+    let candidates = pool.filter(p => !allExcluded.has(p.id));
     if (candidates.length === 0) candidates = pool; // All exhausted, allow repeats
 
     // Company-weighted selection: prefer problems tagged for the target company
@@ -2440,9 +2474,14 @@ Return ONLY the JSON array.`;
   }
 }
 
+
 export default {
   CodeReviewService,
   InterviewSimulatorService,
   analyzeAnswerQuality,
   analyzeAnswerQualityHeuristic,
+  recordUsedProblem,
+  getRecentProblems,
+  clearRecentProblems,
+  DEDUP_WINDOW,
 };

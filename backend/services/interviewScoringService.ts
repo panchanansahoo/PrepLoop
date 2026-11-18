@@ -55,9 +55,9 @@ export class InterviewScoringService {
     const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry?.role === 'candidate').length;
     const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
 
-    const commRaw = metrics.communication;
-    const probRaw = metrics.problemDecomposition;
-    const techRaw = metrics.efficiency;
+    const commRaw = metrics.communication ?? null;
+    const probRaw = (metrics.problemDecomposition ?? metrics.problemSolving) ?? null;
+    const techRaw = (metrics.efficiency ?? metrics.technicalDepth) ?? null;
 
     const commValid = commRaw !== null && commRaw !== undefined && Number.isFinite(Number(commRaw));
     const probValid = probRaw !== null && probRaw !== undefined && Number.isFinite(Number(probRaw));
@@ -67,50 +67,47 @@ export class InterviewScoringService {
     const scoringConfidence = Number((validMetricCount / 3).toFixed(2));
     const hasAnyMetric = validMetricCount > 0;
 
-    const isUnscored = !hasAnyMetric && !analysis?.score;
+    // Replace fallback with null on metric dimensions
+    const communication = commValid ? Math.max(0, Math.min(100, Number(commRaw))) : null;
+    const problemSolving = probValid ? Math.max(0, Math.min(100, Number(probRaw))) : null;
+    const technicalDepth = techValid ? Math.max(0, Math.min(100, Number(techRaw))) : null;
 
-    const fallbackScore = Number.isFinite(Number(analysis?.score))
-      ? Math.max(0, Math.min(100, Number(analysis.score)))
-      : 65;
-
-    const communication = Number.isFinite(Number(commRaw))
-      ? Math.max(0, Math.min(100, Number(commRaw)))
-      : fallbackScore;
-    const problemSolving = Number.isFinite(Number(probRaw))
-      ? Math.max(0, Math.min(100, Number(probRaw)))
-      : fallbackScore;
-    const technicalDepth = Number.isFinite(Number(techRaw))
-      ? Math.max(0, Math.min(100, Number(techRaw)))
-      : fallbackScore;
+    // Propagate unscored status if dimensions are null
+    const allDimensionsNull = communication === null && problemSolving === null && technicalDepth === null;
+    const isUnscored = allDimensionsNull || (!hasAnyMetric && !analysis?.score);
 
     // Fresher bonus: gate on scoringConfidence >= 0.67 (at least 2 valid metrics)
     const isFresher = String(experienceLevel || '').toLowerCase() === 'fresher';
     const fresherBonusApplied = isFresher && validMetricCount >= 2;
     const fresherBonus = fresherBonusApplied ? 3 : 0;
 
-    const overall100 = isUnscored
-      ? null
-      : Math.max(
-          0,
-          Math.min(
-            100,
-            Number(
-              (
-                communication * rubric.communication +
-                problemSolving * rubric.decomposition +
-                technicalDepth * rubric.technical +
-                engagementBonus +
-                fresherBonus
-              ).toFixed(1)
-            )
-          )
-        );
+    let overall100: number | null = null;
+    if (!isUnscored && hasAnyMetric) {
+      const activeWeights =
+        (communication !== null ? rubric.communication : 0) +
+        (problemSolving !== null ? rubric.decomposition : 0) +
+        (technicalDepth !== null ? rubric.technical : 0);
+
+      const weightedScore =
+        (communication !== null ? communication * rubric.communication : 0) +
+        (problemSolving !== null ? problemSolving * rubric.decomposition : 0) +
+        (technicalDepth !== null ? technicalDepth * rubric.technical : 0);
+
+      const normalizedBase = activeWeights > 0 ? weightedScore / activeWeights : 0;
+      overall100 = Math.max(
+        0,
+        Math.min(
+          100,
+          Number((normalizedBase + engagementBonus + fresherBonus).toFixed(1))
+        )
+      );
+    }
 
     return {
       overall: overall100 === null ? null : Number((overall100 / 10).toFixed(1)),
-      communication: isUnscored ? null : Number((communication / 10).toFixed(1)),
-      problem_solving: isUnscored ? null : Number((problemSolving / 10).toFixed(1)),
-      technical_depth: isUnscored ? null : Number((technicalDepth / 10).toFixed(1)),
+      communication: communication === null ? null : Number((communication / 10).toFixed(1)),
+      problem_solving: problemSolving === null ? null : Number((problemSolving / 10).toFixed(1)),
+      technical_depth: technicalDepth === null ? null : Number((technicalDepth / 10).toFixed(1)),
       performance_level:
         overall100 === null
           ? 'Needs Work'
@@ -278,7 +275,101 @@ export class InterviewScoringService {
       delta: Number(delta.toFixed(1)),
     };
   }
+
+  /**
+   * Cross-Session Starting Difficulty Calibration (Horizon 1.2)
+   * Calibrates starting difficulty based on candidate's historical performance.
+   */
+  static deriveStartingDifficulty(
+    recentSessions: Array<{
+      score?: number;
+      overall_score?: number;
+      interview_score?: number;
+      difficulty?: string;
+      difficulty_level?: string;
+      interview_type?: string;
+      type?: string;
+      status?: string;
+    }> = [],
+    preferredDifficulty: string = 'medium',
+    interviewType: string | null = null
+  ): string {
+    const normPreferred = String(preferredDifficulty || 'medium').toLowerCase();
+    const validDifficulties = ['easy', 'medium', 'hard', 'staff', 'staff_architectural'];
+    const safePreferred = validDifficulties.includes(normPreferred) ? normPreferred : 'medium';
+
+    if (!Array.isArray(recentSessions) || recentSessions.length === 0) {
+      return safePreferred;
+    }
+
+    // Helper to safely extract numeric score
+    const extractScore = (s: any): number | null => {
+      if (!s || typeof s !== 'object') return null;
+      if (s.status && (s.status === 'abandoned' || s.status === 'failed')) return null;
+      const raw = s.score ?? s.overall_score ?? s.interview_score ?? s.overall ?? null;
+      if (raw === null || raw === undefined) return null;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    // Filter completed sessions with valid scores
+    const completedWithScores = recentSessions
+      .map(s => ({ session: s, score: extractScore(s) }))
+      .filter((item): item is { session: any; score: number } => item.score !== null);
+
+    if (completedWithScores.length === 0) {
+      return safePreferred;
+    }
+
+    // Filter by matching interview type if supplied and matching sessions exist
+    let targeted = completedWithScores;
+    if (interviewType) {
+      const normType = String(interviewType).toLowerCase().replace('system-design', 'system_design');
+      const typeMatches = completedWithScores.filter(item => {
+        const sType = String(item.session.interview_type || item.session.type || '').toLowerCase().replace('system-design', 'system_design');
+        return sType === normType;
+      });
+      if (typeMatches.length > 0) {
+        targeted = typeMatches;
+      }
+    }
+
+    // Compute average score across targeted sessions
+    const totalScore = targeted.reduce((sum, item) => sum + item.score, 0);
+    const avgScore = totalScore / targeted.length;
+
+    // Check if sessions were on medium/hard difficulty
+    const hasMedOrHardDifficulty = targeted.some(item => {
+      const d = String(item.session.difficulty || item.session.difficulty_level || safePreferred).toLowerCase();
+      return d === 'medium' || d === 'hard' || d === 'staff' || d === 'staff_architectural';
+    });
+
+    // Rule 1: If recent completed sessions average >= 80 on medium/hard difficulty -> return 'hard'
+    if (avgScore >= 80 && hasMedOrHardDifficulty) {
+      return 'hard';
+    }
+
+    // Rule 2: If recent completed sessions average < 50 -> return one tier lower
+    if (avgScore < 50) {
+      const lowerTierMap: Record<string, string> = {
+        hard: 'medium',
+        staff: 'hard',
+        staff_architectural: 'hard',
+        medium: 'easy',
+        easy: 'easy',
+      };
+      // Base lowering on preferredDifficulty, or on recent session difficulty if preferred is default
+      const recentDiff = String(targeted[targeted.length - 1]?.session.difficulty || targeted[targeted.length - 1]?.session.difficulty_level || safePreferred).toLowerCase();
+      const baseDiff = safePreferred !== 'medium' ? safePreferred : (recentDiff || 'medium');
+      return lowerTierMap[baseDiff] || 'easy';
+    }
+
+    // Rule 3: Otherwise return preferredDifficulty (default 'medium')
+    return safePreferred;
+  }
 }
+
+export const deriveStartingDifficulty = InterviewScoringService.deriveStartingDifficulty.bind(InterviewScoringService);
 
 export default InterviewScoringService;
 

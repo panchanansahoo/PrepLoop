@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken } from '../../middleware/auth.ts';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
+import { InterviewScoringService } from '../../services/interviewScoringService.ts';
 import {
   groq,
   INTERVIEW_START_COIN_COST,
@@ -10,6 +11,8 @@ import {
   refundCoinsForInterviewStartFailure,
   generateAIQuestion,
   getFallbackQuestions,
+  resolveDynamicDifficulty,
+  classifyCandidateAnswer,
 } from './helpers.js';
 
 const router = express.Router();
@@ -17,7 +20,8 @@ const router = express.Router();
 router.post('/start', authenticateToken, async (req, res) => {
   let didCharge = false;
   try {
-    const { type, difficulty, duration: _duration } = req.body;
+    const { type, duration: _duration, userHistory, recentSessions, usedProblemIds: rawUsedProblemIds } = req.body;
+    let difficulty = req.body.difficulty;
 
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
     if (!type || !validTypes.includes(type)) {
@@ -28,7 +32,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       });
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive'];
+    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive', 'calibrated'];
     if (!difficulty || !validDifficulties.includes(difficulty)) {
       return res.status(400).json({
         error: 'Invalid difficulty level',
@@ -36,6 +40,22 @@ router.post('/start', authenticateToken, async (req, res) => {
         received: difficulty
       });
     }
+
+    // Starting difficulty calibration (Horizon 1.2)
+    const historyList = Array.isArray(userHistory) ? userHistory : (Array.isArray(recentSessions) ? recentSessions : []);
+    if (difficulty === 'calibrated' || historyList.length > 0) {
+      if (typeof InterviewScoringService?.deriveStartingDifficulty === 'function') {
+        difficulty = InterviewScoringService.deriveStartingDifficulty(
+          historyList,
+          req.body.preferredDifficulty || (difficulty === 'calibrated' ? 'medium' : difficulty),
+          type
+        );
+      } else if (difficulty === 'calibrated') {
+        difficulty = 'medium';
+      }
+    }
+
+    const usedProblemIds = (Array.isArray(rawUsedProblemIds) ? rawUsedProblemIds : []).map(String).filter(Boolean);
 
     const spendResult = await spendCoinsForInterviewStart(
       req.user.id,
@@ -52,30 +72,56 @@ router.post('/start', authenticateToken, async (req, res) => {
     }
     didCharge = true;
 
-    const aiQuestion = await generateAIQuestion(type, difficulty);
+    const aiQuestion = await generateAIQuestion(type, difficulty, [], { usedProblemIds });
+
+    let selectedQuestion = null;
+    let selectedQuestions = [];
 
     if (aiQuestion) {
-      res.json({
-        questions: [aiQuestion],
-        firstQuestion: aiQuestion,
-        question: aiQuestion,
-      });
+      const qText = aiQuestion.question || '';
+      const pid = aiQuestion.problem_id || aiQuestion.problemId || aiQuestion.id || `q_${crypto.createHash('md5').update(qText).digest('hex').slice(0, 10)}`;
+      aiQuestion.problem_id = pid;
+      aiQuestion.problemId = pid;
+      selectedQuestion = aiQuestion;
+      selectedQuestions = [aiQuestion];
     } else {
       const questions = getFallbackQuestions(type, difficulty);
+      const unusedFallback = questions.filter(q => {
+        const qId = q.problem_id || q.problemId || `q_${crypto.createHash('md5').update(q.question || '').digest('hex').slice(0, 10)}`;
+        q.problem_id = qId;
+        q.problemId = qId;
+        return !usedProblemIds.includes(qId);
+      });
+      const pool = unusedFallback.length > 0 ? unusedFallback : questions;
+
       const questionCount = 5;
-      const shuffled = [...questions];
+      const shuffled = [...pool];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = crypto.randomInt(i + 1);
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      const selectedQuestions = shuffled.slice(0, Math.min(questionCount, shuffled.length));
-
-      res.json({
-        questions: selectedQuestions,
-        firstQuestion: selectedQuestions[0] || null,
-        question: selectedQuestions[0] || null,
+      selectedQuestions = shuffled.slice(0, Math.min(questionCount, shuffled.length)).map(q => {
+        const pid = q.problem_id || q.problemId || `q_${crypto.createHash('md5').update(q.question || '').digest('hex').slice(0, 10)}`;
+        q.problem_id = pid;
+        q.problemId = pid;
+        return q;
       });
+      selectedQuestion = selectedQuestions[0] || null;
     }
+
+    const selectedProblemId = selectedQuestion?.problem_id || selectedQuestion?.problemId || null;
+    const updatedUsedProblemIds = selectedProblemId
+      ? Array.from(new Set([...usedProblemIds, selectedProblemId]))
+      : usedProblemIds;
+
+    res.json({
+      questions: selectedQuestions,
+      firstQuestion: selectedQuestion,
+      question: selectedQuestion,
+      problemId: selectedProblemId,
+      usedProblemIds: updatedUsedProblemIds,
+      difficulty,
+    });
   } catch (error) {
     if (didCharge && req.user?.id) {
       try {
@@ -98,7 +144,7 @@ router.post('/start', authenticateToken, async (req, res) => {
 
 router.post('/next-question', authenticateToken, async (req, res) => {
   try {
-    const { previousResponses, type } = req.body;
+    const { previousResponses, type, previousScores, previousTopics, usedProblemIds: rawUsedProblemIds } = req.body;
     const difficulty = req.body.difficulty || 'medium';
 
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
@@ -110,7 +156,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       });
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive'];
+    const validDifficulties = ['easy', 'medium', 'hard', 'adaptive', 'calibrated'];
     if (!validDifficulties.includes(difficulty)) {
       return res.status(400).json({
         error: 'Invalid difficulty level',
@@ -118,6 +164,8 @@ router.post('/next-question', authenticateToken, async (req, res) => {
         received: difficulty
       });
     }
+
+    const usedProblemIds = (Array.isArray(rawUsedProblemIds) ? rawUsedProblemIds : []).map(String).filter(Boolean);
 
     // AI2: Cap history length and sanitize question content to prevent prompt injection and unbounded prompt growth
     const MAX_PREV_QUESTIONS = 10;
@@ -140,19 +188,95 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       })
       .filter(Boolean);
 
-    const aiQuestion = await generateAIQuestion(type, difficulty, previousQuestions);
+    // Normalize previousScores from req.body or previousResponses
+    const rawScores = Array.isArray(previousScores)
+      ? previousScores
+      : safeResponses.map(r => r?.score ?? r?.scores?.overall ?? r?.performance?.score);
+    const safeScores = (Array.isArray(rawScores) ? rawScores : [])
+      .map(s => (typeof s === 'number' ? s : Number(s?.score ?? s?.overall ?? s)))
+      .filter(Number.isFinite)
+      .slice(-10);
 
+    // Normalize previousTopics from req.body or previousResponses
+    const rawTopics = Array.isArray(previousTopics)
+      ? previousTopics
+      : safeResponses.map(r => r?.topic ?? r?.question?.topic ?? r?.category);
+    const safeTopics = (Array.isArray(rawTopics) ? rawTopics : [])
+      .map(t => String(t || '').replace(/[\r\n\t]/g, ' ').replace(/["\\]/g, '').trim().slice(0, 100))
+      .filter(Boolean)
+      .slice(-10);
+
+    // Resolve dynamic difficulty level based on candidate score trends before calling question generation
+    const resolvedDifficulty = resolveDynamicDifficulty(difficulty, safeScores, type);
+
+    const aiQuestion = await generateAIQuestion(type, resolvedDifficulty, previousQuestions, {
+      previousTopics: safeTopics,
+      previousScores: safeScores,
+      usedProblemIds,
+    });
+
+    let selectedQuestion = null;
     if (aiQuestion) {
-      res.json({ question: aiQuestion });
+      const qText = aiQuestion.question || '';
+      const pid = aiQuestion.problem_id || aiQuestion.problemId || aiQuestion.id || `q_${crypto.createHash('md5').update(qText).digest('hex').slice(0, 10)}`;
+      aiQuestion.problem_id = pid;
+      aiQuestion.problemId = pid;
+      selectedQuestion = aiQuestion;
     } else {
-      const questions = getFallbackQuestions(type, difficulty);
-      const randomQuestion = questions[crypto.randomInt(questions.length)];
-      res.json({ question: randomQuestion });
+      const questions = getFallbackQuestions(type, resolvedDifficulty);
+      const unusedFallback = questions.filter(q => {
+        const qId = q.problem_id || q.problemId || `q_${crypto.createHash('md5').update(q.question || '').digest('hex').slice(0, 10)}`;
+        q.problem_id = qId;
+        q.problemId = qId;
+        return !usedProblemIds.includes(qId);
+      });
+      const pool = unusedFallback.length > 0 ? unusedFallback : questions;
+      const randomQuestion = pool[crypto.randomInt(pool.length)];
+      const pid = randomQuestion.problem_id || randomQuestion.problemId || `q_${crypto.createHash('md5').update(randomQuestion.question || '').digest('hex').slice(0, 10)}`;
+      randomQuestion.problem_id = pid;
+      randomQuestion.problemId = pid;
+      selectedQuestion = randomQuestion;
     }
+
+    const selectedProblemId = selectedQuestion?.problem_id || selectedQuestion?.problemId || null;
+    const updatedUsedProblemIds = selectedProblemId
+      ? Array.from(new Set([...usedProblemIds, selectedProblemId]))
+      : usedProblemIds;
+
+    res.json({
+      question: selectedQuestion,
+      problemId: selectedProblemId,
+      usedProblemIds: updatedUsedProblemIds,
+      difficulty: resolvedDifficulty,
+    });
   } catch (error) {
     console.error('Error getting next question:', error);
     res.status(500).json({
       error: 'Failed to get next question',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
+  }
+});
+
+router.post('/classify-answer', (req, res, next) => {
+  if (req.headers.authorization || req.headers.cookie) {
+    return authenticateToken(req, res, next);
+  }
+  next();
+}, (req, res) => {
+  try {
+    const { answer, response, candidateResponse, text, question, previousQuestion, interviewType } = req.body || {};
+    const answerText = answer || response || candidateResponse || text || '';
+    const result = classifyCandidateAnswer(answerText, {
+      question,
+      previousQuestion,
+      interviewType,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Error classifying answer turn:', error);
+    res.status(500).json({
+      error: 'Failed to classify answer',
       ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
     });
   }
@@ -553,5 +677,6 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+export { resolveDynamicDifficulty, classifyCandidateAnswer };
 export default router;
 

@@ -20,9 +20,9 @@ export const QUALITATIVE_RECOVERY_PHRASES: string[] = [
 export const RECOVERY_PHRASES = QUALITATIVE_RECOVERY_PHRASES;
 
 // ── Exclusion Guard Patterns ───────────────────────────────────────────
-export const DONT_KNOW_REGEX = /\b(?:i\s*(?:don'?t|do\s*not)(?:\s+(?:really|actually|quite))?\s*know|not\s+(?:sure|quite\s+sure|certain|familiar)|no\s+idea|haven'?t\s+used|don'?t\s+remember|do\s*not\s+remember|can'?t\s+recall|cannot\s+recall|do\s*not\s+recall|don'?t\s+recall|no\s+clue|haven'?t\s+(?:implemented|worked)|have\s+not\s+(?:implemented|worked)|not\s+(?:very\s+)?familiar)\b/i;
+export const DONT_KNOW_REGEX = /\b(?:i\s*(?:don'?t|do\s*not)(?:\s+(?:really|actually|quite))?\s*know|not\s+(?:sure|quite\s+sure|certain|familiar)|no\s+idea|haven'?t\s+(?:used|implemented|worked|encountered)|have\s+not\s+(?:used|implemented|worked|encountered)|don'?t\s+(?:remember|recall)|do\s*not\s+(?:remember|recall)|can'?t\s+recall|cannot\s+recall|no\s+clue|not\s+(?:very\s+)?familiar|blanking\s+on|drawing\s+a\s+blank|(?:(?:have|need|'d)\s+to\s+)?look\s+(?:that|it|this)\s+up|pass\s+on\s+(?:this|that|it)|not\s+sure\s+how\s+to\s+approach)\b/i;
 export const CLARIFICATION_REGEX = /^(?:could\s+you|can\s+you|can\s+we|are\s+we|should\s+this|does\s+the|can\s+it|do\s+you\s+mean|what\s+do\s+you\s+mean|would\s+you|repeat|please\s+clarify)\b/i;
-export const OFF_TOPIC_REGEX = /\b(?:hiking|crypto|bitcoin|ethereum|laptop battery|professor was|vacation|weather)\b/i;
+export const OFF_TOPIC_REGEX = /\b(?:hiking|camping|crypto(?:currency)?|bitcoin|ethereum|dogecoin|nfts?|laptop battery|battery died|professor was|my professor|vacations?|summer vacation|weather(?: outside)?|weekend plans?)\b/i;
 
 // ── Invariant Validator: Zero Numeric Leaks ────────────────────────────
 export function validatePhrasingHasZeroNumericLeaks(phrasing: string): boolean {
