@@ -1079,10 +1079,20 @@ export function useVoiceAI({
           const formData = new FormData();
           const extension = mimeType.includes("mp4") ? "mp4" : "webm";
           formData.append("audio", audioBlob, `recording.${extension}`);
-          const res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+          let res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
             method: "POST",
             body: formData,
           });
+          if (res.status === 429) {
+            console.warn("[useVoiceAI] STT chunk rate limited (429), retrying after 1.2s backoff...");
+            await new Promise((r) => setTimeout(r, 1200));
+            if (voiceSessionEpochRef.current === sessionEpoch && activeRef.current) {
+              res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+                method: "POST",
+                body: formData,
+              });
+            }
+          }
           if (!res.ok) throw await transcriptionHttpError(res);
           const data = await res.json();
           if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
@@ -2495,10 +2505,20 @@ export function useVoiceAI({
       const formData = new FormData();
       const extension = audioBlob.type.includes("mp4") ? "mp4" : "webm";
       formData.append("audio", audioBlob, `recording.${extension}`);
-      const res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+      let res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
         method: "POST",
         body: formData,
       });
+      if (res.status === 429) {
+        console.warn("[useVoiceAI] retrySavedRecording rate limited (429), retrying after 1.2s backoff...");
+        await new Promise((r) => setTimeout(r, 1200));
+        if (voiceSessionEpochRef.current === sessionEpoch && activeRef.current) {
+          res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+            method: "POST",
+            body: formData,
+          });
+        }
+      }
       if (!res.ok) throw await transcriptionHttpError(res);
       const data = await res.json();
       if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return false;

@@ -173,7 +173,7 @@ router.post('/pre-warm', optionalAuth, (req, res) => {
 // POST /api/voice/tts
 // Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts', voiceTtsLimiter, optionalAuth, usageQuota('voice_tts'), async (req, res) => {
     const { text, provider } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
@@ -224,7 +224,7 @@ router.post('/tts', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (r
     }
 });
 
-router.post('/tts-fast', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts-fast', voiceTtsLimiter, optionalAuth, usageQuota('voice_tts'), async (req, res) => {
     const { text } = req.body;
     const persona = sanitizePersona(req.body.persona);
     const gender  = sanitizeGender(req.body.gender);
@@ -273,7 +273,7 @@ router.post('/tts-fast', voiceTtsLimiter, optionalAuth, usageQuota('voice'), asy
 // Previously used ElevenLabs streaming; now uses the same buffered chain
 // so existing frontend callers continue to work without code changes.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts-stream', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts-stream', voiceTtsLimiter, optionalAuth, usageQuota('voice_tts'), async (req, res) => {
     const { text } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
@@ -486,7 +486,7 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 // STT FILE — File-based STT (powered by Groq Whisper)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
+router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice_stt'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
     const filePath = req.file?.path;
 
     try {
@@ -523,7 +523,7 @@ router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.s
 // STT CHUNK — Realtime chunk/blob STT (used by voice tests and non-Chromium fallback)
 // POST /api/voice/stt-chunk
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt-chunk', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
+router.post('/stt-chunk', voiceSttLimiter, optionalAuth, usageQuota('voice_stt'), upload.single('audio'), requireValidFileSignature(['audio']), async (req, res) => {
     const filePath = req.file?.path;
 
     try {

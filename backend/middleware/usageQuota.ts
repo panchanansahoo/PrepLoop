@@ -81,21 +81,29 @@ export interface QuotaLimits {
 
 const limits: QuotaLimits = {
   ai: Number.parseInt(process.env.AI_DAILY_REQUEST_LIMIT || '100', 10),
-  voice: Number.parseInt(process.env.VOICE_DAILY_REQUEST_LIMIT || '60', 10),
+  voice: Number.parseInt(process.env.VOICE_DAILY_REQUEST_LIMIT || '500', 10),
+  voice_stt: Number.parseInt(process.env.VOICE_STT_DAILY_REQUEST_LIMIT || '300', 10),
+  voice_tts: Number.parseInt(process.env.VOICE_TTS_DAILY_REQUEST_LIMIT || '1000', 10),
 };
 
 const planLimits: Record<string, QuotaLimits> = {
   free: {
     ai: Number.parseInt(process.env.FREE_AI_DAILY_REQUEST_LIMIT || '100', 10),
-    voice: Number.parseInt(process.env.FREE_VOICE_DAILY_REQUEST_LIMIT || '60', 10),
+    voice: Number.parseInt(process.env.FREE_VOICE_DAILY_REQUEST_LIMIT || '500', 10),
+    voice_stt: Number.parseInt(process.env.FREE_VOICE_STT_DAILY_REQUEST_LIMIT || '300', 10),
+    voice_tts: Number.parseInt(process.env.FREE_VOICE_TTS_DAILY_REQUEST_LIMIT || '1000', 10),
   },
   pro: {
     ai: Number.parseInt(process.env.PRO_AI_DAILY_REQUEST_LIMIT || '500', 10),
-    voice: Number.parseInt(process.env.PRO_VOICE_DAILY_REQUEST_LIMIT || '300', 10),
+    voice: Number.parseInt(process.env.PRO_VOICE_DAILY_REQUEST_LIMIT || '1500', 10),
+    voice_stt: Number.parseInt(process.env.PRO_VOICE_STT_DAILY_REQUEST_LIMIT || '1000', 10),
+    voice_tts: Number.parseInt(process.env.PRO_VOICE_TTS_DAILY_REQUEST_LIMIT || '5000', 10),
   },
   premium: {
     ai: Number.parseInt(process.env.PREMIUM_AI_DAILY_REQUEST_LIMIT || '2000', 10),
-    voice: Number.parseInt(process.env.PREMIUM_VOICE_DAILY_REQUEST_LIMIT || '1200', 10),
+    voice: Number.parseInt(process.env.PREMIUM_VOICE_DAILY_REQUEST_LIMIT || '5000', 10),
+    voice_stt: Number.parseInt(process.env.PREMIUM_VOICE_STT_DAILY_REQUEST_LIMIT || '3000', 10),
+    voice_tts: Number.parseInt(process.env.PREMIUM_VOICE_TTS_DAILY_REQUEST_LIMIT || '20000', 10),
   },
 };
 

@@ -338,6 +338,8 @@ export function useInterviewSession(options = {}) {
   const [bookmarked, setBookmarked] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [micOn, setMicOn] = useState(false);
+  const [candidateTurnActive, setCandidateTurnActive] = useState(false);
+  const candidateTurnActiveRef = useRef(false);
   const [interviewerVideoReady, setInterviewerVideoReady] = useState({
     speaking: false,
     listening: false,
@@ -814,6 +816,13 @@ export function useInterviewSession(options = {}) {
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  useEffect(() => {
+    candidateTurnActiveRef.current = candidateTurnActive;
+  }, [candidateTurnActive]);
+
+  const startVoiceRecording = useCallback(() => voiceAI.start(), [voiceAI]);
+  const stopVoiceRecording = useCallback(() => voiceAI.stop(), [voiceAI]);
+
   // Clear the "your turn" cue as soon as either side becomes active again,
   // or when the microphone failed so the real error can be shown.
   useEffect(() => {
@@ -823,8 +832,9 @@ export function useInterviewSession(options = {}) {
   }, [isListening, aiSpeaking, voiceAI.state]);
 
   useEffect(() => {
-    setMicOn(isListening);
-  }, [isListening]);
+    // User mic is ONLY open when candidate's turn is active AND voice recognition is listening
+    setMicOn(Boolean(candidateTurnActive && isListening));
+  }, [candidateTurnActive, isListening]);
 
   useEffect(() => {
     if (voiceAI.interruptDetected) {
@@ -838,15 +848,22 @@ export function useInterviewSession(options = {}) {
   }, [voiceAI.interruptDetected]);
 
   const speakInterviewerText = useCallback(
-    async (text) => {
+    async (text, { isFirstQuestion = false } = {}) => {
       if (!text || speakerMuted) return;
-      if (realisticJitter) {
+      // Isolate mic: User mic is strictly closed and answer timer is paused while AI speaks
+      setCandidateTurnActive(false);
+      candidateTurnActiveRef.current = false;
+      if (isListeningRef.current) stopVoiceRecording();
+      setMicOn(false);
+
+      if (realisticJitter && !isFirstQuestion) {
         const jitterMs = Math.floor(Math.random() * 500) + 500;
         await new Promise((r) => setTimeout(r, jitterMs));
       }
-      // Show a subtle thinking indicator while TTS audio is being fetched,
-      // but do NOT start lip-sync/speaking video yet — that waits for actual audio playback.
-      setInterviewerStatus("Preparing response...");
+      // Show subtle preparing indicator only for follow-ups, never on the first question
+      if (!isFirstQuestion) {
+        setInterviewerStatus("Preparing response...");
+      }
       try {
         const prosody = getMoodProsody(interviewerMood);
         await voiceAI.speak(text, {
@@ -863,7 +880,7 @@ export function useInterviewSession(options = {}) {
         setInterviewerStatus("");
       }
     },
-    [voiceAI, speakerMuted, realisticJitter, interviewerMood],
+    [voiceAI, speakerMuted, realisticJitter, interviewerMood, stopVoiceRecording],
   );
 
   const speakSequenceCancelledRef = useRef(false);
@@ -900,9 +917,6 @@ export function useInterviewSession(options = {}) {
     [voiceAI, speakerMuted],
   );
 
-  const startVoiceRecording = useCallback(() => voiceAI.start(), [voiceAI]);
-  const stopVoiceRecording = useCallback(() => voiceAI.stop(), [voiceAI]);
-
   const handoffToCandidate = useCallback(() => {
     if (!isPausedRef.current && phaseRef.current === "interview") {
       setTranscript("");
@@ -918,9 +932,12 @@ export function useInterviewSession(options = {}) {
         }, 150);
       }
 
-      // Snappy handoff: 300ms settles audio pipeline without echo
+      // Snappy handoff: 250ms settles audio pipeline without echo
       setTimeout(() => {
-        if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
+        if (!isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
+          setCandidateTurnActive(true);
+          candidateTurnActiveRef.current = true;
+          setQuestionElapsed(0);
           startVoiceRecording();
           // Safety retry if SpeechRecognition took longer to start
           setTimeout(() => {
@@ -930,7 +947,7 @@ export function useInterviewSession(options = {}) {
             }
           }, 800);
         }
-      }, 300);
+      }, 250);
     }
   }, [setTranscript, startVoiceRecording, speakerMuted]);
 
@@ -1843,16 +1860,16 @@ export function useInterviewSession(options = {}) {
   }, [phase, isPaused]);
 
   useEffect(() => {
-    // Only count time the candidate can actually answer: pause the per-question
-    // clock while the AI is thinking (loading) or speaking (aiSpeaking).
-    if (phase === "interview" && !isPaused && !loading && !aiSpeaking) {
+    // Only count time the candidate can actually answer:
+    // Run the per-question clock ONLY when the candidate's turn is active and session is not paused.
+    if (phase === "interview" && !isPaused && candidateTurnActive) {
       questionTimerRef.current = setInterval(
         () => setQuestionElapsed((prev) => prev + 1),
         1000,
       );
     }
     return () => clearInterval(questionTimerRef.current);
-  }, [phase, isPaused, loading, aiSpeaking]);
+  }, [phase, isPaused, candidateTurnActive]);
 
   const countdownWarnedRef = useRef(false);
   useEffect(() => {
@@ -2124,6 +2141,10 @@ export function useInterviewSession(options = {}) {
   const startInterview = async () => {
     setPhase("connecting");
     setElapsed(0);
+    setCandidateTurnActive(false);
+    candidateTurnActiveRef.current = false;
+    setMicOn(false);
+    setQuestionElapsed(0);
     setLoading(true);
     // A previous interview may have been ended while paused (or left pause
     // stats behind). Reset everything pause-related or the new session would
@@ -2160,11 +2181,22 @@ export function useInterviewSession(options = {}) {
       setRealtimeMode(false);
     }
 
-    const minDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+    const minDelay = Promise.resolve();
     const technicalOpeningFallback =
       experienceLevel === "fresher"
         ? `Hey, welcome! So today we're going to have a technical chat — we'll cover things like databases, OOP, web concepts, that kind of stuff. But first, tell me a bit about yourself and what technologies you've been most interested in lately.`
         : `Hey, thanks for joining! So let's jump right in — can you walk me through one project you built recently? I'm curious about your design choices and the key trade-offs you made.`;
+
+    // Immediately pre-seed opening question so it is instantly ready with zero thinking delay
+    const initialOpeningFallbacks = {
+      "DSA / Coding": `Alright, let's kick things off with a coding problem. So, given an array of integers and a target sum, how would you find two numbers that add up to the target? Walk me through how you'd think about it.`,
+      "System Design": `Cool, so let's talk system design. How would you go about designing something like a URL shortener — think bit.ly? What are the key pieces you'd need?`,
+      Behavioral: `Hey, welcome! Thanks for making the time. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
+      Technical: technicalOpeningFallback,
+      HR: `Hey, welcome! Thanks for making the time. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
+    };
+    const preseededQuestion = initialOpeningFallbacks[resolvedStage] || technicalOpeningFallback;
+    setCurrentQuestion(preseededQuestion);
 
     try {
       const _headers = getAuthHeaders ? getAuthHeaders() : {};
@@ -2390,11 +2422,11 @@ export function useInterviewSession(options = {}) {
         default: "Hey, good to meet you! Just to set expectations — I'll ask a few questions and I'm really interested in how you think, not just the final answer. Ready to start?",
       };
       const warmup = warmupLines[resolvedCompany] || warmupLines.default;
-      await speakInterviewerText(warmup);
+      await speakInterviewerText(warmup, { isFirstQuestion: true });
       // Brief natural pause after warm-up before first question
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
 
-      await speakInterviewerText(questionText);
+      await speakInterviewerText(questionText, { isFirstQuestion: true });
       handoffToCandidate();
     } catch (error) {
       if (questionSetCode) {
@@ -2445,9 +2477,7 @@ export function useInterviewSession(options = {}) {
       setLoading(false);
       setPhase("interview");
       phaseRef.current = "interview";
-      // Thinking pause before fallback question too
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
-      await speakInterviewerText(fallbackQ);
+      await speakInterviewerText(fallbackQ, { isFirstQuestion: true });
       handoffToCandidate();
     }
   };
@@ -2537,6 +2567,9 @@ export function useInterviewSession(options = {}) {
       }
 
       playSentChime(speakerMuted);
+      setCandidateTurnActive(false);
+      candidateTurnActiveRef.current = false;
+      setMicOn(false);
       if (questionTimerRef.current) {
         clearInterval(questionTimerRef.current);
         questionTimerRef.current = null;
@@ -3820,6 +3853,7 @@ export function useInterviewSession(options = {}) {
       bookmarked,
       speakerMuted,
       micOn,
+      candidateTurnActive,
       interviewerVideoReady,
       interviewerVisibleMode,
       aiSpeaking,

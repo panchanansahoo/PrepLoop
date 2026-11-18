@@ -156,7 +156,7 @@ export default function AIInterviewPage() {
         questionElapsed, questionIndex, totalQuestions,
         stageLabel, stagePlan, loading,
         scoreCue, activeHint, analysisLoading, cameraOn, bookmarked,
-        speakerMuted, micOn, interviewerVideoReady, interviewerVisibleMode,
+        speakerMuted, micOn, candidateTurnActive, interviewerVideoReady, interviewerVisibleMode,
         aiSpeaking, transcript, silenceCountdown, chatOpen, conversation,
         userInput, interviewerStatus, notes, savedSession,
         pacingMode, needAMomentCount, maxNeedAMoment, checkInActive, wrapUpWarning,
@@ -716,7 +716,7 @@ export default function AIInterviewPage() {
                         <div className="ai-vc-status-overlay">
                             {aiSpeaking ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--speaking"><Volume2 size={12} /> Speaking...</div>
-                            ) : (loading || voiceAI.state === 'processing') ? (
+                            ) : (analysisLoading || (loading && conversation?.length > 1) || voiceAI.state === 'processing') ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking">
                                     <Brain size={12} className="ai-spin-slow" /> {EVAL_THINKING_STEPS[evaluatingStep]}
                                 </div>
@@ -728,7 +728,7 @@ export default function AIInterviewPage() {
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(99, 102, 241, 0.88)', backdropFilter: 'blur(8px)', boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)' }}>
                                     <Mic size={12} className="ai-spin-slow" /> I'm still listening — take your time
                                 </div>
-                            ) : awaitingAnswer ? (
+                            ) : (awaitingAnswer || candidateTurnActive) ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(34, 197, 94, 0.9)' }}>
                                     <Mic size={12} /> Your turn — start speaking (or press Space)
                                 </div>
@@ -751,7 +751,9 @@ export default function AIInterviewPage() {
                         <div className="ai-vc-tile-badge ai-vc-tile-badge--user">
                             <span className="ai-vc-tile-badge-name">You</span>
                             {!micOn ? (
-                                <MicOff size={11} className="ai-vc-muted-icon" />
+                                <span className="ai-vc-mic-muted-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                                    <MicOff size={11} className="ai-vc-muted-icon" /> {aiSpeaking ? "Mic off while AI asks" : "Mic off"}
+                                </span>
                             ) : isListening ? (
                                 <div className="ai-vc-user-audio-meter" title="Mic active">
                                     <span className="ai-vc-user-audio-bar" style={{ height: `${4 + (voiceAI.inputBars?.[0] || 0) * 12}px` }} />
