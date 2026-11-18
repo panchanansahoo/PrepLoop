@@ -52,7 +52,7 @@ import {
 import {
   calculateCompetencies,
   COMPETENCY_DEFINITIONS,
-} from '../../../frontend/src/components/interview/CompetencyRadarChart.jsx';
+} from '../../utils/competencyEvaluation.js';
 
 // Pillar 2 & 3: Coding Sandbox Diagnostics & Proctoring 2.0 (LLM & Second-Voice)
 import {
