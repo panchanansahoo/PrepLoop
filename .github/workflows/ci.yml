@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+
 jobs:
   changes:
     name: Detect DSA Editor Changes

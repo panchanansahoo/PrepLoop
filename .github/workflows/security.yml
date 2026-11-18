@@ -13,6 +13,9 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+
 jobs:
   # --- Job 1: Dependency Audit ---
   dependency-audit:

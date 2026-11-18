@@ -10,6 +10,7 @@ permissions:
 
 env:
   NODE_VERSION: '22'
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
 
 jobs:
   cleanup:
