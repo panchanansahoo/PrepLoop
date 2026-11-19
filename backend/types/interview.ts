@@ -201,6 +201,9 @@ export interface FollowUpBranchInput {
   previousTopic?: string;
   previousScore?: number;
   hasPreviousTurn?: boolean;
+  userId?: string;
+  sessionId?: string;
+  cohortPercentage?: number;
 }
 
 export interface InterviewSession {
