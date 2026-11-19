@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken } from '../../middleware/auth.ts';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { InterviewScoringService } from '../../services/interviewScoringService.ts';
+import { interviewTelemetryService } from '../../services/interviewTelemetryService.js';
 import {
   groq,
   INTERVIEW_START_COIN_COST,
@@ -647,6 +648,54 @@ router.get('/:id', authenticateToken, async (req, res) => {
       error: 'Failed to fetch interview',
       ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
     });
+  }
+});
+
+router.post('/:id/survey', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rawId = String(id || '').trim();
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(rawId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+    const survey = req.body?.survey !== undefined ? req.body.survey : req.body;
+    if (!survey || typeof survey !== 'object' || Array.isArray(survey)) {
+      return res.status(400).json({ error: 'Invalid survey payload: must be an object' });
+    }
+    interviewTelemetryService.logEvent('interview.survey.submitted', {
+      sessionId: rawId,
+      userId: req.user?.id,
+      survey,
+    });
+    await interviewTelemetryService.flushEvents(rawId);
+    res.json({ success: true, message: 'Survey recorded' });
+  } catch (error) {
+    console.error('Record survey error:', error.message);
+    res.status(500).json({ error: 'Failed to record survey' });
+  }
+});
+
+router.post('/:id/turn-flags', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rawId = String(id || '').trim();
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(rawId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+    const turnFlags = req.body?.turnFlags !== undefined ? req.body.turnFlags : req.body;
+    if (!turnFlags || typeof turnFlags !== 'object' || Array.isArray(turnFlags)) {
+      return res.status(400).json({ error: 'Invalid turn flags payload: must be an object' });
+    }
+    interviewTelemetryService.logEvent('interview.turn_flags.submitted', {
+      sessionId: rawId,
+      userId: req.user?.id,
+      turnFlags,
+    });
+    await interviewTelemetryService.flushEvents(rawId);
+    res.json({ success: true, message: 'Turn flags recorded' });
+  } catch (error) {
+    console.error('Record turn flags error:', error.message);
+    res.status(500).json({ error: 'Failed to record turn flags' });
   }
 });
 

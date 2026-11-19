@@ -30,6 +30,36 @@ describe('aiInterviewVoiceUtils - Core Voice Utilities (Baseline Tests)', () => 
     expect(chunks.join(' ')).toContain('Sentence end.');
   });
 
+  it('never breaks inside parenthesized expressions O(...) or backtick code', () => {
+    const textWithComplexity = 'This algorithm achieves O(n log n) amortized complexity in the worst-case scenario. It also leverages `cache.get(key, default)` gracefully.';
+    const chunks = splitTextForTTS(textWithComplexity, 70);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    // Neither O(n log n) nor `cache.get(key, default)` should be broken across chunks
+    const joined = chunks.join(' ');
+    expect(joined).toContain('O(n log n)');
+    expect(joined).toContain('`cache.get(key, default)`');
+
+    for (const chunk of chunks) {
+      if (chunk.includes('O(')) {
+        expect(chunk).toContain('O(n log n)');
+      }
+      if (chunk.includes('`cache')) {
+        expect(chunk).toContain('`cache.get(key, default)`');
+      }
+    }
+  });
+
+  it('safely caps runaway unclosed parenthesis without bundling entire text into huge chunk', () => {
+    const unclosedLongText = 'Let us examine (an unclosed parenthetical explanation that continues for a very long time with multiple sentences. This is the second sentence. And here is a third sentence.';
+    const chunks = splitTextForTTS(unclosedLongText, 70);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(75);
+    }
+  });
+
   it('builds expected TTS payload for backend /api/voice/tts contract', () => {
     expect(buildAiInterviewTtsPayload({ text: '  Hello\nthere ', interviewerGender: 'male' })).toEqual({
       text: 'Hello there',

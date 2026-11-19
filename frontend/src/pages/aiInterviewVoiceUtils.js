@@ -10,6 +10,109 @@ function sanitizeTtsInput(value) {
     .trim();
 }
 
+function splitPreservingProtectedSpans(text, delimiterRegex) {
+  const parts = [];
+  let current = '';
+  let inParen = 0;
+  let inBacktick = false;
+  let parenSpanChars = 0;
+  let backtickSpanChars = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '`') {
+      inBacktick = !inBacktick;
+      backtickSpanChars = 0;
+    } else if (ch === '(') {
+      inParen++;
+      parenSpanChars = 0;
+    } else if (ch === ')' && inParen > 0) {
+      inParen--;
+      parenSpanChars = 0;
+    } else {
+      if (inParen > 0) {
+        parenSpanChars++;
+        if (parenSpanChars > 40) {
+          inParen = 0;
+          parenSpanChars = 0;
+        }
+      }
+      if (inBacktick) {
+        backtickSpanChars++;
+        if (backtickSpanChars > 50) {
+          inBacktick = false;
+          backtickSpanChars = 0;
+        }
+      }
+    }
+
+    current += ch;
+
+    if (inParen === 0 && !inBacktick && delimiterRegex.test(ch)) {
+      parts.push(current);
+      current = '';
+    }
+  }
+
+  if (current.trim()) {
+    parts.push(current);
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
+
+function tokenizeWordsPreservingSpans(text) {
+  const tokens = [];
+  let current = '';
+  let inComplexityParen = false;
+  let complexityChars = 0;
+  let inBacktick = false;
+  let backtickSpanChars = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '`') {
+      inBacktick = !inBacktick;
+      backtickSpanChars = 0;
+    } else if (ch === '(') {
+      const isComplexityOpen = i > 0 && /[Oo]/.test(text[i - 1]) && (i === 1 || /[\s,;:(]/.test(text[i - 2]));
+      if (isComplexityOpen) {
+        inComplexityParen = true;
+        complexityChars = 0;
+      }
+    } else if (ch === ')' && inComplexityParen) {
+      inComplexityParen = false;
+      complexityChars = 0;
+    } else {
+      if (inComplexityParen) {
+        complexityChars++;
+        if (complexityChars > 25) {
+          inComplexityParen = false;
+          complexityChars = 0;
+        }
+      }
+      if (inBacktick) {
+        backtickSpanChars++;
+        if (backtickSpanChars > 40) {
+          inBacktick = false;
+          backtickSpanChars = 0;
+        }
+      }
+    }
+
+    if (/\s/.test(ch) && !inComplexityParen && !inBacktick) {
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+
 export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LENGTH) {
   const normalized = sanitizeTtsInput(input);
   if (!normalized) return [];
@@ -22,7 +125,8 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
     return [normalized];
   }
 
-  const sentences = normalized.match(/[^.!?]+[.!?]?/g) || [normalized];
+  // Split on sentence boundaries [.!?] only when not inside parentheses O(...) or backticks `...`
+  const sentences = splitPreservingProtectedSpans(normalized, /[.!?]/);
   const chunks = [];
   let buffer = '';
 
@@ -44,8 +148,8 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
       continue;
     }
 
-    // Fallback for very long single sentence: try clause punctuation first (;, :, —, ,)
-    const clauses = sentence.match(/[^;:\u2014,]+[;:\u2014,]?/g) || [sentence];
+    // Fallback for very long single sentence: try clause punctuation (;, :, —, ,) preserving protected spans
+    const clauses = splitPreservingProtectedSpans(sentence, /[;:\u2014,]/);
     if (clauses.length > 1) {
       let clauseBuffer = '';
       for (const clause of clauses) {
@@ -59,8 +163,8 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
           if (clause.length <= limit) {
             clauseBuffer = clause.trim();
           } else {
-            // Very long clause: split by words
-            const words = clause.trim().split(/\s+/);
+            // Very long clause: split by words preserving protected parenthesized/backtick spans
+            const words = tokenizeWordsPreservingSpans(clause.trim());
             let wordBuffer = '';
             for (const word of words) {
               const wordCandidate = `${wordBuffer} ${word}`.trim();
@@ -81,8 +185,8 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
       continue;
     }
 
-    // Fallback for very long single sentence without punctuation: split by words.
-    const words = sentence.trim().split(/\s+/);
+    // Fallback for very long single sentence without punctuation: split by words preserving protected spans
+    const words = tokenizeWordsPreservingSpans(sentence.trim());
     let wordBuffer = '';
 
     for (const word of words) {

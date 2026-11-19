@@ -180,6 +180,11 @@ function calculateRubric(answer, stage, codeText = '') {
     }
     depth = Math.max(2, Math.min(10, depth));
 
+    // Keyword-match anti-inflation guard: if depth > 7 but answer length < 50 words, apply 0.75 depth penalty
+    if (depth > 7 && wordCount < 50) {
+        depth = Math.max(2, Math.round(depth * 0.75));
+    }
+
     // 3. Correctness (1 - 10)
     let correctness = 4;
     if (codeText && codeText.trim().length > 15) {

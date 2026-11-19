@@ -48,6 +48,13 @@ const PROPORTIONAL_THRESHOLDS = [
 
 export const DIFFICULTY_TIERS = ['easy', 'medium', 'hard', 'staff_architectural'];
 
+export function isSameTopic(topicA, topicB) {
+  if (!topicA || !topicB) return false;
+  const a = String(topicA).toLowerCase().trim();
+  const b = String(topicB).toLowerCase().trim();
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 export function getDifficultyTierIndex(difficulty = 'medium') {
   const norm = String(difficulty || 'medium').toLowerCase().trim();
   const index = DIFFICULTY_TIERS.indexOf(norm);
@@ -185,6 +192,7 @@ export class InterviewStateMachineService {
       shouldExtendTechnical: false,
       extendedTurnsCount: 0,
       isTerminated: false,
+      probedTopics: [],
       stageHistory: [
         {
           stage: firstStage.key,
@@ -256,6 +264,7 @@ export class InterviewStateMachineService {
         shouldExtendTechnical: cleanState.shouldExtendTechnical ?? false,
         extendedTurnsCount: cleanState.extendedTurnsCount ?? 0,
         isTerminated: cleanState.isTerminated ?? false,
+        probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
       };
     }
 
@@ -298,6 +307,7 @@ export class InterviewStateMachineService {
         shouldExtendTechnical: false,
         extendedTurnsCount: cleanState.extendedTurnsCount ?? 0,
         isTerminated: true,
+        probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
       };
     }
 
@@ -491,6 +501,7 @@ export class InterviewStateMachineService {
       shouldExtendTechnical,
       extendedTurnsCount,
       isTerminated: false,
+      probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
     };
   }
 
@@ -613,5 +624,27 @@ export class InterviewStateMachineService {
 
   static isAdaptivePacingEnabled(options = {}) {
     return isAdaptivePacingEnabled(options);
+  }
+
+  static recordProbedTopic(state = {}, topic) {
+    if (!topic || typeof topic !== 'string') return state;
+    const cleanTopic = topic.trim();
+    if (!cleanTopic) return state;
+    const existing = Array.isArray(state.probedTopics) ? [...state.probedTopics] : [];
+    if (!existing.some((t) => isSameTopic(t, cleanTopic))) {
+      existing.push(cleanTopic);
+    }
+    return {
+      ...state,
+      probedTopics: existing,
+    };
+  }
+
+  static isTopicAlreadyProbed(state = {}, candidateTopic) {
+    if (!candidateTopic || typeof candidateTopic !== 'string') return false;
+    const cleanTopic = candidateTopic.trim();
+    if (!cleanTopic) return false;
+    const existing = Array.isArray(state.probedTopics) ? state.probedTopics : [];
+    return existing.some((t) => isSameTopic(t, cleanTopic));
   }
 }

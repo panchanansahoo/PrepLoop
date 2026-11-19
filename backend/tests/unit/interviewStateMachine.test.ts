@@ -835,6 +835,37 @@ describe('InterviewStateMachineService', () => {
       }
     });
   });
+
+  describe('Topic Deduplication Guard (Item 1.2)', () => {
+    it('initializes probedTopics as an empty array and persists across state transitions', () => {
+      const state = InterviewStateMachineService.createInitialState('dsa', 'medium');
+      expect(Array.isArray(state.probedTopics)).toBe(true);
+      expect(state.probedTopics).toEqual([]);
+
+      const recorded = InterviewStateMachineService.recordProbedTopic(state, 'Binary Search Trees');
+      expect(recorded.probedTopics).toEqual(['Binary Search Trees']);
+
+      const advanced = InterviewStateMachineService.advanceState({ ...recorded, turns: 1 });
+      expect(advanced.probedTopics).toEqual(['Binary Search Trees']);
+    });
+
+    it('identifies already probed topics case-insensitively and via substring matches', () => {
+      const state = InterviewStateMachineService.recordProbedTopic({}, 'Dynamic Programming');
+      expect(InterviewStateMachineService.isTopicAlreadyProbed(state, 'Dynamic Programming')).toBe(true);
+      expect(InterviewStateMachineService.isTopicAlreadyProbed(state, 'dynamic programming')).toBe(true);
+      expect(InterviewStateMachineService.isTopicAlreadyProbed(state, 'Dynamic Programming approach')).toBe(true);
+      expect(InterviewStateMachineService.isTopicAlreadyProbed(state, 'System Design')).toBe(false);
+    });
+
+    it('avoids adding duplicates or empty topics', () => {
+      let state = InterviewStateMachineService.createInitialState();
+      state = InterviewStateMachineService.recordProbedTopic(state, 'Concurrency');
+      state = InterviewStateMachineService.recordProbedTopic(state, 'concurrency');
+      state = InterviewStateMachineService.recordProbedTopic(state, '   ');
+      state = InterviewStateMachineService.recordProbedTopic(state, null as any);
+      expect(state.probedTopics).toEqual(['Concurrency']);
+    });
+  });
 });
 
 

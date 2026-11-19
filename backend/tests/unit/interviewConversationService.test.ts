@@ -115,6 +115,27 @@ describe('InterviewConversationService & Prompt Generation', () => {
       const unknownFallback = InterviewConversationService.buildFallbackFollowUp('full_realtime', 'unknown_domain');
       expect(unknownFallback.message).toBe(dsaFallback.message);
     });
+
+    it('injects targeted follow-up guidance when missingAreas match hints', () => {
+      const targetedFallback = InterviewConversationService.buildFallbackFollowUp(
+        'full_realtime',
+        'dsa',
+        ['edge cases']
+      );
+      expect(targetedFallback.message).toContain('edge cases');
+      expect(targetedFallback.message).toContain('two edge cases');
+    });
+
+    it('filters out already-probed topics when choosing missingArea hint', () => {
+      const targetedFallback = InterviewConversationService.buildFallbackFollowUp(
+        'full_realtime',
+        'dsa',
+        ['edge cases', 'time complexity'],
+        ['edge cases'] // 'edge cases' already probed
+      );
+      expect(targetedFallback.message).toContain('time complexity');
+      expect(targetedFallback.message).not.toContain('two edge cases');
+    });
   });
 
   describe('parseFollowUpContent', () => {
@@ -124,6 +145,46 @@ describe('InterviewConversationService & Prompt Generation', () => {
       );
       expect(parsed.message).toBe('test question');
       expect(parsed.isFollowUp).toBe(true);
+    });
+
+    it('falls back to unprobed area when LLM parsed topic was already probed', () => {
+      const normalized = InterviewConversationService.normalizeFollowUp({
+        content: JSON.stringify({
+          message: 'Can you analyze the time complexity again?',
+          topic: 'Time Complexity',
+        }),
+        missingAreas: ['edge cases', 'time complexity'],
+        probedTopics: ['Time Complexity'],
+      });
+
+      expect(normalized.parseFallbackTriggered).toBe(true);
+      // Fallback message should target 'edge cases', not the probed 'Time Complexity'
+      expect(normalized.followUp.message).toContain('edge cases');
+    });
+  });
+
+  describe('requestFollowUpContent timeout resilience', () => {
+    it('handles LLM abort/timeout cleanly by triggering fallback', async () => {
+      const mockSlowGroq = {
+        chat: {
+          completions: {
+            create: vi.fn(async () => {
+              const err: any = new Error('The operation was aborted');
+              err.name = 'TimeoutError';
+              throw err;
+            }),
+          },
+        },
+      };
+
+      const result = await InterviewConversationService.requestFollowUpContent({
+        groqClient: mockSlowGroq as any,
+        modelConfig: { model: 'llama-3.1-8b-instant' },
+        prompt: 'Generate follow-up question',
+      });
+
+      expect(result.fallbackTriggered).toBe(true);
+      expect(result.content).toBe('{}');
     });
   });
 });

@@ -256,4 +256,35 @@ describe('InterviewLobby component', () => {
         expect(expiredBtn).toBeInTheDocument();
         expect(expiredBtn).toBeDisabled();
     });
+
+    it('displays estimated duration on Step 5 review', () => {
+        render(
+            <MemoryRouter>
+                <InterviewLobby {...defaultProps} setupStep={5} />
+            </MemoryRouter>
+        );
+
+        expect(screen.getByText(/Estimated Duration/i)).toBeInTheDocument();
+        expect(screen.getByText(/⏱️ ~10 min/i)).toBeInTheDocument();
+    });
+
+    it('renders resumeParseError as an alert with dismiss button on Step 2', () => {
+        render(
+            <MemoryRouter>
+                <InterviewLobby
+                    {...defaultProps}
+                    setupStep={2}
+                    resumeParseError="Corrupted PDF file"
+                />
+            </MemoryRouter>
+        );
+
+        const alert = screen.getByRole('alert');
+        expect(alert).toBeInTheDocument();
+        expect(alert).toHaveTextContent(/Corrupted PDF file/i);
+
+        const dismissBtn = screen.getByLabelText(/Dismiss resume parse error/i);
+        fireEvent.click(dismissBtn);
+        expect(screen.queryByText(/Corrupted PDF file/i)).not.toBeInTheDocument();
+    });
 });

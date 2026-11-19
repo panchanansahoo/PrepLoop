@@ -214,6 +214,8 @@ describe('AI Interview Regression & Verification: Areas #3 and #5', () => {
         expect(feedback).toBeDefined();
         expect(feedback.mood).toBeDefined();
         expect(['neutral', 'impressed', 'skeptical', 'curious', 'impatient']).toContain(feedback.mood.state);
+        expect(typeof feedback.microReaction).toBe('string');
+        expect(feedback.microReaction.length).toBeGreaterThan(0);
       } finally {
         ws.close();
         await new Promise<void>((resolve) => {

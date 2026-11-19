@@ -53,7 +53,6 @@ export class InterviewScoringService {
     const metrics = analysis?.metrics || {};
     const rubric = this.buildTypeRubric(interviewType, experienceLevel);
     const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry?.role === 'candidate').length;
-    const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
 
     const commRaw = metrics.communication ?? null;
     const probRaw = (metrics.problemDecomposition ?? metrics.problemSolving) ?? null;
@@ -71,6 +70,17 @@ export class InterviewScoringService {
     const communication = commValid ? Math.max(0, Math.min(100, Number(commRaw))) : null;
     const problemSolving = probValid ? Math.max(0, Math.min(100, Number(probRaw))) : null;
     const technicalDepth = techValid ? Math.max(0, Math.min(100, Number(techRaw))) : null;
+
+    // Cross-metric consistency check: flag if max spread between any two dimensions > 40
+    const scoredDimensions = [communication, problemSolving, technicalDepth].filter((v): v is number => v !== null);
+    let scoringAnomalyDetected = false;
+    let maxDimensionSpread = 0;
+    if (scoredDimensions.length >= 2) {
+      maxDimensionSpread = Number((Math.max(...scoredDimensions) - Math.min(...scoredDimensions)).toFixed(1));
+      if (maxDimensionSpread > 40) {
+        scoringAnomalyDetected = true;
+      }
+    }
 
     // Propagate unscored status if dimensions are null
     const allDimensionsNull = communication === null && problemSolving === null && technicalDepth === null;
@@ -94,6 +104,11 @@ export class InterviewScoringService {
         (technicalDepth !== null ? technicalDepth * rubric.technical : 0);
 
       const normalizedBase = activeWeights > 0 ? weightedScore / activeWeights : 0;
+
+      // Quality-gated engagement bonus: only award if answer quality (normalizedBase or analysis score) > 55, capped at 3 pts
+      const effectiveQuality = normalizedBase > 0 ? normalizedBase : Number(analysis?.score || 0);
+      const engagementBonus = effectiveQuality > 55 ? Math.min(3, Math.max(0, candidateTurns - 1)) : 0;
+
       overall100 = Math.max(
         0,
         Math.min(
@@ -122,6 +137,8 @@ export class InterviewScoringService {
       metricsMissing: !hasAnyMetric,
       scoringConfidence,
       fresherBonusApplied,
+      scoringAnomalyDetected,
+      maxDimensionSpread,
     };
   }
 

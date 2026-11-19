@@ -85,6 +85,51 @@ describe('Interviewer Mood Engine & Emotional Arc (Phase 1A & 1B)', () => {
     expect(profile.ttsProsody.energy).toBe('warm');
     expect(profile.toneInstruction).toContain('Warm');
   });
+
+  it('incorporates trajectory awareness to accelerate skeptical/impatient or sustain curious', () => {
+    // Declining trend accelerates shift to skeptical on mediocre score
+    const declining = computeNextMood(MOODS.NEUTRAL, {
+      score: 60,
+      wordCount: 35,
+      trend: 'declining',
+    });
+    expect(declining.nextMood).toBe(MOODS.SKEPTICAL);
+    expect(declining.reason).toBe('declining_trajectory_triggers_skepticism');
+
+    // Improving trend rebounds from skeptical to curious even at 68
+    const improving = computeNextMood(MOODS.SKEPTICAL, {
+      score: 68,
+      wordCount: 40,
+      trend: 'improving',
+    });
+    expect(improving.nextMood).toBe(MOODS.CURIOUS);
+    expect(improving.reason).toBe('improving_trajectory_rekindles_curiosity');
+  });
+
+  it('deduplicates micro-reactions using a usedReactions set', () => {
+    const used = new Set<string>();
+    const reaction1 = getMicroReaction(MOODS.NEUTRAL, { seed: 0, usedReactions: used });
+    expect(used.has(reaction1)).toBe(true);
+
+    const reaction2 = getMicroReaction(MOODS.NEUTRAL, { seed: 0, usedReactions: used });
+    expect(reaction2).not.toBe(reaction1);
+    expect(used.size).toBe(2);
+  });
+
+  it('rotates gracefully when all micro-reactions in pool have been used', () => {
+    const used = new Set<string>();
+    // Neutral mood has 4 reactions
+    const poolSize = 4;
+    for (let i = 0; i < poolSize; i++) {
+      getMicroReaction(MOODS.NEUTRAL, { seed: i, usedReactions: used });
+    }
+    expect(used.size).toBe(poolSize);
+
+    // Next selection should reset pool and pick without getting stuck or throwing
+    const recycled = getMicroReaction(MOODS.NEUTRAL, { seed: 0, usedReactions: used });
+    expect(typeof recycled).toBe('string');
+    expect(recycled.length).toBeGreaterThan(0);
+  });
 });
 
 describe('Company-Specific Interview Styles (Phase 6A)', () => {

@@ -1,3 +1,5 @@
+import { supabaseAdmin } from '../db/supabaseClient.js';
+
 const SPAN_STATUS_OK = 1;
 const SPAN_STATUS_ERROR = 2;
 
@@ -20,12 +22,16 @@ async function loadOpenTelemetryTraceApi() {
 }
 
 export class InterviewTelemetryService {
-  constructor({ tracer = null, traceApiLoader = loadOpenTelemetryTraceApi, supabase = null } = {}) {
+  constructor({ tracer = null, traceApiLoader = loadOpenTelemetryTraceApi, supabase = null, autoRegisterShutdown = true } = {}) {
     this.tracer = tracer;
     this.traceApiLoader = traceApiLoader;
     this._traceApiPromise = null;
-    this.supabase = supabase;
+    this.supabase = supabase || (process.env.NODE_ENV !== 'test' ? supabaseAdmin : null);
     this._eventBuffer = new Map();
+    this._shutdownHandlerRegistered = false;
+    if (autoRegisterShutdown && process.env.NODE_ENV !== 'test') {
+      this.registerShutdownHandler();
+    }
   }
 
   /**
@@ -74,7 +80,7 @@ export class InterviewTelemetryService {
     this._eventBuffer.delete(sid);
     if (!events.length) return [];
 
-    const dbClient = client || this.supabase;
+    const dbClient = client || this.supabase || (process.env.NODE_ENV !== 'test' ? supabaseAdmin : null);
     if (dbClient && typeof dbClient.from === 'function') {
       try {
         const { error } = await dbClient.from('interview_telemetry_events').insert(events);
@@ -86,6 +92,42 @@ export class InterviewTelemetryService {
       }
     }
     return events;
+  }
+
+  /**
+   * Flushes all buffered telemetry events across all active sessions.
+   * Useful during graceful process shutdown (SIGTERM / SIGINT).
+   */
+  async flushAllEvents(client = null) {
+    const sessionIds = Array.from(this._eventBuffer.keys());
+    const allFlushed = [];
+    for (const sid of sessionIds) {
+      const flushed = await this.flushEvents(sid, client);
+      allFlushed.push(...flushed);
+    }
+    return allFlushed;
+  }
+
+  /**
+   * Registers process-level termination listeners (SIGTERM / SIGINT)
+   * to flush remaining in-memory telemetry buffers to the database before exit.
+   */
+  registerShutdownHandler() {
+    if (this._shutdownHandlerRegistered) return;
+    this._shutdownHandlerRegistered = true;
+
+    const handler = async () => {
+      try {
+        await this.flushAllEvents();
+      } catch (err) {
+        process.stderr.write(`[telemetry-shutdown-error] ${err?.message}\n`);
+      }
+    };
+
+    if (typeof process !== 'undefined' && typeof process.once === 'function') {
+      process.once('SIGTERM', handler);
+      process.once('SIGINT', handler);
+    }
   }
 
   async _getTracer() {

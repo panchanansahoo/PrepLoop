@@ -2,6 +2,7 @@ import React, { memo, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import PreFlightCheck from './PreFlightCheck';
+import { getEstimatedInterviewDuration } from '../../pages/aiInterviewTiming';
 import {
     ArrowLeft, ArrowRight, CheckCircle, Sparkles, Users,
     FileText, Search, Star, Code2, MessageSquare, X,
@@ -161,6 +162,18 @@ function InterviewLobby({
     const { user, logout } = useAuth();
     const [speakerCheckStatus, setSpeakerCheckStatus] = React.useState('not_checked');
     const [lobbyNow, setLobbyNow] = React.useState(Date.now());
+    const [dismissedResumeError, setDismissedResumeError] = React.useState(false);
+
+    React.useEffect(() => {
+        if (resumeParseError) {
+            setDismissedResumeError(false);
+        }
+    }, [resumeParseError]);
+
+    const estimatedDuration = React.useMemo(() => {
+        const qCount = customQuestionSet?.questions?.length || 5;
+        return getEstimatedInterviewDuration(qCount, interviewType);
+    }, [customQuestionSet?.questions?.length, interviewType]);
 
     React.useEffect(() => {
         if (!customQuestionSet?.scheduledAt && !customQuestionSet?.expiresAt) return;
@@ -1249,9 +1262,42 @@ function InterviewLobby({
                                                     <p className="ai-setup-drop-hint">PDF or DOCX up to 5MB</p>
                                                 </>
                                             )}
-                                            {resumeParseError && (
-                                                <div role="status" style={{ color: '#fbbf24', fontSize: '12px', marginTop: '10px' }}>
-                                                    {resumeParseError}
+                                            {resumeParseError && !dismissedResumeError && (
+                                                <div
+                                                    role="alert"
+                                                    aria-live="polite"
+                                                    style={{
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                        color: '#f87171',
+                                                        borderRadius: '8px',
+                                                        padding: '8px 12px',
+                                                        marginTop: '12px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        fontSize: '12px',
+                                                        textAlign: 'left',
+                                                    }}
+                                                >
+                                                    <span>⚠️ {resumeParseError}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDismissedResumeError(true);
+                                                        }}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#f87171',
+                                                            cursor: 'pointer',
+                                                            padding: '0 4px',
+                                                            fontSize: '16px',
+                                                            lineHeight: 1,
+                                                        }}
+                                                        aria-label="Dismiss resume parse error"
+                                                    >×</button>
                                                 </div>
                                             )}
                                             <input
@@ -1428,6 +1474,12 @@ function InterviewLobby({
                                         <span className="ai-wizard-review-label">Interviewer</span>
                                         <span className="ai-wizard-review-value">
                                             {interviewerGender === 'male' ? '👨‍💼' : '👩‍💼'} {interviewer.name} · {interviewer.role}
+                                        </span>
+                                    </div>
+                                    <div className="ai-wizard-review-row">
+                                        <span className="ai-wizard-review-label">Estimated Duration</span>
+                                        <span className="ai-wizard-review-value">
+                                            ⏱️ {estimatedDuration || '~18 min'}
                                         </span>
                                     </div>
                                     

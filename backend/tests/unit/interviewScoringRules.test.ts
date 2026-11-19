@@ -299,6 +299,44 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
         }
       }
     });
+
+    it('applies quality-gated engagement bonus only when answer quality > 55 and caps bonus at 3 pts', () => {
+      const lowQualityAnalysis = { metrics: { communication: 40, problemDecomposition: 45, efficiency: 42 } };
+      const transcriptWith5Turns = [
+        { role: 'candidate', text: 'turn 1' },
+        { role: 'candidate', text: 'turn 2' },
+        { role: 'candidate', text: 'turn 3' },
+        { role: 'candidate', text: 'turn 4' },
+        { role: 'candidate', text: 'turn 5' },
+      ];
+
+      // Low quality (<= 55) receives 0 engagement bonus despite 5 candidate turns
+      const lowResult = InterviewScoringService.calculateRollingScores(lowQualityAnalysis, transcriptWith5Turns, 'dsa');
+      const expectedLowBase = 40 * 0.34 + 45 * 0.33 + 42 * 0.33;
+      expect(lowResult.overall).toBe(Number((expectedLowBase / 10).toFixed(1)));
+
+      // High quality (> 55) receives engagement bonus capped at 3 pts (not 4 or 5)
+      const highQualityAnalysis = { metrics: { communication: 70, problemDecomposition: 70, efficiency: 70 } };
+      const highResult = InterviewScoringService.calculateRollingScores(highQualityAnalysis, transcriptWith5Turns, 'dsa');
+      // base is 70, bonus capped at 3 => 73 / 10 = 7.3
+      expect(highResult.overall).toBe(7.3);
+    });
+
+    it('detects scoring anomaly when cross-metric divergence exceeds 40 points', () => {
+      const divergentAnalysis = {
+        metrics: { communication: 90, problemDecomposition: 40, efficiency: 85 },
+      };
+      const result = InterviewScoringService.calculateRollingScores(divergentAnalysis, [], 'dsa');
+      expect(result.scoringAnomalyDetected).toBe(true);
+      expect(result.maxDimensionSpread).toBe(50.0);
+
+      const balancedAnalysis = {
+        metrics: { communication: 80, problemDecomposition: 75, efficiency: 85 },
+      };
+      const balancedResult = InterviewScoringService.calculateRollingScores(balancedAnalysis, [], 'dsa');
+      expect(balancedResult.scoringAnomalyDetected).toBe(false);
+      expect(balancedResult.maxDimensionSpread).toBe(10.0);
+    });
   });
 });
 

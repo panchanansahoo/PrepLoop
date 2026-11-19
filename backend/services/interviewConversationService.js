@@ -1,4 +1,7 @@
 import { maybeAddNaturalPrefix } from './interviewPromptService.js';
+import { MISSING_AREA_HINTS } from './ragInterviewGroundingService.js';
+import { interviewTelemetryService } from './interviewTelemetryService.js';
+import { isSameTopic } from './interviewStateMachine.js';
 
 // ── Type-specific fallback messages ──────────────────────────────────
 const FALLBACK_MESSAGES = {
@@ -36,11 +39,25 @@ export class InterviewConversationService {
     }
   }
 
-  static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa') {
+  static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa', missingAreas = [], probedTopics = []) {
     const typeFallback = getFallbackForType(interviewType);
+    let targetedMessage = typeFallback.message;
+
+    if (Array.isArray(missingAreas) && missingAreas.length > 0) {
+      for (const area of missingAreas) {
+        if (Array.isArray(probedTopics) && probedTopics.some((t) => isSameTopic(t, area))) {
+          continue;
+        }
+        const hint = MISSING_AREA_HINTS[area] || MISSING_AREA_HINTS[String(area).toLowerCase()];
+        if (hint) {
+          targetedMessage = `Could you expand on the ${area}? Specifically: ${hint}`;
+          break;
+        }
+      }
+    }
 
     return {
-      message: typeFallback.message,
+      message: targetedMessage,
       isFollowUp: true,
       clarifications: [],
       hints: [],
@@ -55,6 +72,8 @@ export class InterviewConversationService {
     prompt,
     interviewMode = 'full_realtime',
     interviewType = 'dsa',
+    missingAreas = [],
+    probedTopics = [],
   }) {
     const raw = await this.requestFollowUpContent({
       groqClient,
@@ -66,6 +85,8 @@ export class InterviewConversationService {
       content: raw.content,
       interviewMode,
       interviewType,
+      missingAreas,
+      probedTopics,
       forceFallback: raw.fallbackTriggered,
     });
 
@@ -111,10 +132,14 @@ export class InterviewConversationService {
         });
         content = response?.text || '{}';
       } else if (typeof groqClient?.chat?.completions?.create === 'function') {
-        const response = await groqClient.chat.completions.create({
-          ...modelConfig,
-          messages: [{ role: 'user', content: prompt }],
-        });
+        const signal = AbortSignal.timeout(6000);
+        const response = await groqClient.chat.completions.create(
+          {
+            ...modelConfig,
+            messages: [{ role: 'user', content: prompt }],
+          },
+          { signal }
+        );
         content = response?.choices?.[0]?.message?.content || '{}';
       } else {
         return {
@@ -131,7 +156,13 @@ export class InterviewConversationService {
         modelLatencyMs: Math.max(0, Date.now() - modelStart),
         fallbackTriggered: false,
       };
-    } catch {
+    } catch (err) {
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        interviewTelemetryService.logEvent('interview.turn.llm_timeout', {
+          model: modelConfig?.model || 'unknown-model',
+          latencyMs: Date.now() - modelStart,
+        });
+      }
       return {
         content: '{}',
         modelName: String(modelConfig?.model || 'unknown-model'),
@@ -145,11 +176,13 @@ export class InterviewConversationService {
     content,
     interviewMode = 'full_realtime',
     interviewType = 'dsa',
+    missingAreas = [],
+    probedTopics = [],
     forceFallback = false,
   }) {
     if (forceFallback) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -161,7 +194,7 @@ export class InterviewConversationService {
       parsed = this.parseFollowUpContent(content || '{}');
     } catch {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -169,14 +202,24 @@ export class InterviewConversationService {
 
     if (!parsed || typeof parsed !== 'object' || !parsed.message) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
     }
 
+    // Filter already-probed topics if LLM targeted an already probed area
+    const candidateTopic = parsed.topic || parsed.missingArea;
+    if (candidateTopic && Array.isArray(probedTopics) && probedTopics.some((t) => isSameTopic(t, candidateTopic))) {
+      return {
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+        parseSuccess: true,
+        parseFallbackTriggered: true,
+      };
+    }
+
     const baseFollowUp = {
-      ...this.buildFallbackFollowUp(interviewMode, interviewType),
+      ...this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
       ...parsed,
     };
 

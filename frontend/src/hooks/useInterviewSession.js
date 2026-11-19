@@ -9,6 +9,7 @@ import {
   getInterviewerReaction,
   getConversationalTransition,
   getSilencePrompt,
+  SILENCE_PROMPT_COOLDOWN_MS,
   getQuestionTimeLimit,
   getModeConfig,
   logInterviewTelemetry,
@@ -127,6 +128,7 @@ export function useInterviewSession(options = {}) {
   const silenceNudgeTimerRef = useRef(null);
   const silenceCheckInTimerRef = useRef(null);
   const silenceAutoAdvanceTimerRef = useRef(null);
+  const lastSilencePromptTimeRef = useRef(0);
   const wrapUpTimerRef = useRef(null);
   const recentOpenersRef = useRef([]);
   const { user: _user, getAuthHeaders: authHeadersFn } = useAuth();
@@ -175,6 +177,12 @@ export function useInterviewSession(options = {}) {
     const fromParam = searchParams?.get("company");
     if (fromParam) return fromParam;
     if (multiRoundCtx?.company) return multiRoundCtx.company;
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const stored = localStorage.getItem("preploop_last_company");
+        if (stored) return stored;
+      }
+    } catch {}
     return "";
   }, [searchParams, multiRoundCtx]);
 
@@ -182,6 +190,12 @@ export function useInterviewSession(options = {}) {
     const fromParam = searchParams?.get("role");
     if (fromParam) return fromParam;
     if (multiRoundCtx?.role) return multiRoundCtx.role;
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        const stored = localStorage.getItem("preploop_last_role");
+        if (stored) return stored;
+      }
+    } catch {}
     return "";
   }, [searchParams, multiRoundCtx]);
 
@@ -866,7 +880,8 @@ export function useInterviewSession(options = {}) {
       }
       try {
         const prosody = getMoodProsody(interviewerMood);
-        await voiceAI.speak(text, {
+        const spokenText = typeof respellForTts === "function" ? respellForTts(text) : text;
+        await voiceAI.speak(spokenText, {
           prosody,
           onStart: () => {
             // Audio is actually playing now — start lip-sync + speaking video
@@ -887,24 +902,30 @@ export function useInterviewSession(options = {}) {
   const speakSequence = useCallback(
     async (segments, { pauseMs = 150 } = {}) => {
       if (!segments || segments.length === 0 || speakerMuted || speakSequenceCancelledRef.current) return;
+      const cleanSegments = (segments || []).map((s) =>
+        typeof s === "string" && typeof respellForTts === "function" ? respellForTts(s) : s
+      );
+      const prosody = getMoodProsody(interviewerMood);
       // Don't set aiSpeaking here — let voiceAI.speak's onStart fire it when audio plays
       try {
-        recordTurnEvent(questionIndexRef.current, "audio_playback_started", { segmentsCount: segments.length });
+        recordTurnEvent(questionIndexRef.current, "audio_playback_started", { segmentsCount: cleanSegments.length });
         if (typeof voiceAI.speakGaplessSequence === "function") {
-          await voiceAI.speakGaplessSequence(segments, {
+          await voiceAI.speakGaplessSequence(cleanSegments, {
+            prosody,
             onStart: () => setAiSpeaking(true),
           });
         } else {
-          for (let i = 0; i < segments.length; i++) {
+          for (let i = 0; i < cleanSegments.length; i++) {
             if (speakSequenceCancelledRef.current) break;
-            const text = segments[i];
+            const text = cleanSegments[i];
             if (!text || !text.trim()) continue;
             await voiceAI.speak(text, {
+              prosody,
               onStart: () => setAiSpeaking(true),
               onEnd: () => {},
             });
             if (speakSequenceCancelledRef.current) break;
-            if (i < segments.length - 1 && pauseMs > 0) {
+            if (i < cleanSegments.length - 1 && pauseMs > 0) {
               await new Promise((r) => setTimeout(r, pauseMs));
             }
             if (speakSequenceCancelledRef.current) break;
@@ -914,7 +935,7 @@ export function useInterviewSession(options = {}) {
         setAiSpeaking(false);
       }
     },
-    [voiceAI, speakerMuted],
+    [voiceAI, speakerMuted, interviewerMood],
   );
 
   const handoffToCandidate = useCallback(() => {
@@ -1337,6 +1358,30 @@ export function useInterviewSession(options = {}) {
   const [experienceLevel, setExperienceLevel] = useState(initialExperience);
   const [targetRole, setTargetRole] = useState(initialRole);
   const [targetCompany, setTargetCompany] = useState(initialCompany);
+
+  const updateTargetRole = useCallback((val) => {
+    setTargetRole((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      try {
+        if (typeof window !== "undefined" && window.localStorage && next) {
+          localStorage.setItem("preploop_last_role", next);
+        }
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const updateTargetCompany = useCallback((val) => {
+    setTargetCompany((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      try {
+        if (typeof window !== "undefined" && window.localStorage && next) {
+          localStorage.setItem("preploop_last_company", next);
+        }
+      } catch {}
+      return next;
+    });
+  }, []);
   const [companySearch, setCompanySearch] = useState("");
   const [companyTab, setCompanyTab] = useState("all");
   const [resumeFile, setResumeFile] = useState(null);
@@ -3416,7 +3461,12 @@ export function useInterviewSession(options = {}) {
     silenceNudgeTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
-      setInterviewerStatus(getSilencePrompt(interviewType, 0));
+      const now = Date.now();
+      const cooldown = typeof SILENCE_PROMPT_COOLDOWN_MS === 'number' ? SILENCE_PROMPT_COOLDOWN_MS : 15000;
+      if (now - lastSilencePromptTimeRef.current >= cooldown) {
+        lastSilencePromptTimeRef.current = now;
+        setInterviewerStatus(getSilencePrompt(interviewType, 0));
+      }
       logInterviewTelemetry("nudge_shown", { questionIndex, mode: pacingMode });
       requestHint();
     }, nudgeMs);
@@ -3981,8 +4031,8 @@ export function useInterviewSession(options = {}) {
       setWhiteboardSnapshot,
       setSetupStep,
       setExperienceLevel,
-      setTargetRole,
-      setTargetCompany,
+      setTargetRole: updateTargetRole,
+      setTargetCompany: updateTargetCompany,
       setCompanySearch,
       setCompanyTab,
       setResumeFile,

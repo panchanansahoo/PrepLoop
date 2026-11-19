@@ -1,6 +1,7 @@
-import { memo, useState } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getInterviewTelemetrySummary } from '../../pages/aiInterviewTiming';
+import { authFetch } from '../../utils/authFetch';
 import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause, Activity } from 'lucide-react';
 
 const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
@@ -42,6 +43,28 @@ function InterviewResults({
     const [surveyCopied, setSurveyCopied] = useState(false);
     const [turnFlags, setTurnFlags] = useState({});
 
+    const activeSessionId = analysisResult?.sessionId || analysisResult?.session_id || analysisResult?.id || 'active-session';
+
+    const persistSurvey = useCallback(async (surveyPayload) => {
+        try {
+            await authFetch(`/api/interview/${encodeURIComponent(activeSessionId)}/survey`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ survey: surveyPayload }),
+            });
+        } catch { /* best effort */ }
+    }, [activeSessionId]);
+
+    const persistTurnFlags = useCallback(async (flagsPayload) => {
+        try {
+            await authFetch(`/api/interview/${encodeURIComponent(activeSessionId)}/turn-flags`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ turnFlags: flagsPayload }),
+            });
+        } catch { /* best effort */ }
+    }, [activeSessionId]);
+
     const handleToggleTurnFlag = (turnIdx, flag) => {
         setTurnFlags(prev => {
             const next = { ...prev };
@@ -52,6 +75,13 @@ function InterviewResults({
             }
             return next;
         });
+        const nextFlags = { ...turnFlags };
+        if (nextFlags[turnIdx] === flag) {
+            delete nextFlags[turnIdx];
+        } else {
+            nextFlags[turnIdx] = flag;
+        }
+        persistTurnFlags(nextFlags);
     };
 
     const a = analysisResult; // shorthand
@@ -168,6 +198,9 @@ function InterviewResults({
                 flagsByTurn: turnFlags,
             },
         };
+
+        persistSurvey(pilotPacket.survey);
+        persistTurnFlags(turnFlags);
 
         try {
             await navigator.clipboard.writeText(JSON.stringify(pilotPacket, null, 2));
@@ -687,6 +720,31 @@ function InterviewResults({
                     {/* OVERVIEW TAB */}
                     {resultTab === 'overview' && a && (
                         <div className="ai-result-overview">
+                            {/* Scoring Anomaly Alert (Item 2.4) */}
+                            {(a?.scoringAnomalyDetected || (categories.length >= 2 && (Math.max(...categories.map(c => c.score)) - Math.min(...categories.map(c => c.score)) > 4.0))) && (
+                                <div
+                                    role="alert"
+                                    className="ai-result-anomaly-alert"
+                                    style={{
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        borderRadius: '10px',
+                                        padding: '12px 16px',
+                                        marginBottom: '16px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        color: '#fca5a5',
+                                        fontSize: '13px',
+                                    }}
+                                >
+                                    <AlertTriangle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+                                    <div>
+                                        <strong style={{ color: '#f87171' }}>Scoring anomaly detected:</strong> Significant divergence (&gt;40 pts) between rubric dimensions. Flagged for review.
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Category Scores */}
                             <div className="ai-result-card">
                                 <h3 className="ai-result-card-title"><Target size={16} /> Competency Breakdown</h3>
@@ -938,6 +996,11 @@ function InterviewResults({
                                                     ? `Feedback${(msg.isEstimated || msg.status === 'estimated') ? ' · estimated' : msg.score != null ? ` · ${msg.score}%` : ' · not scored'}`
                                                     : 'You';
 
+                                            const prevMsg = i > 0 ? ensureArray(conversation)[i - 1] : null;
+                                            const msgStage = msg.stageLabel || msg.stage;
+                                            const prevStage = prevMsg ? (prevMsg.stageLabel || prevMsg.stage) : null;
+                                            const showStageDivider = Boolean(msgStage && (!prevStage || msgStage !== prevStage));
+
                                             // Candidate's previous response that prompted this interviewer message
                                             const candidateTurn = isInterviewerMsg
                                                 ? ensureArray(conversation)
@@ -953,7 +1016,25 @@ function InterviewResults({
                                                 : null;
 
                                             return (
-                                                <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
+                                                <React.Fragment key={i}>
+                                                    {showStageDivider && (
+                                                        <div className="ai-result-stage-divider" style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px',
+                                                            margin: '18px 0 10px',
+                                                            color: '#a5b4fc',
+                                                            fontSize: '11px',
+                                                            fontWeight: 700,
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.06em',
+                                                        }}>
+                                                            <div style={{ flex: 1, height: '1px', background: 'rgba(99, 102, 241, 0.25)' }} />
+                                                            <span>Stage · {msgStage}</span>
+                                                            <div style={{ flex: 1, height: '1px', background: 'rgba(99, 102, 241, 0.25)' }} />
+                                                        </div>
+                                                    )}
+                                                    <div className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
                                                     <div className="ai-result-transcript-role">
                                                         <RoleIcon size={12} />
                                                         {roleLabel}
@@ -1045,7 +1126,8 @@ function InterviewResults({
                                                         </div>
                                                     )}
                                                 </div>
-                                            );
+                                            </React.Fragment>
+                                        );
                                         })
                                     )}
                                 </div>

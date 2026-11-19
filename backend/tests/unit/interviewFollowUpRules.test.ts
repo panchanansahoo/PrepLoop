@@ -75,6 +75,22 @@ describe('Milestone 3: Recovery Branching & Momentum Tracking Unit Tests', () =>
       expect(isRecoveryBranchingEnabled({ forceEnabled: false })).toBe(false);
     });
 
+    it('evaluates gradual cohort percentage rollout deterministically by userId or sessionId', () => {
+      // 0% cohort should be false for any user
+      expect(isRecoveryBranchingEnabled({ userId: 'usr_alpha', cohortPercentage: 0 })).toBe(false);
+      // 100% cohort should be true
+      expect(isRecoveryBranchingEnabled({ userId: 'usr_alpha', cohortPercentage: 100 })).toBe(true);
+      // Deterministic check: same userId gives same bucket
+      const res1 = isRecoveryBranchingEnabled({ userId: 'candidate_123', cohortPercentage: 50 });
+      const res2 = isRecoveryBranchingEnabled({ userId: 'candidate_123', cohortPercentage: 50 });
+      expect(res1).toBe(res2);
+
+      // Even when FEATURE_FLAG_RECOVERY_BRANCHING is 'true', an explicit cohortPercentage gates the cohort
+      process.env.FEATURE_FLAG_RECOVERY_BRANCHING = 'true';
+      expect(isRecoveryBranchingEnabled({ userId: 'usr_alpha', cohortPercentage: 0 })).toBe(false);
+      expect(isRecoveryBranchingEnabled({ userId: 'usr_alpha', cohortPercentage: 100 })).toBe(true);
+    });
+
     it('executes legacy follow-up logic when feature flag is OFF', () => {
       // Score jump 35 -> 70 on comparable difficulty would qualify for recovery if enabled
       const decision = InterviewFollowUpRulesService.decideBranch({

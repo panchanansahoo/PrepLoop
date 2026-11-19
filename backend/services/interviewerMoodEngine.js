@@ -119,6 +119,8 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   consecutiveLowScores = 0,
   topicSwitch = false,
   isTopicSwitch = false,
+  trend = null,
+  scoreTrend = null,
 } = {}) {
   // Topic switch resets mood to neutral baseline
   if (topicSwitch || isTopicSwitch) {
@@ -128,6 +130,7 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   const validMood = Object.values(MOODS).includes(currentMood) ? currentMood : MOODS.NEUTRAL;
   const numScore = Number(score) || 0;
   const words = Number(wordCount) || 0;
+  const trajectory = String(trend || scoreTrend?.trend || '').toLowerCase();
 
   // Very short or empty answer -> quick path to impatient or skeptical
   if (words < 12 || consecutiveLowScores >= 2) {
@@ -135,6 +138,26 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
       return { nextMood: MOODS.IMPATIENT, reason: 'consecutive_weak_answers_or_short_stalls' };
     }
     return { nextMood: MOODS.SKEPTICAL, reason: 'under_answered_or_stuck' };
+  }
+
+  // Trajectory acceleration: declining trend accelerates push toward skeptical or impatient
+  if (trajectory === 'declining') {
+    if (validMood === MOODS.SKEPTICAL && numScore < 72) {
+      return { nextMood: MOODS.IMPATIENT, reason: 'declining_trajectory_triggers_impatience' };
+    }
+    if (validMood === MOODS.NEUTRAL && numScore < 65) {
+      return { nextMood: MOODS.SKEPTICAL, reason: 'declining_trajectory_triggers_skepticism' };
+    }
+  }
+
+  // Trajectory boost: improving trend sustains curious mood and facilitates rebound
+  if (trajectory === 'improving' && numScore >= 65) {
+    if (validMood === MOODS.SKEPTICAL || validMood === MOODS.IMPATIENT) {
+      return { nextMood: MOODS.CURIOUS, reason: 'improving_trajectory_rekindles_curiosity' };
+    }
+    if (validMood === MOODS.CURIOUS) {
+      return { nextMood: MOODS.CURIOUS, reason: 'improving_trajectory_sustains_curiosity' };
+    }
   }
 
   // Outstanding response (85+)
@@ -198,9 +221,10 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
  * @param {object} options
  * @param {number} options.seed - Deterministic seed for consistency
  * @param {string} options.customRemark - Model generated micro-reaction if available
+ * @param {Set<string>|string[]} options.usedReactions - Already used micro-reactions for deduplication
  * @returns {string} Single sentence micro-reaction
  */
-export function getMicroReaction(mood = MOODS.NEUTRAL, { seed = 0, customRemark = '' } = {}) {
+export function getMicroReaction(mood = MOODS.NEUTRAL, { seed = 0, customRemark = '', usedReactions = null } = {}) {
   if (customRemark && typeof customRemark === 'string' && customRemark.trim().length > 0) {
     const cleaned = customRemark.trim();
     // Ensure it's roughly 1 concise sentence
@@ -211,6 +235,30 @@ export function getMicroReaction(mood = MOODS.NEUTRAL, { seed = 0, customRemark 
   const profile = MOOD_PROFILES[mood] || MOOD_PROFILES[MOODS.NEUTRAL];
   const pool = profile.microReactions;
   const s = Math.abs(Number(seed) || 0);
+
+  if (usedReactions && (usedReactions instanceof Set || Array.isArray(usedReactions))) {
+    const isUsed = (r) => (usedReactions instanceof Set ? usedReactions.has(r) : usedReactions.includes(r));
+    let available = pool.filter((r) => !isUsed(r));
+    if (available.length === 0) {
+      if (usedReactions instanceof Set) {
+        pool.forEach((r) => usedReactions.delete(r));
+      } else if (Array.isArray(usedReactions)) {
+        for (let i = usedReactions.length - 1; i >= 0; i--) {
+          if (pool.includes(usedReactions[i])) usedReactions.splice(i, 1);
+        }
+      }
+      available = pool;
+    }
+    const selectionPool = available.length > 0 ? available : pool;
+    const chosen = selectionPool[s % selectionPool.length];
+    if (usedReactions instanceof Set) {
+      usedReactions.add(chosen);
+    } else {
+      usedReactions.push(chosen);
+    }
+    return chosen;
+  }
+
   const idx = s % pool.length;
   return pool[idx];
 }

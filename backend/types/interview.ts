@@ -48,6 +48,8 @@ export interface RollingScoresResult {
   metricsMissing?: boolean;
   scoringConfidence?: number;
   fresherBonusApplied?: boolean;
+  scoringAnomalyDetected?: boolean;
+  maxDimensionSpread?: number;
 }
 
 export interface AdaptiveDifficultyResult {

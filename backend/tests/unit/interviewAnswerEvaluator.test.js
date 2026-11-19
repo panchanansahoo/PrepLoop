@@ -530,6 +530,14 @@ describe('interviewAnswerEvaluator (Track 1.3 Semantic Rubrics)', () => {
         expect(result.nextStep.length).toBeGreaterThan(0);
         expect(Array.isArray(result.misconceptionsDetected)).toBe(true);
       });
+
+      it('applies anti-inflation depth penalty when jargon keywords are stuffed into short answers (<50 words)', () => {
+        // Answer is short (15 words) but packed with keywords
+        const stuffedShortAnswer = 'We use hashmap trie binary search dynamic programming graph algorithm with linear time complexity O(n).';
+        const result = evaluateFresherAnswer(stuffedShortAnswer, 'Technical');
+        // Unpenalized depth would be >= 9 from 5+ tech keywords + complexity, penalized by 0.75
+        expect(result.rubric.depth).toBeLessThanOrEqual(7);
+      });
     });
   });
 });

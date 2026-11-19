@@ -82,6 +82,56 @@ describe('InterviewTelemetryService', () => {
       const secondFlush = await svc.flushEvents('sess-abc', mockSupabase);
       expect(secondFlush.length).toBe(0);
     });
+
+    it('flushes all sessions when flushAllEvents is called', async () => {
+      const insertedRows: any[] = [];
+      const mockSupabase = {
+        from: vi.fn(() => ({
+          insert: vi.fn(async (rows) => {
+            insertedRows.push(...rows);
+            return { error: null };
+          }),
+        })),
+      };
+
+      const svc = new InterviewTelemetryService();
+      svc.logEvent('interview.turn.one', { sessionId: 'sess-1' });
+      svc.logEvent('interview.turn.two', { sessionId: 'sess-2' });
+
+      const all = await svc.flushAllEvents(mockSupabase);
+      expect(all.length).toBe(2);
+      expect(insertedRows.length).toBe(2);
+      expect(await svc.flushAllEvents(mockSupabase)).toEqual([]);
+    });
+
+    it('uses configured supabase client when flushEvents is invoked without explicit client override', async () => {
+      const insertedRows: any[] = [];
+      const mockDb = {
+        from: vi.fn(() => ({
+          insert: vi.fn(async (rows) => {
+            insertedRows.push(...rows);
+            return { error: null };
+          }),
+        })),
+      };
+      const svc = new InterviewTelemetryService({ supabase: mockDb as any });
+      svc.logEvent('interview.turn.auto_client', { sessionId: 'sess-autoclient' });
+
+      const flushed = await svc.flushEvents('sess-autoclient');
+      expect(flushed.length).toBe(1);
+      expect(insertedRows.length).toBe(1);
+      expect(insertedRows[0].session_id).toBe('sess-autoclient');
+    });
+
+    it('registers graceful shutdown handlers for SIGTERM and SIGINT', () => {
+      const processOnceSpy = vi.spyOn(process, 'once');
+      const svc = new InterviewTelemetryService();
+      svc.registerShutdownHandler();
+
+      expect(processOnceSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
+      expect(processOnceSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
+      processOnceSpy.mockRestore();
+    });
   });
 
   // ── Existing withSpan + noop span behaviour ───────────────────────────────

@@ -7,11 +7,12 @@ import crypto from 'crypto';
 import { verifySupabaseToken } from '../middleware/auth.ts';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { InterviewScoringService } from './interviewScoringService.ts';
-import InterviewMoodEngine, { computeNextMood, transitionMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
+import InterviewMoodEngine, { computeNextMood, transitionMood, getMoodProfile, getMicroReaction, MOODS } from './interviewerMoodEngine.js';
 import InterviewFollowUpRulesService from './interviewFollowUpRulesService.js';
 import { InterviewPromptService } from './interviewPromptService.js';
 import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
 import { callTurnScoring } from './llmRouter.js';
+import { interviewTelemetryService } from './interviewTelemetryService.js';
 
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
@@ -27,6 +28,13 @@ function getGroqClient() {
     }
   })();
   return _groqPromise;
+}
+
+export const DEFAULT_RECONNECT_TTL_MS = 60_000;
+
+export function getReconnectTtlMs() {
+  const parsed = Number(process.env.INTERVIEW_RECONNECT_TTL_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RECONNECT_TTL_MS;
 }
 
 class RealtimeInterviewService {
@@ -178,12 +186,13 @@ class RealtimeInterviewService {
         console.log(`[RealtimeInterview] Disconnected: ${activeId}`);
         const currentSession = this.sessions.get(activeId);
         if (currentSession) {
+          const ttlMs = getReconnectTtlMs();
           const timeoutTimer = setTimeout(() => {
             if (this.disconnectedSessions.has(activeId)) {
-              console.log(`[RealtimeInterview] Session grace window expired, purging: ${activeId}`);
+              console.log(`[RealtimeInterview] Session grace window (${ttlMs}ms) expired, purging session: ${activeId}`);
               this.disconnectedSessions.delete(activeId);
             }
-          }, 60_000);
+          }, ttlMs);
 
           this.disconnectedSessions.set(activeId, {
             userId: currentSession.userId || ws._userId,
@@ -402,6 +411,7 @@ class RealtimeInterviewService {
     context.conversation.push({
       role: 'interviewer',
       content: question,
+      stageLabel: context.stageLabel || context.stage || 'Core Round',
       timestamp: Date.now(),
     });
     context.questionIndex = 1;
@@ -428,6 +438,7 @@ class RealtimeInterviewService {
       content: answer,
       code,
       language,
+      stageLabel: context.stageLabel || context.stage || 'Core Round',
       timestamp: Date.now(),
     });
 
@@ -565,10 +576,18 @@ class RealtimeInterviewService {
       wordCount,
       cumulativeScores,
       consecutiveLowScores: consecutiveLow,
+      trend: scoreTrend?.trend || scoreTrend,
+      scoreTrend,
     });
     const moodProfile = getMoodProfile(nextMood);
     context.mood = nextMood;
     context.moodState = nextMood;
+
+    context.usedReactions = context.usedReactions || new Set();
+    const microReaction = getMicroReaction(nextMood, {
+      seed: context.turns,
+      usedReactions: context.usedReactions,
+    });
 
     // 6. Proportional / Adaptive state machine stage progression (InterviewStateMachineService.advanceState)
     const nextState = InterviewStateMachineService.advanceState(
@@ -583,6 +602,7 @@ class RealtimeInterviewService {
         consecutiveLowScores: context.consecutiveLowScores || 0,
         consecutiveHighScores: context.consecutiveHighScores || 0,
         lastScoredDifficulty: context.lastScoredDifficulty || null,
+        probedTopics: context.probedTopics || [],
       },
       {
         score: finalScore,
@@ -593,6 +613,7 @@ class RealtimeInterviewService {
       }
     );
     context.stage = nextState.stage;
+    context.stageLabel = nextState.stageLabel || context.stageLabel;
     context.consecutiveLowScores = typeof nextState.consecutiveLowScores === 'number'
       ? nextState.consecutiveLowScores
       : consecutiveLow;
@@ -600,6 +621,7 @@ class RealtimeInterviewService {
       ? nextState.consecutiveHighScores
       : 0;
     context.lastScoredDifficulty = nextState.lastScoredDifficulty || null;
+    context.probedTopics = Array.isArray(nextState.probedTopics) ? nextState.probedTopics : (context.probedTopics || []);
 
     // Sync session root fields and session.state
     session.turns = context.turns;
@@ -609,6 +631,7 @@ class RealtimeInterviewService {
     session.currentDifficulty = context.currentDifficulty;
     session.mood = context.mood;
     session.moodState = context.moodState;
+    session.probedTopics = context.probedTopics;
     if (session.state && typeof session.state === 'object') {
       session.state.turns = context.turns;
       session.state.scoreHistory = context.scoreHistory;
@@ -617,6 +640,7 @@ class RealtimeInterviewService {
       session.state.currentDifficulty = context.currentDifficulty;
       session.state.mood = context.mood;
       session.state.rubricHistory = context.rubricHistory;
+      session.state.probedTopics = context.probedTopics;
     }
 
     // 7. Generate next question (informed by follow-up decision)
@@ -632,6 +656,18 @@ class RealtimeInterviewService {
     session.usedProblemIds = context.usedProblemIds;
     if (session.state && typeof session.state === 'object') {
       session.state.usedProblemIds = context.usedProblemIds;
+    }
+
+    if (nextQText) {
+      const updatedState = InterviewStateMachineService.recordProbedTopic(
+        { probedTopics: context.probedTopics || [] },
+        nextQText
+      );
+      context.probedTopics = updatedState.probedTopics;
+      session.probedTopics = context.probedTopics;
+      if (session.state && typeof session.state === 'object') {
+        session.state.probedTopics = context.probedTopics;
+      }
     }
 
     // Send feedback with calibrated 3D rubric and evidence quote
@@ -650,11 +686,13 @@ class RealtimeInterviewService {
       currentDifficulty: context.currentDifficulty,
       problemId: context.problemId,
       usedProblemIds: context.usedProblemIds,
+      microReaction,
       mood: {
         state: context.moodState,
         expression: moodProfile.expression,
         avatarOverlay: moodProfile.avatarOverlay,
         ttsProsody: moodProfile.ttsProsody,
+        reaction: microReaction,
       },
       adaptiveDifficulty: adaptiveDiff,
       followUpDecision: {
@@ -694,12 +732,14 @@ class RealtimeInterviewService {
       content: feedbackComment,
       score: finalScore,
       rubric: finalRubric,
+      stageLabel: context.stageLabel || context.stage || 'Core Round',
       timestamp: Date.now(),
     });
 
     context.conversation.push({
       role: 'interviewer',
       content: nextQuestion,
+      stageLabel: context.stageLabel || context.stage || 'Core Round',
       timestamp: Date.now(),
     });
 
@@ -743,10 +783,16 @@ Question:`;
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         max_tokens: 200,
-      });
+      }, { signal: AbortSignal.timeout(6000) });
 
       return completion.choices[0]?.message?.content?.trim() || this.getFallbackQuestion(context);
     } catch (err) {
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        interviewTelemetryService.logEvent('interview.turn.llm_timeout', {
+          model: 'llama-3.1-8b-instant',
+          context: 'generateFirstQuestion',
+        });
+      }
       console.error('[RealtimeInterview] Question generation error:', err);
       return this.getFallbackQuestion(context);
     }
@@ -832,7 +878,7 @@ Next question:`;
         ],
         temperature: 0.7,
         max_tokens: 200,
-      });
+      }, { signal: AbortSignal.timeout(6000) });
 
       const rawContent = completion.choices[0]?.message?.content?.trim();
       let generated = '';
@@ -852,6 +898,12 @@ Next question:`;
       }
       return generated;
     } catch (err) {
+      if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+        interviewTelemetryService.logEvent('interview.turn.llm_timeout', {
+          model: 'llama-3.1-8b-instant',
+          context: 'generateNextQuestion',
+        });
+      }
       console.error('[RealtimeInterview] Next question error:', err);
       const fallback = this.getFallbackQuestion(context);
       if (followUpDecision?.recoveryPhrase && !fallback.includes(followUpDecision.recoveryPhrase)) {

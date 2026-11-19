@@ -36,7 +36,7 @@ function getStageMapping(interviewType) {
   return STAGE_TO_COMPANY_STAGE;
 }
 
-const MISSING_AREA_HINTS = {
+export const MISSING_AREA_HINTS = {
   'complexity analysis': 'Quantify time and space complexity before concluding the answer.',
   'edge cases': 'Call out at least two edge cases and explain behavior for each.',
   'trade-off discussion': 'Compare at least two approaches and justify the final choice.',

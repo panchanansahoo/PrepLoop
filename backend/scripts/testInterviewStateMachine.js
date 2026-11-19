@@ -86,6 +86,26 @@ function run() {
   const sdDirective = InterviewStateMachineService.buildStageDirective('technical', 'system_design');
   assert.ok(typeof sdDirective === 'string', 'System Design technical directive should exist');
 
+  // ── Probed topics deduplication tests ───────────────────────────────
+  assert.ok(Array.isArray(stateFor13.probedTopics), 'Initial state should have probedTopics array');
+  assert.equal(stateFor13.probedTopics.length, 0, 'probedTopics should start empty');
+
+  const withTopic1 = InterviewStateMachineService.recordProbedTopic(stateFor13, 'Dynamic Programming');
+  assert.equal(withTopic1.probedTopics.length, 1);
+  assert.ok(InterviewStateMachineService.isTopicAlreadyProbed(withTopic1, 'Dynamic Programming'));
+  assert.ok(InterviewStateMachineService.isTopicAlreadyProbed(withTopic1, 'dynamic programming'));
+  assert.ok(InterviewStateMachineService.isTopicAlreadyProbed(withTopic1, 'Dynamic Programming approach'));
+  assert.ok(!InterviewStateMachineService.isTopicAlreadyProbed(withTopic1, 'Binary Trees'));
+
+  // Duplicate insertion should be prevented
+  const withDupTopic = InterviewStateMachineService.recordProbedTopic(withTopic1, 'dynamic programming');
+  assert.equal(withDupTopic.probedTopics.length, 1, 'Duplicate topic should not be re-added');
+
+  // Persistence across advanceState
+  const advancedWithTopics = InterviewStateMachineService.advanceState({ ...withDupTopic, turns: 2 });
+  assert.equal(advancedWithTopics.probedTopics.length, 1);
+  assert.equal(advancedWithTopics.probedTopics[0], 'Dynamic Programming');
+
   console.log('✅ Interview state machine tests passed');
 }
 

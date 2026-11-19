@@ -387,4 +387,98 @@ describe('Interview Session Dynamic Difficulty & Answer Classification', () => {
       expect(responsePayload.difficulty).toBe('easy');
     });
   });
+
+  describe('4. Survey and Turn Flags Endpoints', () => {
+    it('/api/interview/:id/survey records valid survey payload and validates inputs', async () => {
+      const layer = sessionRouter.stack.find(
+        (l: any) => l.route && l.route.path === '/:id/survey'
+      );
+      expect(layer).toBeDefined();
+      const handlers = layer.route.stack;
+      const mainHandler = handlers[handlers.length - 1].handle;
+
+      // 1. Invalid session ID format rejection
+      let errorStatus: number | null = null;
+      let errorPayload: any = null;
+      const invalidIdReq: any = {
+        params: { id: 'invalid id with spaces' },
+        user: { id: 'usr_123' },
+        body: { survey: { rating: 5 } },
+      };
+      const invalidIdRes: any = {
+        status(code: number) { errorStatus = code; return this; },
+        json(data: any) { errorPayload = data; return this; },
+      };
+      await mainHandler(invalidIdReq, invalidIdRes);
+      expect(errorStatus).toBe(400);
+      expect(errorPayload.error).toContain('Invalid session ID');
+
+      // 2. Invalid survey payload rejection (e.g. array or primitive)
+      let invalidPayloadStatus: number | null = null;
+      const invalidBodyReq: any = {
+        params: { id: 'session_valid_123' },
+        user: { id: 'usr_123' },
+        body: 'invalid-string',
+      };
+      const invalidBodyRes: any = {
+        status(code: number) { invalidPayloadStatus = code; return this; },
+        json() { return this; },
+      };
+      await mainHandler(invalidBodyReq, invalidBodyRes);
+      expect(invalidPayloadStatus).toBe(400);
+
+      // 3. Valid survey submission
+      let successPayload: any = null;
+      const validReq: any = {
+        params: { id: 'session_valid_123' },
+        user: { id: 'usr_123' },
+        body: { survey: { rating: 5, feedback: 'Great AI interviewer' } },
+      };
+      const validRes: any = {
+        status() { return this; },
+        json(data: any) { successPayload = data; return this; },
+      };
+      await mainHandler(validReq, validRes);
+      expect(successPayload.success).toBe(true);
+      expect(successPayload.message).toBe('Survey recorded');
+    });
+
+    it('/api/interview/:id/turn-flags records turn flags and enforces format validation', async () => {
+      const layer = sessionRouter.stack.find(
+        (l: any) => l.route && l.route.path === '/:id/turn-flags'
+      );
+      expect(layer).toBeDefined();
+      const handlers = layer.route.stack;
+      const mainHandler = handlers[handlers.length - 1].handle;
+
+      // 1. Invalid session ID format rejection
+      let errorStatus: number | null = null;
+      const invalidIdReq: any = {
+        params: { id: 'bad/id' },
+        user: { id: 'usr_123' },
+        body: { turnFlags: { 0: 'thumbs_up' } },
+      };
+      const invalidIdRes: any = {
+        status(code: number) { errorStatus = code; return this; },
+        json() { return this; },
+      };
+      await mainHandler(invalidIdReq, invalidIdRes);
+      expect(errorStatus).toBe(400);
+
+      // 2. Valid turn flags submission
+      let successPayload: any = null;
+      const validReq: any = {
+        params: { id: 'session_flags_123' },
+        user: { id: 'usr_123' },
+        body: { turnFlags: { 0: 'thumbs_up', 1: 'thumbs_down' } },
+      };
+      const validRes: any = {
+        status() { return this; },
+        json(data: any) { successPayload = data; return this; },
+      };
+      await mainHandler(validReq, validRes);
+      expect(successPayload.success).toBe(true);
+      expect(successPayload.message).toBe('Turn flags recorded');
+    });
+  });
 });

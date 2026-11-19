@@ -40,13 +40,39 @@ export function validatePhrasingHasZeroNumericLeaks(phrasing: string): boolean {
 }
 
 // ── Dynamic Feature Flag Evaluation ───────────────────────────────────
-export function isRecoveryBranchingEnabled(options: { forceEnabled?: boolean } = {}): boolean {
+export function isRecoveryBranchingEnabled(options: {
+  forceEnabled?: boolean;
+  userId?: string;
+  sessionId?: string;
+  cohortPercentage?: number;
+} = {}): boolean {
   if (typeof options?.forceEnabled === 'boolean') {
     return options.forceEnabled;
   }
   const flag1 = process.env.FEATURE_FLAG_RECOVERY_BRANCHING;
   const flag2 = process.env.FEATURE_AI_INTERVIEW_RECOVERY_BRANCHING;
-  return flag1 === 'true' || flag1 === '1' || flag2 === 'true' || flag2 === '1';
+  if (flag1 === 'false' || flag1 === '0' || flag2 === 'false' || flag2 === '0') {
+    return false;
+  }
+
+  // Gradual rollout cohort evaluation if configured
+  const cohortConfig = options.cohortPercentage ?? (process.env.RECOVERY_BRANCHING_COHORT_PERCENT ? Number(process.env.RECOVERY_BRANCHING_COHORT_PERCENT) : null);
+  if (typeof cohortConfig === 'number' && Number.isFinite(cohortConfig)) {
+    const identifier = options.userId || options.sessionId;
+    if (identifier) {
+      let hash = 0;
+      for (let i = 0; i < identifier.length; i++) {
+        hash = ((hash << 5) - hash + identifier.charCodeAt(i)) | 0;
+      }
+      return (Math.abs(hash) % 100) < cohortConfig;
+    }
+  }
+
+  if (flag1 === 'true' || flag1 === '1' || flag2 === 'true' || flag2 === '1') {
+    return true;
+  }
+
+  return false;
 }
 
 // ── Qualitative Phrasing Selection & Rotation ──────────────────────────
@@ -326,7 +352,11 @@ export class InterviewFollowUpRulesService {
         ? input.options.forceEnabled
         : undefined;
 
-    const recoveryEnabled = isRecoveryBranchingEnabled({ forceEnabled });
+    const userId = input.userId ?? interviewContext.userId;
+    const sessionId = input.sessionId ?? interviewContext.sessionId;
+    const cohortPercentage = input.cohortPercentage ?? interviewContext.cohortPercentage;
+
+    const recoveryEnabled = isRecoveryBranchingEnabled({ forceEnabled, userId, sessionId, cohortPercentage });
 
     let isRecoveryEligible = false;
     let recoveryPhrase: string | undefined = undefined;

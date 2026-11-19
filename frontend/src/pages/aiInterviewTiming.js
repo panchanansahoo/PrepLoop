@@ -142,6 +142,8 @@ const SILENCE_PROMPTS = {
     ],
 };
 
+export const SILENCE_PROMPT_COOLDOWN_MS = 15000;
+
 /**
  * Get a stage-appropriate silence encouragement prompt.
  * @param {string} interviewType - e.g., 'dsa', 'behavioral', 'hr'
@@ -151,6 +153,20 @@ export function getSilencePrompt(interviewType = 'technical', silenceIndex = 0) 
     const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
     const prompts = SILENCE_PROMPTS[normalizedType] || SILENCE_PROMPTS.technical;
     return prompts[Math.abs(silenceIndex) % prompts.length];
+}
+
+/**
+ * Get the estimated interview duration based on question count and stage.
+ * @param {number} totalQuestions
+ * @param {string} stage
+ * @returns {string} e.g. "~18 min"
+ */
+export function getEstimatedInterviewDuration(totalQuestions = 5, stage = 'Technical') {
+    const qCount = Number.isFinite(Number(totalQuestions)) && Number(totalQuestions) > 0 ? Number(totalQuestions) : 5;
+    const timeLimitSec = getQuestionTimeLimit(stage);
+    const estSec = Math.round(qCount * (timeLimitSec + 30));
+    const mins = Math.max(1, Math.round(estSec / 60));
+    return `~${mins} min`;
 }
 
 // ── Deterministic Scoring Heuristics ────────────────────────────────

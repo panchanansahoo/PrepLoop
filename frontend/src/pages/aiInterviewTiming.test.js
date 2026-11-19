@@ -9,6 +9,8 @@ import {
     codeQualityScore,
     getQuestionTimeLimit,
     getSilencePrompt,
+    SILENCE_PROMPT_COOLDOWN_MS,
+    getEstimatedInterviewDuration,
     QUESTION_TIME_LIMITS,
     decideNextTurnAction,
     PACING_MODES,
@@ -201,6 +203,21 @@ describe('aiInterviewTiming', () => {
             const prompt = getSilencePrompt('unknown', 0);
             expect(typeof prompt).toBe('string');
             expect(prompt.length).toBeGreaterThan(5);
+        });
+
+        it('defines a 15-second silence prompt cooldown constant', () => {
+            expect(SILENCE_PROMPT_COOLDOWN_MS).toBe(15000);
+        });
+    });
+
+    describe('getEstimatedInterviewDuration', () => {
+        it('calculates expected interview duration for standard 5 questions', () => {
+            // Technical: (90 + 30) * 5 = 600s = 10 min
+            expect(getEstimatedInterviewDuration(5, 'Technical')).toBe('~10 min');
+            // DSA: (120 + 30) * 5 = 750s = ~13 min
+            expect(getEstimatedInterviewDuration(5, 'DSA / Coding')).toBe('~13 min');
+            // System Design: (150 + 30) * 6 = 1080s = ~18 min
+            expect(getEstimatedInterviewDuration(6, 'System Design')).toBe('~18 min');
         });
     });
 

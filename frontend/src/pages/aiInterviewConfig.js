@@ -3,6 +3,9 @@
  * Extracted from AIInterviewPage.jsx to reduce component complexity.
  */
 
+export const STORAGE_KEY_LAST_ROLE = 'preploop_last_role';
+export const STORAGE_KEY_LAST_COMPANY = 'preploop_last_company';
+
 export const BOILERPLATE = {
     python: `def solution(nums, k):
     """
