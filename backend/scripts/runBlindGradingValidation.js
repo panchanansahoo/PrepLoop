@@ -272,7 +272,10 @@ Respond as JSON:
     const isCi = process.argv.includes('--ci') || process.env.CI === 'true';
     const useMock = process.argv.includes('--mock') || !process.env.GROQ_API_KEY;
 
-    let c = 3, d = 3, comm = 3, feedback = '';
+    let c;
+    let d;
+    let comm;
+    let feedback;
     const t0 = Date.now();
 
     if (useMock) {

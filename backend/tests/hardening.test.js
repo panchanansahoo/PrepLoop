@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test, it, describe } from 'vitest';
+import { test } from 'vitest';
 
 import { apiCacheMiddleware } from '../middleware/apiCache.js';
 import { csrfProtection } from '../middleware/csrf.js';

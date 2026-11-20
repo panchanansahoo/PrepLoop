@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { CircuitBreaker, breakers } from '../utils/circuitBreaker.js';
 

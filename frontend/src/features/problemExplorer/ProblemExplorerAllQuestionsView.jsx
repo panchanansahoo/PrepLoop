@@ -30,10 +30,6 @@ export function ProblemExplorerAllQuestionsView({
     setPage,
     pageSize = 30,
 }) {
-    if (viewMode !== 'all') {
-        return null;
-    }
-
     const totalPages = Math.max(1, Math.ceil(filteredProblems.length / pageSize));
     const currentPage = Math.min(Math.max(1, page), totalPages);
 
@@ -41,6 +37,10 @@ export function ProblemExplorerAllQuestionsView({
         const start = (currentPage - 1) * pageSize;
         return filteredProblems.slice(start, start + pageSize);
     }, [filteredProblems, currentPage, pageSize]);
+
+    if (viewMode !== 'all') {
+        return null;
+    }
 
     const onSort = (key) => {
         setSortBy(key);
