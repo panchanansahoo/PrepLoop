@@ -23,6 +23,8 @@ class GracefulShutdownManager {
     this.server = server;
     this.shutdownTimeout = options.shutdownTimeout || 30000; // 30 seconds default
     this.forceExitTimeout = options.forceExitTimeout || 5000; // 5 seconds after graceful timeout
+    this.resources = options.resources || {};
+    this.cleanupHandlers = [];
     this.abortController = new AbortController();
     this.isShuttingDown = false;
     this.inflightRequests = new Map();
@@ -33,6 +35,15 @@ class GracefulShutdownManager {
     
     // Register signal handlers
     this.setupSignalHandlers();
+  }
+
+  /**
+   * Register a custom cleanup handler to run during graceful shutdown
+   */
+  registerCleanupHandler(fn) {
+    if (typeof fn === 'function') {
+      this.cleanupHandlers.push(fn);
+    }
   }
 
   /**
@@ -167,24 +178,63 @@ class GracefulShutdownManager {
   }
 
   /**
-   * Close database pools and other resources
+   * Close database pools, WebSocket servers, queues, and other resources
    * @param {object} resources - Optional resource handles to close
    */
   async closeResources(resources = {}) {
-    logger.info('Closing database pools and resources');
+    logger.info('Closing database pools, WebSocket servers, and resources');
+    const mergedResources = { ...this.resources, ...resources };
 
     try {
-      // Close Supabase connection if available
-      if (resources.supabaseClient) {
-        logger.debug('Closing Supabase client');
-        // Supabase JS client doesn't have explicit close, but we clear references
-        resources.supabaseClient = null;
+      // 1. Run all registered custom cleanup handlers
+      for (const handler of this.cleanupHandlers) {
+        try {
+          await handler();
+        } catch (handlerErr) {
+          logger.warn('Error in registered cleanup handler', { error: handlerErr?.message });
+        }
       }
 
-      // Close Redis cache if available
-      if (resources.redisClient?.quit) {
+      // 2. Close active WebSocket services
+      if (mergedResources.realtimeInterviewService?.close) {
+        try {
+          logger.debug('Closing realtime interview WebSocket service');
+          mergedResources.realtimeInterviewService.close();
+        } catch (wsErr) {
+          logger.warn('Error closing realtime interview service', { error: wsErr?.message });
+        }
+      }
+
+      if (mergedResources.collaborationService?.close) {
+        try {
+          logger.debug('Closing collaboration WebSocket service');
+          mergedResources.collaborationService.close();
+        } catch (collabErr) {
+          logger.warn('Error closing collaboration service', { error: collabErr?.message });
+        }
+      }
+
+      // 3. Stop background workers and queue intervals
+      if (mergedResources.deferredJobQueue?.destroy) {
+        try {
+          logger.debug('Destroying deferred job queue worker interval');
+          mergedResources.deferredJobQueue.destroy();
+        } catch (queueErr) {
+          logger.warn('Error destroying deferred job queue', { error: queueErr?.message });
+        }
+      }
+
+      // 4. Close Supabase connection if available
+      if (mergedResources.supabaseClient) {
+        logger.debug('Closing Supabase client');
+        // Supabase JS client doesn't have explicit close, but we clear references
+        mergedResources.supabaseClient = null;
+      }
+
+      // 5. Close Redis cache if available
+      if (mergedResources.redisClient?.quit) {
         logger.debug('Closing Redis client');
-        await resources.redisClient.quit();
+        await mergedResources.redisClient.quit();
       }
 
       logger.info('All resources closed successfully');

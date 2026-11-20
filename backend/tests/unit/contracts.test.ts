@@ -100,6 +100,14 @@ describe('@preploop/contracts shared Zod schemas', () => {
 
     middleware({ body: { email: 'bad', password: '' } }, res, next);
     expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: expect.any(Array),
+      })
+    );
     expect(next).not.toHaveBeenCalled();
 
     const req = { body: { email: 'USER@Test.io ', password: 'pw' } };

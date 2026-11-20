@@ -499,5 +499,26 @@ describe('RealtimeInterviewService Intelligence Stack Integration', () => {
       const q2 = service.getFallbackQuestion(context);
       expect(q2).not.toBe(q1);
     });
+
+    it('safeSend handles closed sockets gracefully without throwing', () => {
+      const closedWs = {
+        readyState: 3,
+        send: () => {
+          throw new Error('WebSocket is not open: readyState 3 (CLOSED)');
+        },
+      };
+
+      const { safeSend } = require('../../services/realtimeInterviewService.js');
+      expect(() => safeSend(closedWs, { type: 'test' })).not.toThrow();
+      expect(safeSend(closedWs, { type: 'test' })).toBe(false);
+    });
+
+    it('close cleans up heartbeat interval and active sessions', () => {
+      service.heartbeatInterval = setInterval(() => {}, 10000);
+      service.sessions.set('s1', { ws: {} } as any);
+      service.close();
+      expect(service.heartbeatInterval).toBeNull();
+      expect(service.sessions.size).toBe(0);
+    });
   });
 });

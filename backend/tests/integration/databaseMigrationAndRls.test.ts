@@ -90,4 +90,22 @@ describe('Database Migrations, Indexes & RLS Security Contracts', () => {
     expect(atomicSql).toContain('coin_transactions');
     expect(idempotencySql).toContain('reference_key');
   });
+
+  it('verifies P2 performance composite indexes for hot query paths are declared', () => {
+    const rlsFile = path.join(dbDir, 'migration_rls_security_hardening.sql');
+    expect(fs.existsSync(rlsFile)).toBe(true);
+    const sql = fs.readFileSync(rlsFile, 'utf8');
+
+    expect(sql).toContain('idx_submissions_user_status_date');
+    expect(sql).toContain('idx_interview_sessions_user_date');
+    expect(sql).toContain('idx_coin_transactions_user_date');
+    expect(sql).toContain('idx_challenge_submissions_user_challenge');
+  });
+
+  it('verifies connection pool statement and query timeouts are configured with 30s guardrails', async () => {
+    const { poolConfig } = await import('../../config/db.js');
+    expect(poolConfig).toBeDefined();
+    expect(poolConfig.statement_timeout).toBe(30000);
+    expect(poolConfig.query_timeout).toBe(30000);
+  });
 });

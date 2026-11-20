@@ -58,153 +58,256 @@ export async function runStreakReminderJob({
   transporter = null,
   sendPush = sendExpoPushNotification,
   now = new Date(),
+  batchSize = 100,
+  concurrencyLimit = 10,
 } = {}) {
   if (!supabase) {
     throw new Error('supabase client is required');
   }
 
   const today = now.toISOString().split('T')[0];
-  let { data: streaks, error } = await supabase
-    .from('user_streaks')
-    .select('user_id, current_streak, last_active_date, last_reminded_date')
-    .gt('current_streak', 0)
-    .neq('last_active_date', today);
-
-  if (error && (error.code === '42703' || String(error.message || '').includes('last_reminded_date'))) {
-    const fallback = await supabase
-      .from('user_streaks')
-      .select('user_id, current_streak, last_active_date')
-      .gt('current_streak', 0)
-      .neq('last_active_date', today);
-    streaks = fallback.data;
-    error = fallback.error;
-  }
-
-  if (error) throw error;
-
   const results = {
-    evaluated: (streaks || []).length,
+    evaluated: 0,
     emailsSent: 0,
     pushesSent: 0,
     skipped: 0,
     errors: 0,
   };
 
-  for (const row of streaks || []) {
-    try {
-      let { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', row.user_id)
-        .maybeSingle();
+  let page = 0;
+  let hasMore = true;
 
-      if (profileErr && (profileErr.code === '42703' || String(profileErr.message || '').includes('email'))) {
+  while (hasMore) {
+    const from = page * batchSize;
+    const to = from + batchSize - 1;
+    let streaksChunk = [];
+
+    let streakQuery = supabase
+      .from('user_streaks')
+      .select('user_id, current_streak, last_active_date, last_reminded_date')
+      .gt('current_streak', 0)
+      .neq('last_active_date', today);
+
+    if (typeof streakQuery.range === 'function') {
+      let { data, error } = await streakQuery.range(from, to);
+      if (error && (error.code === '42703' || String(error.message || '').includes('last_reminded_date'))) {
         const fallback = await supabase
+          .from('user_streaks')
+          .select('user_id, current_streak, last_active_date')
+          .gt('current_streak', 0)
+          .neq('last_active_date', today)
+          .range(from, to);
+        data = fallback.data;
+        error = fallback.error;
+      }
+      if (error) throw error;
+      streaksChunk = data || [];
+      if (streaksChunk.length < batchSize) {
+        hasMore = false;
+      }
+    } else {
+      let { data, error } = await streakQuery;
+      if (error && (error.code === '42703' || String(error.message || '').includes('last_reminded_date'))) {
+        const fallback = await supabase
+          .from('user_streaks')
+          .select('user_id, current_streak, last_active_date')
+          .gt('current_streak', 0)
+          .neq('last_active_date', today);
+        data = fallback.data;
+        error = fallback.error;
+      }
+      if (error) throw error;
+      const allRows = data || [];
+      streaksChunk = allRows.slice(from, to + 1);
+      if (from + streaksChunk.length >= allRows.length) {
+        hasMore = false;
+      }
+    }
+
+    page++;
+    if (!streaksChunk || streaksChunk.length === 0) {
+      break;
+    }
+
+    results.evaluated += streaksChunk.length;
+
+    // 1. Batch fetch profiles and push tokens for all users in this chunk using .in('user_id', userIds)
+    const userIds = Array.from(new Set(streaksChunk.map((s) => s.user_id).filter(Boolean)));
+    const profilesMap = new Map();
+    const tokensMap = new Map();
+
+    if (userIds.length > 0) {
+      try {
+        let { data: profiles, error: profileErr } = await supabase
           .from('profiles')
-          .select('full_name')
-          .eq('id', row.user_id)
-          .maybeSingle();
-        profile = fallback.data;
-        profileErr = fallback.error;
-      }
+          .select('id, full_name, email')
+          .in('id', userIds);
 
-      if (profileErr) {
-        results.errors++;
-        continue;
-      }
-
-      const { data: tokens, error: tokensErr } = await supabase
-        .from('user_push_tokens')
-        .select('expo_push_token, email_reminders_enabled, push_reminders_enabled, last_reminded_date')
-        .eq('user_id', row.user_id);
-
-      if (tokensErr) {
-        results.errors++;
-        continue;
-      }
-
-      const alreadyReminded =
-        row.last_reminded_date === today ||
-        (tokens || []).some((t) => t.last_reminded_date === today);
-      if (alreadyReminded) {
-        results.skipped++;
-        continue;
-      }
-
-      let reminded = false;
-      const emailAllowed = !tokens?.length || tokens.some((t) => t.email_reminders_enabled !== false);
-      if (emailAllowed && transporter) {
-        let recipientEmail = profile?.email;
-        if (!recipientEmail && supabase.auth?.admin?.getUserById) {
-          try {
-            const { data: authData } = await supabase.auth.admin.getUserById(row.user_id);
-            recipientEmail = authData?.user?.email;
-          } catch {
-            recipientEmail = undefined;
-          }
+        if (profileErr && (profileErr.code === '42703' || String(profileErr.message || '').includes('email'))) {
+          const fallback = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', userIds);
+          profiles = fallback.data;
+          profileErr = fallback.error;
         }
 
-        if (recipientEmail) {
-          try {
-            await sendStreakReminderEmail({
-              transporter,
-              to: recipientEmail,
-              streak: row.current_streak,
-              name: profile?.full_name || 'there',
-            });
-            results.emailsSent++;
-            reminded = true;
-          } catch {
-            results.errors++;
+        if (!profileErr && Array.isArray(profiles)) {
+          for (const p of profiles) {
+            profilesMap.set(p.id, p);
           }
         }
+      } catch {
+        // Silently continue with empty profile map
       }
 
-      for (const tokenRow of tokens || []) {
-        if (tokenRow.push_reminders_enabled !== false && tokenRow.expo_push_token) {
+      try {
+        const { data: tokens, error: tokensErr } = await supabase
+          .from('user_push_tokens')
+          .select('user_id, expo_push_token, email_reminders_enabled, push_reminders_enabled, last_reminded_date')
+          .in('user_id', userIds);
+
+        if (!tokensErr && Array.isArray(tokens)) {
+          for (const t of tokens) {
+            if (!tokensMap.has(t.user_id)) {
+              tokensMap.set(t.user_id, []);
+            }
+            tokensMap.get(t.user_id).push(t);
+          }
+        }
+      } catch {
+        // Silently continue with empty tokens map
+      }
+    }
+
+    // 2. Process reminders in a bounded concurrent pool
+    let workerIndex = 0;
+    const poolWorkers = Array.from(
+      { length: Math.min(concurrencyLimit, streaksChunk.length) },
+      async () => {
+        while (workerIndex < streaksChunk.length) {
+          const row = streaksChunk[workerIndex++];
           try {
-            const pushRes = await sendPush({
-              to: tokenRow.expo_push_token,
-              title: `🔥 ${row.current_streak}-day streak at risk!`,
-              body: 'Practice 1 question today to keep your PrepLoop streak going.',
-              data: { screen: 'Dashboard', streak: row.current_streak },
-            });
-            if (!pushRes?.skipped) {
-              results.pushesSent++;
-              reminded = true;
+            let profile = profilesMap.get(row.user_id);
+            if (!profile && typeof supabase.from === 'function') {
+              try {
+                const singleRes = await supabase
+                  .from('profiles')
+                  .select('id, full_name, email')
+                  .eq('id', row.user_id)
+                  .maybeSingle?.();
+                if (singleRes && singleRes.data) {
+                  profile = singleRes.data;
+                }
+              } catch {
+                // Ignore fallback error
+              }
+            }
+
+            let tokens = tokensMap.get(row.user_id);
+            if (!tokens && typeof supabase.from === 'function') {
+              try {
+                const tokensRes = await supabase
+                  .from('user_push_tokens')
+                  .select('user_id, expo_push_token, email_reminders_enabled, push_reminders_enabled, last_reminded_date')
+                  .eq('user_id', row.user_id);
+                tokens = (tokensRes && tokensRes.data) || [];
+              } catch {
+                tokens = [];
+              }
+            }
+            if (!tokens) {
+              tokens = [];
+            }
+
+            const alreadyReminded =
+              row.last_reminded_date === today ||
+              tokens.some((t) => t.last_reminded_date === today);
+
+            if (alreadyReminded) {
+              results.skipped++;
+              continue;
+            }
+
+            let reminded = false;
+            const emailAllowed = !tokens.length || tokens.some((t) => t.email_reminders_enabled !== false);
+            if (emailAllowed && transporter) {
+              let recipientEmail = profile?.email;
+              if (!recipientEmail && supabase.auth?.admin?.getUserById) {
+                try {
+                  const { data: authData } = await supabase.auth.admin.getUserById(row.user_id);
+                  recipientEmail = authData?.user?.email;
+                } catch {
+                  recipientEmail = undefined;
+                }
+              }
+
+              if (recipientEmail) {
+                try {
+                  await sendStreakReminderEmail({
+                    transporter,
+                    to: recipientEmail,
+                    streak: row.current_streak,
+                    name: profile?.full_name || 'there',
+                  });
+                  results.emailsSent++;
+                  reminded = true;
+                } catch {
+                  results.errors++;
+                }
+              }
+            }
+
+            for (const tokenRow of tokens) {
+              if (tokenRow.push_reminders_enabled !== false && tokenRow.expo_push_token) {
+                try {
+                  const pushRes = await sendPush({
+                    to: tokenRow.expo_push_token,
+                    title: `🔥 ${row.current_streak}-day streak at risk!`,
+                    body: 'Practice 1 question today to keep your PrepLoop streak going.',
+                    data: { screen: 'Dashboard', streak: row.current_streak },
+                  });
+                  if (!pushRes?.skipped) {
+                    results.pushesSent++;
+                    reminded = true;
+                  }
+                } catch {
+                  results.errors++;
+                }
+              }
+            }
+
+            if (reminded) {
+              if (tokens.length) {
+                const { error: tokenUpdateErr } = await supabase
+                  .from('user_push_tokens')
+                  .update({ last_reminded_date: today })
+                  .eq('user_id', row.user_id);
+                if (tokenUpdateErr) {
+                  results.errors++;
+                }
+              }
+
+              const { error: streakUpdateErr } = await supabase
+                .from('user_streaks')
+                .update({ last_reminded_date: today })
+                .eq('user_id', row.user_id);
+              if (
+                streakUpdateErr &&
+                streakUpdateErr.code !== '42703' &&
+                !String(streakUpdateErr.message || '').includes('last_reminded_date')
+              ) {
+                results.errors++;
+              }
             }
           } catch {
             results.errors++;
           }
         }
       }
+    );
 
-      if (reminded) {
-        if (tokens?.length) {
-          const { error: tokenUpdateErr } = await supabase
-            .from('user_push_tokens')
-            .update({ last_reminded_date: today })
-            .eq('user_id', row.user_id);
-          if (tokenUpdateErr) {
-            results.errors++;
-          }
-        }
-
-        const { error: streakUpdateErr } = await supabase
-          .from('user_streaks')
-          .update({ last_reminded_date: today })
-          .eq('user_id', row.user_id);
-        if (
-          streakUpdateErr &&
-          streakUpdateErr.code !== '42703' &&
-          !String(streakUpdateErr.message || '').includes('last_reminded_date')
-        ) {
-          results.errors++;
-        }
-      }
-    } catch {
-      results.errors++;
-    }
+    await Promise.all(poolWorkers);
   }
 
   return results;

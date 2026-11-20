@@ -32,6 +32,7 @@ import {
 } from './openRouterService.js';
 import { clampToTwoSentences, deterministicPick, safeJsonParse } from '../routes/company-interview/helpers.js';
 import { verifyEvidenceQuote, stripAttributionPhrase, getGenericFollowUp } from '../utils/technicalPronunciation.js';
+import { sanitizeDocumentForPrompt, fenceUntrustedContent } from '../utils/promptInjectionGuard.js';
 
 const logger = createLogger('llm-router');
 
@@ -784,8 +785,12 @@ export async function callFastReply({
   const fastReplySystemPrompt = `You are an expert interviewer at ${company} conducting a ${stage} interview for ${role}.
 Always respond strictly with a valid JSON object matching the requested schema. Do not output anything outside JSON.`;
 
+  const safeUserAnswer = sanitizeDocumentForPrompt(userAnswer ? String(userAnswer).substring(0, 800) : '', 800);
+  const fencedUserAnswer = fenceUntrustedContent(safeUserAnswer, 'candidate_answer', 800);
+
   const fastReplyUserPrompt = `Previous Question was: "${previousQuestion}"
-Candidate Answer: "${userAnswer ? String(userAnswer).substring(0, 800) : ''}"
+Candidate Answer:
+${fencedUserAnswer}
 ${historySnippet ? `\n${historySnippet}\n` : ''}
 ${adaptivePrompt}
 
@@ -941,13 +946,14 @@ export async function callTurnScoring({
   signal,
   userId = null,
   ip = null,
+  bypassDeferred = false,
 }) {
   const startTime = Date.now();
   const currentMode = quotaGuard.getCurrentMode({ isNewSession: false });
   let turnRecorded = false;
 
   // In MINIMAL mode, defer scoring to Job Queue to protect budget if sessionId is present
-  if (currentMode === DEGRADATION_MODES.MINIMAL && sessionId) {
+  if (currentMode === DEGRADATION_MODES.MINIMAL && sessionId && !bypassDeferred) {
     if (userId || ip) {
       quotaGuard.recordUserTurn({ userId, ip });
       turnRecorded = true;
@@ -982,12 +988,19 @@ export async function callTurnScoring({
     };
   }
 
+  // Sanitize and fence untrusted candidate input to prevent prompt injection attacks
+  const safeUserAnswer = sanitizeDocumentForPrompt(String(userAnswer || '').substring(0, 1000), 1000);
+  const fencedUserAnswer = fenceUntrustedContent(safeUserAnswer, 'candidate_spoken_answer', 1000);
+  const safeCode = code ? sanitizeDocumentForPrompt(String(code).substring(0, 600), 600) : '';
+  const fencedCode = safeCode ? fenceUntrustedContent(safeCode, 'candidate_submitted_code', 600) : '';
+
   // Expanded max_tokens headroom (280 tokens) prevents JSON truncation when models wrap answers
   const prompt = `You are a calibrated technical & behavioral evaluator at ${company} scoring a live spoken turn for ${role} (${stage}).
 Difficulty: ${difficultyTag} (easy | medium | hard | staff_architectural)
 Question: "${previousQuestion}"
-Candidate Spoken Answer: "${String(userAnswer || '').substring(0, 1000)}"
-${code ? `Submitted Code (${codeLanguage}):\n${String(code).substring(0, 600)}\n` : ''}
+Candidate Spoken Answer:
+${fencedUserAnswer}
+${fencedCode ? `Submitted Code (${codeLanguage}):\n${fencedCode}\n` : ''}
 
 EVALUATION PRINCIPLES:
 1. Judge technical content, problem solving, and engineering reasoning ONLY.

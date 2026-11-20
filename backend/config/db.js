@@ -9,12 +9,14 @@ const toPositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const poolConfig = {
+export const poolConfig = {
   connectionString: process.env.DATABASE_POOLER_URL || process.env.DATABASE_URL,
   max: toPositiveInt(process.env.DB_POOL_MAX || process.env.PG_POOL_MAX, 20),
   min: toPositiveInt(process.env.DB_POOL_MIN || process.env.PG_POOL_MIN, 2),
   idleTimeoutMillis: toPositiveInt(process.env.DB_IDLE_TIMEOUT || process.env.PG_POOL_IDLE_TIMEOUT_MS, 30000),
   connectionTimeoutMillis: toPositiveInt(process.env.DB_CONNECTION_TIMEOUT || process.env.PG_POOL_CONNECTION_TIMEOUT_MS, 10000),
+  statement_timeout: toPositiveInt(process.env.DB_STATEMENT_TIMEOUT || process.env.PG_STATEMENT_TIMEOUT, 30000),
+  query_timeout: toPositiveInt(process.env.DB_QUERY_TIMEOUT || process.env.PG_QUERY_TIMEOUT, 30000),
   maxUses: toPositiveInt(process.env.DB_MAX_USES || process.env.PG_POOL_MAX_USES, 7500),
   allowExitOnIdle: process.env.DB_ALLOW_EXIT_ON_IDLE !== 'false',
   // SECURITY: Enable SSL with proper certificate verification in production.
@@ -40,7 +42,13 @@ const getPool = () => {
 
   pool = new Pool(poolConfig);
 
-  pool.on('connect', () => {
+  pool.on('connect', (client) => {
+    // Enforce 30s statement timeout guard against rogue or stalled queries
+    if (client && typeof client.query === 'function') {
+      client.query("SET statement_timeout = '30s';").catch((err) => {
+        logger.warn('Failed to set session statement_timeout on client connect', { error: err.message });
+      });
+    }
     logger.debug('Client connected', {
       total: pool.totalCount,
       idle: pool.idleCount,

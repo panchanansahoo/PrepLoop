@@ -7,11 +7,37 @@ RUN npm ci
 COPY packages/contracts/src ./src
 RUN npm run build
 
-# Backend Dockerfile
+# Frontend build stage
+FROM node:22-alpine AS frontend-build
+WORKDIR /app
+COPY --from=contracts-build /app/packages/contracts /app/packages/contracts
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+ARG VITE_API_URL
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+RUN npm run build
+
+# Frontend production stage with nginx (unprivileged non-root user)
+FROM nginxinc/nginx-unprivileged:alpine AS frontend
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY --chown=nginx:nginx --from=frontend-build /app/frontend/dist /usr/share/nginx/html
+USER nginx
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
+CMD ["nginx", "-g", "daemon off;"]
+
+# Backend production stage (default build target)
 FROM node:22-alpine AS backend
 
-# SECURITY: Create non-root user early
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# SECURITY & PROCESS: Install tini init and create non-root user
+RUN apk add --no-cache tini && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 # Copy built contracts into workspace
@@ -35,57 +61,8 @@ EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 5000) + '/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start server
+# Process init for signal forwarding and zombie reaping
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "index.js"]
-
-# Frontend build stage
-FROM node:22-alpine AS frontend-build
-
-WORKDIR /app
-# Copy built contracts into workspace
-COPY --from=contracts-build /app/packages/contracts /app/packages/contracts
-
-WORKDIR /app/frontend
-
-# Copy package files
-COPY frontend/package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
-COPY frontend/ ./
-
-# Build frontend
-ARG VITE_API_URL
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
-ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
-
-RUN npm run build
-
-# Frontend production stage with nginx (unprivileged non-root user)
-FROM nginxinc/nginx-unprivileged:alpine AS frontend
-
-# Copy nginx config
-COPY docker/nginx.conf /etc/nginx/nginx.conf
-
-# Copy built frontend
-COPY --chown=nginx:nginx --from=frontend-build /app/frontend/dist /usr/share/nginx/html
-
-USER nginx
-
-# Expose unprivileged port
-EXPOSE 8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]

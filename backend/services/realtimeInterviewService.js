@@ -2,7 +2,7 @@
  * Real-time Interview WebSocket Service
  * Handles instant answer processing, live feedback, and streaming responses
  */
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'crypto';
 import { verifySupabaseToken } from '../middleware/auth.ts';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
@@ -13,6 +13,25 @@ import { InterviewPromptService } from './interviewPromptService.js';
 import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
 import { callTurnScoring } from './llmRouter.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
+
+/**
+ * Safe WebSocket message delivery helper
+ * Verifies the socket is in OPEN state before sending to prevent unhandled readyState errors
+ */
+export function safeSend(ws, payload) {
+  if (!ws) return false;
+  if (typeof ws.readyState === 'number' && ws.readyState !== 1 && ws.readyState !== WebSocket?.OPEN) {
+    return false;
+  }
+  try {
+    const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    ws.send(data);
+    return true;
+  } catch (err) {
+    console.warn('[RealtimeInterview] safeSend failed:', err?.message);
+    return false;
+  }
+}
 
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
@@ -42,6 +61,7 @@ class RealtimeInterviewService {
     this.wss = null;
     this.sessions = new Map(); // sessionId -> { ws, context, state }
     this.disconnectedSessions = new Map(); // sessionId -> { context, state, disconnectedAt, timeoutTimer }
+    this.heartbeatInterval = null;
   }
 
   initialize(server, { noServer = false } = {}) {
@@ -49,7 +69,35 @@ class RealtimeInterviewService {
       ? new WebSocketServer({ noServer: true })
       : new WebSocketServer({ server, path: '/ws/interview' });
 
+    // 30-second ping/pong keepalive to detect and terminate half-open sockets
+    if (!this.heartbeatInterval) {
+      this.heartbeatInterval = setInterval(() => {
+        if (!this.wss) return;
+        for (const client of this.wss.clients) {
+          if (client.isAlive === false) {
+            console.log('[RealtimeInterview] Terminating inactive socket (missed heartbeat)');
+            client.terminate();
+            continue;
+          }
+          client.isAlive = false;
+          try {
+            client.ping();
+          } catch {
+            client.terminate();
+          }
+        }
+      }, 30000);
+      if (this.heartbeatInterval.unref) {
+        this.heartbeatInterval.unref();
+      }
+    }
+
     this.wss.on('connection', async (ws, req) => {
+      ws.isAlive = true;
+      ws.on('pong', () => {
+        ws.isAlive = true;
+      });
+
       const userId = await this.extractUserId(req);
       if (!userId) {
         ws.close(1008, 'Unauthorized: Valid Supabase auth token required');
@@ -158,12 +206,12 @@ class RealtimeInterviewService {
       ws._sessionId = sessionId;
 
       // Send connected / resumed message
-      ws.send(JSON.stringify({
+      safeSend(ws, {
         type: resumed ? 'resumed' : 'connected',
         sessionId,
         context: activeSession.context,
         timestamp: Date.now(),
-      }));
+      });
 
       // Handle messages
       ws.on('message', async (data) => {
@@ -173,10 +221,10 @@ class RealtimeInterviewService {
           await this.handleMessage(activeId, message);
         } catch (err) {
           console.error('[RealtimeInterview] Message error:', err);
-          ws.send(JSON.stringify({
+          safeSend(ws, {
             type: 'error',
             error: err.message,
-          }));
+          });
         }
       });
 
@@ -243,7 +291,7 @@ class RealtimeInterviewService {
         break;
 
       case 'ping':
-        ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+        safeSend(ws, { type: 'pong', timestamp: Date.now() });
         break;
 
       case 'resume':
@@ -259,18 +307,18 @@ class RealtimeInterviewService {
     const { targetSessionId, sessionId } = message;
     const resumeId = targetSessionId || sessionId;
     if (!resumeId) {
-      session.ws.send(JSON.stringify({ type: 'error', error: 'Missing sessionId for resume' }));
+      safeSend(session.ws, { type: 'error', error: 'Missing sessionId for resume' });
       return;
     }
 
     if (this.disconnectedSessions.has(resumeId)) {
       const saved = this.disconnectedSessions.get(resumeId);
       if (saved.userId && session.userId && saved.userId !== session.userId) {
-        session.ws.send(JSON.stringify({
+        safeSend(session.ws, {
           type: 'resume_failed',
           reason: 'Unauthorized: Session belongs to another user',
           sessionId: resumeId,
-        }));
+        });
         return;
       }
       if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
@@ -308,19 +356,19 @@ class RealtimeInterviewService {
         usedProblemIds: saved.context?.usedProblemIds || [],
       });
 
-      session.ws.send(JSON.stringify({
+      safeSend(session.ws, {
         type: 'resumed',
         sessionId: resumeId,
         context: saved.context,
         state: saved.state,
         timestamp: Date.now(),
-      }));
+      });
     } else {
-      session.ws.send(JSON.stringify({
+      safeSend(session.ws, {
         type: 'resume_failed',
         reason: 'Session expired or not found',
         sessionId: resumeId,
-      }));
+      });
     }
   }
 
@@ -393,7 +441,7 @@ class RealtimeInterviewService {
     session.usedProblemIds = context.usedProblemIds;
 
     // Send question
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'question',
       question,
       questionIndex: 1,
@@ -406,7 +454,7 @@ class RealtimeInterviewService {
       consecutiveLowScores: context.consecutiveLowScores || 0,
       consecutiveHighScores: context.consecutiveHighScores || 0,
       timestamp: Date.now(),
-    }));
+    });
 
     context.conversation.push({
       role: 'interviewer',
@@ -443,10 +491,10 @@ class RealtimeInterviewService {
     });
 
     // Send processing indicator
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'processing',
       timestamp: Date.now(),
-    }));
+    });
 
     const problemStatement = context.problemStatement || context.currentQuestion || '';
     const problemRequirements = context.problemRequirements || [];
@@ -671,7 +719,7 @@ class RealtimeInterviewService {
     }
 
     // Send feedback with calibrated 3D rubric and evidence quote
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'feedback',
       feedback: feedbackComment,
       score: finalScore,
@@ -707,10 +755,10 @@ class RealtimeInterviewService {
       turns: context.turns,
       rubricHistory: context.rubricHistory,
       timestamp: Date.now(),
-    }));
+    });
 
     // Send next question
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'question',
       question: nextQuestion,
       questionIndex: context.questionIndex + 1,
@@ -725,7 +773,7 @@ class RealtimeInterviewService {
       followUpAction: followUpDecision?.nextAction || 'deepen',
       recoveryPhrase: followUpDecision?.recoveryPhrase || null,
       timestamp: Date.now(),
-    }));
+    });
 
     context.conversation.push({
       role: 'feedback',
@@ -751,12 +799,12 @@ class RealtimeInterviewService {
     const { text, isFinal } = message;
 
     // Echo transcript for confirmation (optional)
-    ws.send(JSON.stringify({
+    safeSend(ws, {
       type: 'transcript_ack',
       text,
       isFinal,
       timestamp: Date.now(),
-    }));
+    });
   }
 
   async generateQuestion(context) {
@@ -1093,6 +1141,32 @@ Next question:`;
 
   getActiveSessionCount() {
     return this.sessions.size;
+  }
+
+  /**
+   * Gracefully close the WebSocket server, clear intervals, and disconnect sessions
+   */
+  close() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    for (const session of this.disconnectedSessions.values()) {
+      if (session.timeoutTimer) clearTimeout(session.timeoutTimer);
+    }
+    this.disconnectedSessions.clear();
+    this.sessions.clear();
+    if (this.wss) {
+      try {
+        for (const client of this.wss.clients) {
+          try {
+            client.terminate();
+          } catch {}
+        }
+        this.wss.close();
+      } catch {}
+      this.wss = null;
+    }
   }
 }
 

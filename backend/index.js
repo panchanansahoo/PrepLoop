@@ -25,7 +25,8 @@ import {
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import { createDistributedRateLimitStore } from './config/rateLimitStore.js';
-import { initializeRedis } from './config/redis.ts';
+import { initializeRedis, getRedisClient } from './config/redis.ts';
+import deferredJobQueue from './services/deferredJobQueue.js';
 import cacheManager from './utils/cacheManager.js';
 import performanceMonitor from './utils/performanceMonitor.js';
 
@@ -480,9 +481,27 @@ process.on('uncaughtException', (error) => {
 
 // Graceful shutdown will be registered after server starts
 
-// Start listening before heavier route imports so platform port scans pass.
-startServer(DEFAULT_PORT)
-  .then((server) => {
+async function startApp() {
+  try {
+    // ── Connect Redis for multi-instance distributed rate limiting and caching ──
+    await initializeRedis().catch((err) => {
+      console.warn('[startup] Redis initialization warning (falling back to memory):', err.message);
+    });
+
+    // ── Eager model preload (fire-and-forget, non-blocking) ──
+    cacheManager.connect().catch((err) => {
+      console.warn('[startup] Cache manager initialization failed (non-fatal):', err.message);
+    });
+
+    // ── Await complete route, middleware, and security initialization BEFORE starting HTTP listener ──
+    // Eliminates the startup race condition where early incoming traffic hits unmounted middleware
+    await initializeServer();
+    routesInitialized = true;
+    console.log('✅ Route registry and security middleware fully initialized');
+
+    // ── Start HTTP listener after middleware is completely mounted ──
+    const server = await startServer(DEFAULT_PORT);
+
     // Initialize collaboration & realtime interview WebSocket services via single upgrade router
     collaborationService.initialize(server, { noServer: true });
     try {
@@ -491,6 +510,7 @@ startServer(DEFAULT_PORT)
     } catch (realtimeErr) {
       console.warn('Realtime interview service initialization warning:', realtimeErr.message);
     }
+
     server.on('upgrade', (request, socket, head) => {
       try {
         const pathname = new URL(request.url || '', 'http://localhost').pathname;
@@ -507,42 +527,35 @@ startServer(DEFAULT_PORT)
     });
     console.log('✅ Collaboration service initialized');
 
-    // Setup graceful shutdown with configurable timeouts
+    // Setup graceful shutdown with full resource cleanup wired
     shutdownManager = setupGracefulShutdown(server, {
       shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
       forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
+      resources: {
+        get redisClient() {
+          return getRedisClient();
+        },
+        deferredJobQueue,
+        realtimeInterviewService,
+        collaborationService,
+      },
     });
 
-    console.log('✅ Graceful shutdown handlers registered');
-
-    // ── Connect Redis for multi-instance distributed rate limiting and caching ──
-    initializeRedis().catch((err) => {
-      console.warn('[startup] Redis initialization warning (falling back to memory):', err.message);
-    });
-
-    // ── Eager model preload (fire-and-forget, non-blocking) ──
-    cacheManager.connect().catch((err) => {
-      console.warn('[startup] Cache manager initialization failed (non-fatal):', err.message);
-    });
-
-    initializeServer()
-      .then(() => {
-        routesInitialized = true;
-      })
-      .catch((error) => {
-        console.error('Failed to initialize server routes:', error.message);
-        process.exit(1);
-      });
+    console.log('✅ Graceful shutdown handlers registered with resource cleanup');
 
     import('./services/voiceService.js')
       .then((mod) => mod.default.preloadKokoroTTS())
       .catch((err) =>
         console.warn('[startup] Kokoro preload import failed (non-fatal):', err.message)
       );
-  })
-  .catch((error) => {
-    console.error('❌ Failed to start server:', error.message);
+
+    return server;
+  } catch (error) {
+    console.error('❌ Failed to start application:', error.message);
     process.exit(1);
-  });
+  }
+}
+
+startApp();
 
 export default app;

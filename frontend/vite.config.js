@@ -90,6 +90,7 @@ export default defineConfig({
           if (id.includes('@react-three') || id.includes('/@react-three/')) return 'vendor-react-three';
           if (id.includes('/three/')) return 'vendor-three-core';
           if (id.includes('reactflow') || id.includes('dagre')) return 'vendor-reactflow';
+          if (id.includes('lucide-react')) return 'vendor-icons';
 
           return undefined;
         },

@@ -136,11 +136,25 @@ export function requireValidFileSignature(allowedTypes = ['pdf', 'docx', 'text']
     }
 
     if (!buffer || buffer.length === 0) {
+      if (req.file.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_unlinkErr) {
+          /* ignore deletion errors */
+        }
+      }
       return res.status(400).json({ error: 'Uploaded file is empty' });
     }
 
     const check = validateFileMagicBytes(buffer, allowedTypes);
     if (!check.valid) {
+      if (req.file.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_unlinkErr) {
+          /* ignore deletion errors */
+        }
+      }
       return res.status(415).json({
         error: check.error,
         code: 'INVALID_FILE_SIGNATURE',

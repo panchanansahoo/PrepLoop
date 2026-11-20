@@ -78,6 +78,11 @@ function useProblemExplorerState() {
     const [streak, setStreak] = useState(0);
     const [weekSolved, setWeekSolved] = useState(0);
 
+    // Reset pagination to page 1 on filter or search updates to avoid empty window
+    useEffect(() => {
+        setPage(1);
+    }, [search, selectedDifficulties, selectedTopics, selectedCompanies, selectedPatterns, selectedFrequency, maxTime, hideSolved, showBookmarksOnly]);
+
     useEffect(() => {
         const fetchUserData = async () => {
             try {
@@ -219,7 +224,7 @@ export default function ProblemExplorer() {
         setActivePlan,
         viewMode,
         setViewMode,
-        _page,
+        page,
         setPage,
         _isLoading,
         _setIsLoading,
@@ -819,6 +824,9 @@ export default function ProblemExplorer() {
                     setSortDir={setSortDir}
                     onSolveProblem={(problemId) => navigate(`/dsa-editor/${problemId}`)}
                     getExplanationSnippet={getExplanationSnippet}
+                    page={page}
+                    setPage={setPage}
+                    pageSize={30}
                 />
 
             </div >

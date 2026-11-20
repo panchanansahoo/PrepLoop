@@ -22,7 +22,7 @@ import { buildApiUrl } from "../utils/safeApiUrl";
 
 // ——— Configuration ———
 const MIN_ANSWER_LENGTH = 2; // minimum characters before silence timer starts and answer can be submitted
-const MAX_ANSWER_WAIT_MS = 300_000; // Long enough for a thoughtful response and pauses.
+const MAX_ANSWER_WAIT_MS = 45_000; // 45s hard max silence ceiling instead of 5 minutes deadlock
 const BACKCHANNEL_MIN_MS = 8_000; // min speech duration before backchannel
 const BACKCHANNEL_GAP_MS = 12_000; // min gap between backchannel clips
 
@@ -443,6 +443,7 @@ export function useVoiceAI({
   const backchannelTimerRef = useRef(null);
   const noSpeechCountRef = useRef(0);
   const networkErrorCountRef = useRef(0);
+  const recognitionRestartCountRef = useRef(0);
   const isPausedRef = useRef(false);
 
   const interruptTimerRef = useRef(null);
@@ -1004,6 +1005,7 @@ export function useVoiceAI({
 
       // Silence auto-submit for Whisper fallback mode based on visualizer audio level
       let whisperHasSpoken = false;
+      let whisperSpeechStartedAt = null;
       let whisperSilenceMs = 0;
       const whisperSilenceInterval = setInterval(() => {
         if (!activeRef.current || stateRef.current !== "listening" || processRecorderOnStopRef.current) {
@@ -1013,7 +1015,10 @@ export function useVoiceAI({
 
         const level = inputLevelRef.current || 0;
         if (level > 0.04) {
-          whisperHasSpoken = true;
+          if (!whisperHasSpoken) {
+            whisperHasSpoken = true;
+            whisperSpeechStartedAt = Date.now();
+          }
           whisperSilenceMs = 0;
           setSilenceCountdown(0);
           onAbortSpeculativeRef.current?.();
@@ -1026,10 +1031,11 @@ export function useVoiceAI({
           });
           const remainingSec = Math.max(0, Math.ceil((requiredSilenceMs - whisperSilenceMs) / 1000));
           setSilenceCountdown(remainingSec);
-          if (whisperSilenceMs >= requiredSilenceMs) {
+          const isHardCeilingReached = whisperSpeechStartedAt && (Date.now() - whisperSpeechStartedAt >= MAX_ANSWER_WAIT_MS);
+          if (whisperSilenceMs >= requiredSilenceMs || isHardCeilingReached) {
             clearInterval(whisperSilenceInterval);
             setSilenceCountdown(0);
-            console.log("[useVoiceAI] Whisper auto-submitting after user speech pause");
+            console.log("[useVoiceAI] Whisper auto-submitting after user speech pause / ceiling");
             submitAnswer();
           }
         }
@@ -1214,6 +1220,7 @@ export function useVoiceAI({
     // Increment epoch so any lingering old instance's onend handler
     // knows it's stale and won't restart itself
     const epoch = ++recognitionEpochRef.current;
+    recognitionRestartCountRef.current = 0;
 
     console.log("[useVoiceAI] Starting voice recording... (epoch", epoch, ")");
 
@@ -1363,6 +1370,7 @@ export function useVoiceAI({
             }
             if (interim || finalText) {
               networkErrorCountRef.current = 0;
+              recognitionRestartCountRef.current = 0;
               clearTotalSilenceTimer();
               clearAfterSpeechSilence();
               clearSilenceTimer();
@@ -1491,11 +1499,16 @@ export function useVoiceAI({
               // Create a fresh instance on restart to continue listening.
               // Cancel any lingering speechSynthesis that could block mic capture.
               if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+              // Calculate exponential backoff for restart to prevent Chrome speech throttling errors
+              const restartCount = recognitionRestartCountRef.current;
+              recognitionRestartCountRef.current += 1;
+              const restartDelay = Math.min(1000, 50 * Math.pow(2, Math.min(restartCount, 5)));
+
               setTimeout(() => {
                 if (activeRef.current && recognitionEpochRef.current === epoch && stateRef.current !== "error" && stateRef.current !== "processing") {
                   createAndStartRecognition();
                 }
-              }, 50);
+              }, restartDelay);
             }
           };
 
@@ -1558,6 +1571,7 @@ export function useVoiceAI({
   const stop = useCallback(() => {
     voiceSessionEpochRef.current += 1;
     recognitionEpochRef.current += 1;
+    recognitionRestartCountRef.current = 0;
     activeRef.current = false;
     clearSilenceTimer();
     clearMaxWait();

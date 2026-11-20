@@ -30,6 +30,51 @@ export const JOB_STATUS = {
 const MAX_QUEUE_SIZE = 500;
 const MAX_JOB_ATTEMPTS = 3;
 
+/**
+ * Calculates structured rubric score with explicit isEstimated flag for async fallbacks
+ */
+export function calculateEstimatedTurnScore(payload = {}) {
+  const answer = String(payload.userAnswer || payload.answer || '').trim();
+  const wordCount = answer ? answer.split(/\s+/).length : 0;
+
+  let correctness = 2.5;
+  let depth = 2.5;
+  let communication = 3.0;
+
+  if (wordCount >= 80) {
+    correctness = Math.min(4.2, 3.0 + (wordCount / 200));
+    depth = Math.min(4.0, 2.8 + (wordCount / 250));
+    communication = Math.min(4.5, 3.5 + (wordCount / 300));
+  } else if (wordCount >= 30) {
+    correctness = 3.2;
+    depth = 3.0;
+    communication = 3.5;
+  } else if (wordCount > 0) {
+    correctness = 2.5;
+    depth = 2.0;
+    communication = 2.5;
+  }
+
+  const rawScore = Math.round(((correctness + depth + communication) / 15) * 100);
+  const score = Math.max(35, Math.min(95, rawScore));
+
+  return {
+    processed: true,
+    resolvedAt: Date.now(),
+    score,
+    isEstimated: true,
+    status: 'estimated',
+    feedback: 'Heuristic evaluation estimated during background processing.',
+    strengths: wordCount >= 30 ? ['Provided structured answer response'] : ['Attempted response'],
+    improvements: wordCount < 50 ? ['Provide deeper technical elaboration and concrete examples'] : [],
+    dimensions: {
+      correctness: Number(correctness.toFixed(1)),
+      depth: Number(depth.toFixed(1)),
+      communication: Number(communication.toFixed(1)),
+    },
+  };
+}
+
 class DeferredJobQueue {
   constructor() {
     this.jobs = new Map();
@@ -190,16 +235,33 @@ class DeferredJobQueue {
     try {
       if (job.handler && typeof job.handler === 'function') {
         job.result = await job.handler(job.payload);
+      } else if (job.type === JOB_TYPES.SCORE_TURN) {
+        try {
+          const { callTurnScoring } = await import('./llmRouter.js');
+          const scoringResult = await callTurnScoring({
+            ...job.payload,
+            bypassDeferred: true,
+          });
+          if (scoringResult && typeof scoringResult.score === 'number' && !scoringResult.isDeferred) {
+            job.result = {
+              processed: true,
+              resolvedAt: Date.now(),
+              score: scoringResult.score,
+              isEstimated: false,
+              feedback: scoringResult.feedback || 'Rubric evaluation completed successfully.',
+              dimensions: scoringResult.dimensions || { correctness: 3.5, depth: 3.5, communication: 4.0 },
+              evalModelUsed: scoringResult.evalModelUsed,
+              evalProvider: scoringResult.evalProvider,
+            };
+          } else {
+            job.result = calculateEstimatedTurnScore(job.payload);
+          }
+        } catch (scoringErr) {
+          logger.warn(`[DeferredQueue] Dynamic scoring failed for ${jobId}, falling back to structured estimate:`, scoringErr?.message);
+          job.result = calculateEstimatedTurnScore(job.payload);
+        }
       } else {
-        // Calibrated processing
-        job.result = {
-          processed: true,
-          resolvedAt: Date.now(),
-          score: 72,
-          isEstimated: false,
-          feedback: 'Asynchronous rubric evaluation completed successfully.',
-          dimensions: { correctness: 3.5, depth: 3.5, communication: 4.0 },
-        };
+        job.result = calculateEstimatedTurnScore(job.payload);
       }
 
       job.status = JOB_STATUS.COMPLETED;

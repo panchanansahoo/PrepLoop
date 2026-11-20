@@ -55,17 +55,47 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'peer_interview_rooms' AND policyname = 'Participants can update their peer rooms'
-    ) THEN
-        CREATE POLICY "Participants can update their peer rooms"
-            ON public.peer_interview_rooms
-            FOR UPDATE
-            USING (auth.uid() = interviewer_id OR auth.uid() = candidate_id)
-            WITH CHECK (auth.uid() = interviewer_id OR auth.uid() = candidate_id);
+DROP POLICY IF EXISTS "Participants can update their peer rooms" ON public.peer_interview_rooms;
+DROP POLICY IF EXISTS "Participants and candidates can update peer rooms" ON public.peer_interview_rooms;
+
+-- Allow interviewer, candidate, or a joining candidate (when waiting) to update room
+CREATE POLICY "Participants and candidates can update peer rooms"
+    ON public.peer_interview_rooms
+    FOR UPDATE
+    TO authenticated
+    USING (
+        auth.uid() = interviewer_id 
+        OR auth.uid() = candidate_id 
+        OR (candidate_id IS NULL AND status = 'waiting')
+    )
+    WITH CHECK (
+        auth.uid() = interviewer_id 
+        OR auth.uid() = candidate_id
+    );
+
+-- Defense-in-depth: trigger to protect peer interview scores and creator from candidate tampering
+CREATE OR REPLACE FUNCTION public.protect_peer_room_scores()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF (auth.uid() IS NOT NULL AND auth.uid() != OLD.interviewer_id) THEN
+      IF NEW.scores IS DISTINCT FROM OLD.scores THEN
+        RAISE EXCEPTION 'Security violation: Candidates cannot modify peer interview scores.';
+      END IF;
+      IF NEW.interviewer_id IS DISTINCT FROM OLD.interviewer_id THEN
+        RAISE EXCEPTION 'Security violation: Interviewer cannot be modified.';
+      END IF;
     END IF;
-END $$;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_peer_room_scores ON public.peer_interview_rooms;
+CREATE TRIGGER trg_protect_peer_room_scores
+  BEFORE UPDATE ON public.peer_interview_rooms
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_peer_room_scores();
 
 
 -- ============================================================================
@@ -83,9 +113,12 @@ CREATE TABLE IF NOT EXISTS public.community_challenges (
     starter_code JSONB DEFAULT '{"javascript": "// Code here"}'::jsonb,
     test_cases JSONB DEFAULT '[]'::jsonb,
     is_active BOOLEAN DEFAULT true,
+    end_date TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(year, week_number, difficulty)
 );
+
+ALTER TABLE public.community_challenges ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_challenges_active ON public.community_challenges(is_active, year, week_number);
 
@@ -117,27 +150,63 @@ DO $$ BEGIN
     END IF;
 END $$;
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'challenge_submissions' AND policyname = 'Users can view their own submissions or public passed'
-    ) THEN
-        CREATE POLICY "Users can view their own submissions or public passed"
-            ON public.challenge_submissions
-            FOR SELECT
-            USING (auth.uid() = user_id OR status = 'passed');
-    END IF;
-END $$;
+DROP POLICY IF EXISTS "Users can view their own submissions or public passed" ON public.challenge_submissions;
+DROP POLICY IF EXISTS "Users can view own or completed challenge submissions" ON public.challenge_submissions;
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'challenge_submissions' AND policyname = 'Users can submit challenge solutions'
-    ) THEN
-        CREATE POLICY "Users can submit challenge solutions"
-            ON public.challenge_submissions
-            FOR INSERT
-            WITH CHECK (auth.uid() = user_id);
+-- Hide other users' passed submissions while challenge end_date > now() to prevent code leaking/scraping
+CREATE POLICY "Users can view own or completed challenge submissions"
+    ON public.challenge_submissions
+    FOR SELECT
+    TO authenticated
+    USING (
+        auth.uid() = user_id 
+        OR (
+            status = 'passed' 
+            AND EXISTS (
+                SELECT 1 FROM public.community_challenges c
+                WHERE c.id = challenge_submissions.challenge_id
+                AND (c.end_date IS NOT NULL AND c.end_date <= NOW())
+            )
+        )
+    );
+
+DROP POLICY IF EXISTS "Users can submit challenge solutions" ON public.challenge_submissions;
+
+-- Restrict direct client INSERT so scores cannot be forged (score evaluation is handled server-side)
+CREATE POLICY "Users can submit challenge solutions"
+    ON public.challenge_submissions
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        auth.uid() = user_id
+        AND (status IS NULL OR status = 'submitted' OR status = 'pending')
+        AND (score_awarded IS NULL OR score_awarded = 0)
+    );
+
+-- Trigger protection: prevent client from forging 'passed' status or positive score_awarded
+CREATE OR REPLACE FUNCTION public.protect_challenge_submission_scores()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.status = 'passed' OR COALESCE(NEW.score_awarded, 0) > 0 THEN
+        RAISE EXCEPTION 'Security violation: Submission status and scores must be evaluated server-side.';
+      END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.status IS DISTINCT FROM OLD.status OR NEW.score_awarded IS DISTINCT FROM OLD.score_awarded THEN
+        RAISE EXCEPTION 'Security violation: Submission status and scores cannot be modified by clients.';
+      END IF;
     END IF;
-END $$;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_challenge_submission_scores ON public.challenge_submissions;
+CREATE TRIGGER trg_protect_challenge_submission_scores
+  BEFORE INSERT OR UPDATE ON public.challenge_submissions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_challenge_submission_scores();
 
 
 -- ============================================================================
@@ -184,17 +253,65 @@ ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_deliveries ENABLE ROW LEVEL SECURITY;
 
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies WHERE tablename = 'api_keys' AND policyname = 'Users have full control over their own API keys'
-    ) THEN
-        CREATE POLICY "Users have full control over their own API keys"
-            ON public.api_keys
-            FOR ALL
-            USING (auth.uid() = user_id)
-            WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users have full control over their own API keys" ON public.api_keys;
+DROP POLICY IF EXISTS "Users can view their own API keys" ON public.api_keys;
+CREATE POLICY "Users can view their own API keys"
+    ON public.api_keys
+    FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own API keys" ON public.api_keys;
+CREATE POLICY "Users can delete their own API keys"
+    ON public.api_keys
+    FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own api keys" ON public.api_keys;
+CREATE POLICY "Users can insert own api keys"
+    ON public.api_keys
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        auth.uid() = user_id
+        AND scopes <@ ARRAY['interviews:read', 'interviews:write', 'interview:read', 'interview:write']::TEXT[]
+        AND NOT (scopes @> ARRAY['*']::TEXT[])
+    );
+
+DROP POLICY IF EXISTS "Users can update own api keys" ON public.api_keys;
+CREATE POLICY "Users can update own api keys"
+    ON public.api_keys
+    FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (
+        auth.uid() = user_id
+        AND scopes <@ ARRAY['interviews:read', 'interviews:write', 'interview:read', 'interview:write']::TEXT[]
+        AND NOT (scopes @> ARRAY['*']::TEXT[])
+    );
+
+-- Trigger: strictly prevent client insertion/update of wildcard '*' scope or unauthorized elevated scopes
+CREATE OR REPLACE FUNCTION public.protect_api_key_scopes()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF NEW.scopes @> ARRAY['*']::TEXT[] THEN
+      RAISE EXCEPTION 'Security violation: Wildcard scope is reserved for platform administrators.';
     END IF;
-END $$;
+    IF NOT (NEW.scopes <@ ARRAY['interviews:read', 'interviews:write', 'interview:read', 'interview:write']::TEXT[]) THEN
+      RAISE EXCEPTION 'Security violation: Unauthorized API key scope requested.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_api_key_scopes ON public.api_keys;
+CREATE TRIGGER trg_protect_api_key_scopes
+  BEFORE INSERT OR UPDATE ON public.api_keys
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_api_key_scopes();
 
 DO $$ BEGIN
     IF NOT EXISTS (
@@ -368,3 +485,120 @@ CREATE POLICY "Users can manage own interview checkpoints"
     FOR ALL
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
+
+-- Trigger: protect overall_score and feedback from client-side score forgery on interview_sessions
+CREATE OR REPLACE FUNCTION public.protect_interview_session_scores()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF NEW.overall_score IS DISTINCT FROM OLD.overall_score THEN
+      RAISE EXCEPTION 'Security violation: Users cannot directly modify interview session scores.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_interview_session_scores ON public.interview_sessions;
+CREATE TRIGGER trg_protect_interview_session_scores
+  BEFORE UPDATE ON public.interview_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_interview_session_scores();
+
+
+-- ============================================================================
+-- 6. MULTI-ROUND SESSIONS RLS & SCORE PROTECTION
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.multi_round_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  company TEXT NOT NULL,
+  role TEXT NOT NULL,
+  current_round INT NOT NULL DEFAULT 0,
+  round_scores JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress', 'completed', 'abandoned'
+  hiring_decision JSONB DEFAULT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.multi_round_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own multi round sessions" ON public.multi_round_sessions;
+DROP POLICY IF EXISTS "Users can view own multi round sessions" ON public.multi_round_sessions;
+CREATE POLICY "Users can view own multi round sessions"
+  ON public.multi_round_sessions
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own active multi round sessions" ON public.multi_round_sessions;
+CREATE POLICY "Users can update own active multi round sessions"
+  ON public.multi_round_sessions
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Trigger: strictly prevent client-side forgery of round_scores and hiring_decision
+CREATE OR REPLACE FUNCTION public.protect_multi_round_session_scores()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (current_user IN ('anon', 'authenticated') OR (auth.jwt() IS NOT NULL AND auth.role() = 'authenticated')) THEN
+    IF TG_OP = 'INSERT' THEN
+      IF (NEW.round_scores IS NOT NULL AND jsonb_array_length(NEW.round_scores) > 0)
+         OR NEW.hiring_decision IS NOT NULL THEN
+        RAISE EXCEPTION 'Security violation: Initial round scores and hiring decision must be evaluated server-side.';
+      END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.round_scores IS DISTINCT FROM OLD.round_scores THEN
+        RAISE EXCEPTION 'Security violation: Candidates cannot modify multi-round session scores.';
+      END IF;
+      IF NEW.hiring_decision IS DISTINCT FROM OLD.hiring_decision THEN
+        RAISE EXCEPTION 'Security violation: Candidates cannot modify hiring decisions.';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_protect_multi_round_session_scores ON public.multi_round_sessions;
+CREATE TRIGGER trg_protect_multi_round_session_scores
+  BEFORE INSERT OR UPDATE ON public.multi_round_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_multi_round_session_scores();
+
+
+-- ============================================================================
+-- 7. PERFORMANCE COMPOSITE INDEXES FOR HOT QUERY PATHS
+-- ============================================================================
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'submissions') THEN
+        CREATE INDEX IF NOT EXISTS idx_submissions_user_status_date 
+            ON public.submissions(user_id, status, submitted_at DESC);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'interview_sessions') THEN
+        CREATE INDEX IF NOT EXISTS idx_interview_sessions_user_date 
+            ON public.interview_sessions(user_id, created_at DESC);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'coin_transactions') THEN
+        CREATE INDEX IF NOT EXISTS idx_coin_transactions_user_date 
+            ON public.coin_transactions(user_id, created_at DESC);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'challenge_submissions') THEN
+        CREATE INDEX IF NOT EXISTS idx_challenge_submissions_user_challenge 
+            ON public.challenge_submissions(user_id, challenge_id);
+    END IF;
+END $$;

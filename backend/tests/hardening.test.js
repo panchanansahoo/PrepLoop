@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test, it, describe } from 'vitest';
 
 import { apiCacheMiddleware } from '../middleware/apiCache.js';
 import { csrfProtection } from '../middleware/csrf.js';
@@ -92,37 +92,6 @@ test('persistent quota denial is enforced for authenticated users', async () => 
     },
   });
 
-  test('plan-aware quota uses the authenticated subscription tier', async () => {
-    const store = new Map();
-    const response = createResponse();
-    const middleware = usageQuota('ai', {
-      counterStore: store,
-      client: {
-        from() {
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    maybeSingle() {
-                      return Promise.resolve({ data: { subscription_tier: 'pro' }, error: null });
-                    },
-                  };
-                },
-              };
-            },
-          };
-        },
-        rpc() {
-          return Promise.resolve({ data: [{ allowed: true }], error: null });
-        },
-      },
-    });
-
-    await middleware({ ip: '127.0.0.4', user: { id: `plan-test-${Date.now()}` } }, response, () => {});
-    assert.equal(response.getHeader('X-Usage-Limit'), 500);
-  });
-
   await middleware({ ip: '127.0.0.3', user: { id: 'user-2' } }, response, () => {
     nextCalls += 1;
   });
@@ -130,6 +99,37 @@ test('persistent quota denial is enforced for authenticated users', async () => 
   assert.equal(nextCalls, 0);
   assert.equal(response.statusCode, 429);
   assert.equal(response.body.code, 'USAGE_LIMIT_EXCEEDED');
+});
+
+test('plan-aware quota uses the authenticated subscription tier', async () => {
+  const store = new Map();
+  const response = createResponse();
+  const middleware = usageQuota('ai', {
+    counterStore: store,
+    client: {
+      from() {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle() {
+                    return Promise.resolve({ data: { subscription_tier: 'pro' }, error: null });
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+      rpc() {
+        return Promise.resolve({ data: [{ allowed: true }], error: null });
+      },
+    },
+  });
+
+  await middleware({ ip: '127.0.0.4', user: { id: `plan-test-${Date.now()}` } }, response, () => {});
+  assert.equal(response.getHeader('X-Usage-Limit'), 500);
 });
 
 test('authenticated cache requests bypass the anonymous cache', () => {
@@ -165,62 +165,6 @@ test('anonymous cache requests reuse successful responses', () => {
     firstResponse.json({ ok: true });
   });
 
-  test('CSRF protection skips bearer and anonymous requests', () => {
-    const bearerResponse = createResponse();
-    const anonymousResponse = createResponse();
-    let bearerNext = 0;
-    let anonymousNext = 0;
-
-    csrfProtection(
-      { method: 'POST', headers: { authorization: 'Bearer token' } },
-      bearerResponse,
-      () => { bearerNext += 1; },
-    );
-    csrfProtection(
-      { method: 'POST', headers: {} },
-      anonymousResponse,
-      () => { anonymousNext += 1; },
-    );
-
-    assert.equal(bearerNext, 1);
-    assert.equal(anonymousNext, 1);
-  });
-
-  test('CSRF protection skips public auth routes even when session cookies exist', () => {
-    const loginResponse = createResponse();
-    let loginNext = 0;
-    csrfProtection(
-      {
-        method: 'POST',
-        originalUrl: '/api/auth/login',
-        path: '/auth/login',
-        headers: { cookie: 'preploop_access=stale-token; preploop_refresh=stale-refresh' },
-      },
-      loginResponse,
-      () => { loginNext += 1; },
-    );
-
-    assert.equal(loginNext, 1);
-    assert.equal(loginResponse.statusCode, 200);
-  });
-
-  test('CSRF protection rejects authenticated cookie mutations without a matching token', () => {
-    const response = createResponse();
-    let nextCalls = 0;
-    csrfProtection(
-      {
-        method: 'POST',
-        headers: { cookie: 'preploop_access=session-token; __csrf_token=expected' },
-      },
-      response,
-      () => { nextCalls += 1; },
-    );
-
-    assert.equal(nextCalls, 0);
-    assert.equal(response.statusCode, 403);
-    assert.equal(response.body.code, 'CSRF_TOKEN_MISSING');
-  });
-
   const secondResponse = createResponse();
   let secondNextCalls = 0;
   middleware(request, secondResponse, () => {
@@ -231,4 +175,60 @@ test('anonymous cache requests reuse successful responses', () => {
   assert.equal(secondNextCalls, 0);
   assert.deepEqual(secondResponse.body, { ok: true });
   assert.equal(secondResponse.getHeader('X-Cache'), 'HIT');
+});
+
+test('CSRF protection skips bearer and anonymous requests', () => {
+  const bearerResponse = createResponse();
+  const anonymousResponse = createResponse();
+  let bearerNext = 0;
+  let anonymousNext = 0;
+
+  csrfProtection(
+    { method: 'POST', headers: { authorization: 'Bearer token' } },
+    bearerResponse,
+    () => { bearerNext += 1; },
+  );
+  csrfProtection(
+    { method: 'POST', headers: {} },
+    anonymousResponse,
+    () => { anonymousNext += 1; },
+  );
+
+  assert.equal(bearerNext, 1);
+  assert.equal(anonymousNext, 1);
+});
+
+test('CSRF protection skips public auth routes even when session cookies exist', () => {
+  const loginResponse = createResponse();
+  let loginNext = 0;
+  csrfProtection(
+    {
+      method: 'POST',
+      originalUrl: '/api/auth/login',
+      path: '/auth/login',
+      headers: { cookie: 'preploop_access=stale-token; preploop_refresh=stale-refresh' },
+    },
+    loginResponse,
+    () => { loginNext += 1; },
+  );
+
+  assert.equal(loginNext, 1);
+  assert.equal(loginResponse.statusCode, 200);
+});
+
+test('CSRF protection rejects authenticated cookie mutations without a matching token', () => {
+  const response = createResponse();
+  let nextCalls = 0;
+  csrfProtection(
+    {
+      method: 'POST',
+      headers: { cookie: 'preploop_access=session-token; __csrf_token=expected' },
+    },
+    response,
+    () => { nextCalls += 1; },
+  );
+
+  assert.equal(nextCalls, 0);
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.code, 'CSRF_TOKEN_MISSING');
 });

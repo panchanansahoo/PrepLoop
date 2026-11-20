@@ -45,15 +45,35 @@ export interface CollaborationSession {
   evaluation: RubricEvaluation | null;
 }
 
+/**
+ * Safe WebSocket delivery helper verifying readyState before sending
+ */
+export function safeSend(ws: WebSocket | any, payload: any): boolean {
+  if (!ws) return false;
+  if (typeof ws.readyState === 'number' && ws.readyState !== 1) {
+    return false;
+  }
+  try {
+    const data = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    ws.send(data);
+    return true;
+  } catch (err: any) {
+    logger.warn('safeSend failed', { error: err?.message });
+    return false;
+  }
+}
+
 export class CollaborationService {
   sessions: Map<string, CollaborationSession>;
   users: Map<string, CollaborationUser>;
   wss: WebSocketServer | null;
+  heartbeatInterval: any | null;
 
   constructor() {
     this.sessions = new Map<string, CollaborationSession>();
     this.users = new Map<string, CollaborationUser>();
     this.wss = null;
+    this.heartbeatInterval = null;
   }
 
   /**
@@ -63,6 +83,29 @@ export class CollaborationService {
     this.wss = noServer || !server
       ? new WebSocketServer({ noServer: true })
       : new WebSocketServer({ server, path: '/ws/collaborate' });
+
+    // 30-second ping/pong keepalive to detect and terminate half-open sockets
+    if (!this.heartbeatInterval) {
+      this.heartbeatInterval = setInterval(() => {
+        if (!this.wss) return;
+        (this.wss as any).clients?.forEach((client: any) => {
+          if (client.isAlive === false) {
+            logger.info('Terminating inactive collaboration socket');
+            client.terminate();
+            return;
+          }
+          client.isAlive = false;
+          try {
+            client.ping();
+          } catch {
+            client.terminate();
+          }
+        });
+      }, 30000);
+      if ((this.heartbeatInterval as any).unref) {
+        (this.heartbeatInterval as any).unref();
+      }
+    }
 
     this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       void this.handleConnection(ws, req);
@@ -94,6 +137,11 @@ export class CollaborationService {
       ws.close(1008, 'Unauthorized');
       return;
     }
+
+    (ws as any).isAlive = true;
+    ws.on('pong', () => {
+      (ws as any).isAlive = true;
+    });
 
     this.users.set(userId, { ws, userId, sessionId: null });
 
@@ -288,6 +336,7 @@ export class CollaborationService {
     const session = this.sessions.get(user.sessionId);
     if (!session) return;
 
+    const wasHost = session.host === userId;
     session.participants.delete(userId);
     user.sessionId = null;
 
@@ -299,6 +348,24 @@ export class CollaborationService {
     if (session.participants.size === 0) {
       this.sessions.delete(session.id);
       logger.info('Session deleted', { sessionId: session.id });
+    } else if (wasHost) {
+      // Promote the next oldest active participant in session.participants to host
+      const nextHost = session.participants.values().next().value;
+      if (nextHost) {
+        session.host = nextHost;
+        logger.info('Host promoted after disconnect', {
+          sessionId: session.id,
+          previousHost: userId,
+          newHost: nextHost,
+        });
+        this.broadcastToSession(session.id, {
+          type: 'host_changed',
+          sessionId: session.id,
+          host: nextHost,
+          newHost: nextHost,
+          previousHost: userId,
+        });
+      }
     }
 
     logger.info('User left session', { sessionId: session.id, userId });
@@ -471,8 +538,8 @@ export class CollaborationService {
    */
   sendToUser(userId: string, message: any): void {
     const user = this.users.get(userId);
-    if (user && user.ws && (user.ws as any).readyState === 1) {
-      (user.ws as any).send(JSON.stringify(message));
+    if (user && user.ws) {
+      safeSend(user.ws, message);
     }
   }
 
@@ -568,6 +635,29 @@ export class CollaborationService {
 
   generateSessionId(): string {
     return `session_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+  }
+
+  /**
+   * Gracefully close the WebSocket server, clear intervals, and disconnect all users
+   */
+  close(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.wss) {
+      (this.wss as any).clients?.forEach((client: any) => {
+        try {
+          client.terminate();
+        } catch {}
+      });
+      try {
+        this.wss.close();
+      } catch {}
+      this.wss = null;
+    }
+    this.sessions.clear();
+    this.users.clear();
   }
 }
 

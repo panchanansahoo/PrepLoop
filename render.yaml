@@ -6,7 +6,7 @@ services:
     buildCommand: npm --prefix ../packages/contracts install && npm --prefix ../packages/contracts run build && npm install
     startCommand: npm start
     healthCheckPath: /health/live
-    autoDeploy: true
+    autoDeploy: false
     envVars:
       - key: NODE_ENV
         value: production

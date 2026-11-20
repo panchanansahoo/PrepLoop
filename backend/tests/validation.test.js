@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { describe, it } from 'vitest';
 import { validateRequest, Joi } from '../middleware/validation.js';
 
 function createMockRes() {
@@ -17,13 +17,13 @@ function createMockRes() {
   };
 }
 
-test('Universal validateRequest middleware', async (t) => {
+describe('Universal validateRequest middleware', () => {
   const schema = Joi.object({
     email: Joi.string().email().required(),
     role: Joi.string().valid('developer', 'designer', 'manager').default('developer'),
   });
 
-  await t.test('passes valid request body and sets sanitized values', () => {
+  it('passes valid request body and sets sanitized values', () => {
     const req = {
       body: { email: 'test@example.com', role: 'developer', extraUnknown: 'dropped' },
       query: {},
@@ -40,7 +40,7 @@ test('Universal validateRequest middleware', async (t) => {
     assert.equal(req.body.extraUnknown, undefined); // stripped
   });
 
-  await t.test('rejects invalid request body with VALIDATION_ERROR code', () => {
+  it('rejects invalid request body with VALIDATION_ERROR code', () => {
     const req = {
       body: { email: 'not-an-email', role: 'invalid_role' },
       query: {},

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
 import {
   detectBufferType,
   validateFileMagicBytes,
@@ -132,6 +133,42 @@ describe('Upload Protection Middleware', () => {
       expect(nextCalled).toBe(false);
       expect(statusCode).toBe(415);
       expect(jsonPayload?.code).toBe('INVALID_FILE_SIGNATURE');
+    });
+
+    it('unlinks disk file on signature rejection to prevent temp disk leaks', () => {
+      const middleware = requireValidFileSignature(['audio']);
+      let unlinkedPath = '';
+      const originalUnlinkSync = fs.unlinkSync;
+      // @ts-ignore
+      fs.unlinkSync = (filePath: string) => {
+        unlinkedPath = filePath;
+      };
+
+      try {
+        const req: any = {
+          file: {
+            originalname: 'fake.mp3',
+            path: '/tmp/voice-fake-12345.mp3',
+            buffer: Buffer.from('NOT_AN_AUDIO_FILE_JUST_TEXT'),
+          },
+        };
+        let statusCode = 0;
+        const res: any = {
+          status(code: number) {
+            statusCode = code;
+            return this;
+          },
+          json() {
+            return this;
+          },
+        };
+
+        middleware(req, res, () => {});
+        expect(statusCode).toBe(415);
+        expect(unlinkedPath).toBe('/tmp/voice-fake-12345.mp3');
+      } finally {
+        fs.unlinkSync = originalUnlinkSync;
+      }
     });
   });
 });

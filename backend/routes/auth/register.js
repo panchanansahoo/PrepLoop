@@ -15,6 +15,7 @@ import {
   isDuplicateEmailError,
 } from './helpers.js';
 import { verifyCaptcha } from '../../utils/captcha.js';
+import { isAdminEmail } from '../../middleware/auth.ts';
 
 /**
  * Retry verification email delivery with exponential backoff
@@ -63,6 +64,11 @@ router.post('/signup', signupLimiter, async (req, res) => {
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+
+  // SECURITY: Prevent self-registration of administrative email addresses
+  if (isAdminEmail(normalizedEmail)) {
+    return res.status(400).json({ error: 'Administrative email addresses cannot be registered via public signup' });
   }
   if (!trimmedFullName) {
     return res.status(400).json({ error: 'Full name is required' });

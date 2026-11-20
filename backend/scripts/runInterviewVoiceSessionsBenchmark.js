@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import assert from 'node:assert/strict';
 import express from 'express';
 import interactionRouter, { scoreDistributionStats } from '../routes/company-interview/interaction.js';
 import evaluationRouter from '../routes/company-interview/evaluation.js';
@@ -364,8 +365,14 @@ function getPercentile(arr, p) {
 }
 
 async function run20SessionsBenchmark() {
+  const isCi = process.argv.includes('--ci') || process.env.CI === 'true';
+  const sessionCount = parseInt(
+    process.env.BENCHMARK_SESSIONS || (process.argv.find(a => a.startsWith('--sessions='))?.split('=')[1]) || '20',
+    10
+  );
+
   console.log('========================================================================');
-  console.log('🚀 PREPLOOP AI VOICE INTERVIEW PIPELINE: 20-SESSION BENCHMARK');
+  console.log(`🚀 PREPLOOP AI VOICE INTERVIEW PIPELINE: ${sessionCount}-SESSION BENCHMARK`);
   console.log('========================================================================\n');
 
   await startServer();
@@ -376,7 +383,7 @@ async function run20SessionsBenchmark() {
   let grandSpeculativeHits = 0;
   let grandSpeculativeDiscards = 0;
 
-  for (let s = 1; s <= 20; s++) {
+  for (let s = 1; s <= sessionCount; s++) {
     const persona = CANDIDATE_PERSONAS[(s - 1) % CANDIDATE_PERSONAS.length];
     const sessionResult = await runSession(s, persona);
 
@@ -396,7 +403,7 @@ async function run20SessionsBenchmark() {
       : 'N/A';
 
     console.log(
-      `Session ${String(s).padStart(2, '0')}/20 | Candidate: ${persona.type.padEnd(28)} | Turns: ${sessionResult.totalTurns} | Resumed: ${sessionResult.resumedTurns} | SpecHits: ${sessionResult.speculativeHits || 0} | Avg Score: ${avgScore}`
+      `Session ${String(s).padStart(2, '0')}/${sessionCount} | Candidate: ${persona.type.padEnd(28)} | Turns: ${sessionResult.totalTurns} | Resumed: ${sessionResult.resumedTurns} | SpecHits: ${sessionResult.speculativeHits || 0} | Avg Score: ${avgScore}`
     );
   }
 
@@ -406,22 +413,26 @@ async function run20SessionsBenchmark() {
   const p95Latency = getPercentile(allLatencies, 95);
   const minLatency = Math.min(...allLatencies);
   const maxLatency = Math.max(...allLatencies);
-  const resumeRate = (grandResumedTurns / grandTotalTurns) * 100;
+  const resumeRate = grandTotalTurns > 0 ? (grandResumedTurns / grandTotalTurns) * 100 : 0;
   const speculativeHitRate = (grandSpeculativeHits / (grandSpeculativeHits + grandSpeculativeDiscards || 1)) * 100;
+
+  const MAX_P95_LATENCY_MS = Number(process.env.BENCHMARK_MAX_P95_MS || 4500);
+  const MAX_RESUME_RATE = Number(process.env.BENCHMARK_MAX_RESUME_RATE || 15.0);
+  const MIN_SPECULATIVE_HIT_RATE = Number(process.env.BENCHMARK_MIN_HIT_RATE || 70.0);
 
   console.log('\n========================================================================');
   console.log('📊 BENCHMARK RESULTS & METRICS SUMMARY');
   console.log('========================================================================');
-  console.log(`Total Simulated Sessions : 20`);
+  console.log(`Total Simulated Sessions : ${sessionCount}`);
   console.log(`Total Turns              : ${grandTotalTurns}`);
   console.log(`Resumed Turns            : ${grandResumedTurns}`);
-  console.log(`Resume Rate              : ${resumeRate.toFixed(2)}% (Target: < 15%)`);
-  console.log(`Speculative Fast-Reply   : ${grandSpeculativeHits} hits / ${grandSpeculativeDiscards} discards (${speculativeHitRate.toFixed(1)}% hit rate)`);
+  console.log(`Resume Rate              : ${resumeRate.toFixed(2)}% (SLA Target: <= ${MAX_RESUME_RATE}%)`);
+  console.log(`Speculative Fast-Reply   : ${grandSpeculativeHits} hits / ${grandSpeculativeDiscards} discards (${speculativeHitRate.toFixed(1)}% hit rate, SLA: >= ${MIN_SPECULATIVE_HIT_RATE}%)`);
   console.log(`------------------------------------------------------------------------`);
   console.log(`Latency Metric           : last_speech_to_first_audio_latency`);
   console.log(`Samples Collected        : ${allLatencies.length}`);
   console.log(`p50 Latency              : ${p50Latency} ms (Speculative savings: ~450ms)`);
-  console.log(`p95 Latency              : ${p95Latency} ms`);
+  console.log(`p95 Latency              : ${p95Latency} ms (SLA Ceiling: <= ${MAX_P95_LATENCY_MS} ms)`);
   console.log(`Min Latency              : ${minLatency} ms`);
   console.log(`Max Latency              : ${maxLatency} ms`);
   console.log(`------------------------------------------------------------------------`);
@@ -436,6 +447,20 @@ async function run20SessionsBenchmark() {
   console.log(`Min Score Observed       : ${scoreDistributionStats.min}`);
   console.log(`Max Score Observed       : ${scoreDistributionStats.max}`);
   console.log('========================================================================\n');
+
+  if (isCi) {
+    console.log('🧪 Verifying Voice Pipeline SLA thresholds in CI mode...');
+    try {
+      assert(allLatencies.length > 0, 'No latency samples recorded');
+      assert(p95Latency <= MAX_P95_LATENCY_MS, `p95 latency (${p95Latency}ms) exceeds SLA ceiling of ${MAX_P95_LATENCY_MS}ms`);
+      assert(resumeRate <= MAX_RESUME_RATE, `Resume rate (${resumeRate.toFixed(2)}%) exceeds SLA ceiling of ${MAX_RESUME_RATE}%`);
+      assert(speculativeHitRate >= MIN_SPECULATIVE_HIT_RATE, `Speculative hit rate (${speculativeHitRate.toFixed(1)}%) is below SLA floor of ${MIN_SPECULATIVE_HIT_RATE}%`);
+      console.log('✅ [PASSED] All Voice Interview Pipeline SLA budgets verified successfully.');
+    } catch (assertionError) {
+      console.error(`❌ [FAILED] Voice Benchmark SLA assertion failed: ${assertionError.message}`);
+      process.exit(1);
+    }
+  }
 }
 
 run20SessionsBenchmark().catch((err) => {

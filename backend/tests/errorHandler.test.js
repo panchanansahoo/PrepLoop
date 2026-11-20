@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { describe, it } from 'vitest';
 import { errorHandler, AppError, ErrorCodes } from '../middleware/errorHandler.js';
 
 function createMockRes() {
@@ -18,8 +18,8 @@ function createMockRes() {
   };
 }
 
-test('Centralized error handler middleware', async (t) => {
-  await t.test('formats AppError with custom status code and ErrorCode', () => {
+describe('Centralized error handler middleware', () => {
+  it('formats AppError with custom status code and ErrorCode', () => {
     const err = new AppError('Resource was not found', 404, ErrorCodes.NOT_FOUND);
     const req = { requestId: 'req_test_123', originalUrl: '/api/resource', method: 'GET' };
     const res = createMockRes();
@@ -33,7 +33,7 @@ test('Centralized error handler middleware', async (t) => {
     assert.equal(res.body.requestId, 'req_test_123');
   });
 
-  await t.test('maps Supabase PGRST116 code to NOT_FOUND', () => {
+  it('maps Supabase PGRST116 code to NOT_FOUND', () => {
     const err = new Error('Row not found');
     err.code = 'PGRST116';
     const req = { requestId: 'req_sb_456', originalUrl: '/api/profile', method: 'GET' };
@@ -45,7 +45,7 @@ test('Centralized error handler middleware', async (t) => {
     assert.equal(res.body.code, ErrorCodes.NOT_FOUND);
   });
 
-  await t.test('defaults unhandled errors to 500 INTERNAL_ERROR', () => {
+  it('defaults unhandled errors to 500 INTERNAL_ERROR', () => {
     const err = new Error('Unexpected crash');
     const req = { requestId: 'req_unhandled', originalUrl: '/api/fail', method: 'POST' };
     const res = createMockRes();

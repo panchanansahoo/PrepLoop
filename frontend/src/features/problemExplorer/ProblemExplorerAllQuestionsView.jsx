@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 
 function SortHeader({ label, sortKey, sortBy, sortDir, onSort, isLight }) {
@@ -25,10 +26,21 @@ export function ProblemExplorerAllQuestionsView({
     setSortDir,
     onSolveProblem,
     getExplanationSnippet,
+    page = 1,
+    setPage,
+    pageSize = 30,
 }) {
     if (viewMode !== 'all') {
         return null;
     }
+
+    const totalPages = Math.max(1, Math.ceil(filteredProblems.length / pageSize));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+
+    const paginatedProblems = useMemo(() => {
+        const start = (currentPage - 1) * pageSize;
+        return filteredProblems.slice(start, start + pageSize);
+    }, [filteredProblems, currentPage, pageSize]);
 
     const onSort = (key) => {
         setSortBy(key);
@@ -38,6 +50,7 @@ export function ProblemExplorerAllQuestionsView({
             }
             return 'asc';
         });
+        if (setPage) setPage(1);
     };
 
     return (
@@ -56,7 +69,8 @@ export function ProblemExplorerAllQuestionsView({
                 <span style={{ fontSize: 10, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
             </div>
 
-            {filteredProblems.map((problem, idx) => {
+            {paginatedProblems.map((problem, pageIdx) => {
+                const globalIndex = (currentPage - 1) * pageSize + pageIdx + 1;
                 const isSolved = solvedSet.has(problem.id);
                 const dc = problem.difficulty === 'Easy' ? '#6ee7b7' : problem.difficulty === 'Medium' ? '#fbbf24' : '#f87171';
                 const dbg = problem.difficulty === 'Easy' ? 'rgba(110,231,183,0.12)' : problem.difficulty === 'Medium' ? 'rgba(251,191,36,0.12)' : 'rgba(248,113,113,0.12)';
@@ -66,13 +80,13 @@ export function ProblemExplorerAllQuestionsView({
                         display: 'grid', gridTemplateColumns: '50px 1fr 140px 100px 80px 70px',
                         gap: 8, padding: '10px 20px', alignItems: 'center',
                         borderBottom: isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.03)',
-                        background: isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent',
+                        background: isSolved ? 'rgba(110,231,183,0.025)' : pageIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent',
                         transition: 'background 0.15s',
                     }}
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.04)'}
-                        onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent'}
+                        onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : pageIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent'}
                     >
-                        <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{idx + 1}</span>
+                        <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{globalIndex}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             {isSolved && <CheckCircle2 size={13} color="#6ee7b7" style={{ flexShrink: 0 }} />}
                             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -144,6 +158,50 @@ export function ProblemExplorerAllQuestionsView({
 
             {filteredProblems.length === 0 && (
                 <div style={{ textAlign: 'center', padding: 48, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }}>No problems match your filters.</div>
+            )}
+
+            {filteredProblems.length > pageSize && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 20px',
+                    borderTop: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
+                    background: isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.01)',
+                }}>
+                    <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)' }}>
+                        Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredProblems.length)} of {filteredProblems.length} problems
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                            disabled={currentPage <= 1}
+                            onClick={() => setPage && setPage(p => Math.max(1, p - 1))}
+                            style={{
+                                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)',
+                                border: 'none',
+                                color: currentPage <= 1 ? (isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)') : (isLight ? '#1e293b' : '#fff'),
+                                cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+                            }}
+                        >
+                            Previous
+                        </button>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#a855f7' }}>
+                            {currentPage} / {totalPages}
+                        </span>
+                        <button
+                            disabled={currentPage >= totalPages}
+                            onClick={() => setPage && setPage(p => Math.min(totalPages, p + 1))}
+                            style={{
+                                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)',
+                                border: 'none',
+                                color: currentPage >= totalPages ? (isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)') : (isLight ? '#1e293b' : '#fff'),
+                                cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                            }}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

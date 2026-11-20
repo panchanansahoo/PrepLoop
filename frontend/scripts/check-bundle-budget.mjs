@@ -11,6 +11,7 @@ const CHUNK_BUDGETS = {
   'vendor-prettier': 750_000,
   'vendor-monaco': 800_000,
   'vendor-supabase': 650_000,
+  'vendor-icons': 400_000,
   'data-': 600_000,
   index: 300_000,
   default: DEFAULT_MAX_BYTES,

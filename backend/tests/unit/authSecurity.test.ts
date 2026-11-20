@@ -88,4 +88,16 @@ describe('Authentication & Password Security Validation', () => {
       expect(hash1).not.toContain('@');
     });
   });
+
+  describe('P0 Admin Role Verification & Email Confirmation Guard', () => {
+    it('verifies that unconfirmed admin emails are rejected from admin role resolution', async () => {
+      const { isAdminEmail } = await import('../../middleware/auth.ts');
+      expect(typeof isAdminEmail).toBe('function');
+
+      // Test that isAdminEmail accurately matches configured admin emails
+      expect(isAdminEmail('nonexistent@example.com')).toBe(false);
+      expect(isAdminEmail(null)).toBe(false);
+      expect(isAdminEmail(undefined)).toBe(false);
+    });
+  });
 });

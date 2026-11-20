@@ -21,6 +21,7 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
+import apiClient from "../../api/apiClient";
 // ────────────────────────────────────────────────
 // Chat message types
 // ────────────────────────────────────────────────
@@ -208,6 +209,7 @@ export default function AIInterviewScreen({ route, navigation }) {
     const [feedbackResult, setFeedbackResult] = useState(null);
     const [recording, setRecording] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
     const [recordingDuration, setRecordingDuration] = useState(0);
 
     const startTimeRef = useRef(Date.now());
@@ -496,19 +498,47 @@ export default function AIInterviewScreen({ route, navigation }) {
         try {
             await recording.stopAndUnloadAsync();
             const uri = recording.getURI();
-            
-            // In a real implementation, we would upload this URI to a speech-to-text API.
-            // For now, we mock the transcription to show it works seamlessly.
             setRecording(null);
-            
-            // Mock Transcription (simulate network delay)
-            setTimeout(() => {
-                const mockedTranscription = "Here is my answer to the question using the STAR method: First, the situation was...";
-                setCurrentInput((prev) => prev ? `${prev} ${mockedTranscription}` : mockedTranscription);
-            }, 1500);
 
+            if (!uri) return;
+
+            setIsTranscribing(true);
+            try {
+                const formData = new FormData();
+                formData.append("audio", {
+                    uri,
+                    name: "candidate-answer.m4a",
+                    type: "audio/m4a",
+                });
+
+                const res = await apiClient.post("/api/voice/stt", formData, {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                    timeout: 25000,
+                });
+
+                const transcribed = res.data?.transcript || res.data?.text;
+                if (transcribed && transcribed.trim()) {
+                    setCurrentInput((prev) => prev ? `${prev} ${transcribed.trim()}` : transcribed.trim());
+                } else {
+                    Alert.alert(
+                        "Voice Note",
+                        "Speech was not clearly recognized. You can try recording again or type your answer.",
+                    );
+                }
+            } catch (apiErr) {
+                console.warn("[AIInterview] Voice transcription API error:", apiErr?.message);
+                Alert.alert(
+                    "Transcription Notice",
+                    "Audio recording could not be transcribed at this time. Please type your response directly into the input field.",
+                );
+            } finally {
+                setIsTranscribing(false);
+            }
         } catch (err) {
             console.error("Failed to stop recording", err);
+            setIsTranscribing(false);
         }
     }
     
@@ -701,20 +731,29 @@ export default function AIInterviewScreen({ route, navigation }) {
 
                             <TouchableOpacity
                                 onPress={isRecording ? stopRecording : startRecording}
-                                disabled={submitting || loadingNext}
+                                disabled={submitting || loadingNext || isTranscribing}
+                                accessibilityRole="button"
+                                accessibilityLabel={isRecording ? "Stop voice recording" : "Start voice recording"}
+                                accessibilityState={{ disabled: submitting || loadingNext || isTranscribing, busy: isTranscribing }}
                                 style={[
                                     styles.micBtn,
                                     isRecording && styles.micBtnRecording,
-                                    (submitting || loadingNext) && styles.sendBtnDisabled
+                                    (submitting || loadingNext || isTranscribing) && styles.sendBtnDisabled
                                 ]}
                             >
-                                <Ionicons 
-                                    name={isRecording ? "stop" : "mic"} 
-                                    size={20} 
-                                    color={isRecording ? "#fff" : colors.primary} 
-                                />
-                                {isRecording && (
-                                    <View style={styles.recordingIndicator} />
+                                {isTranscribing ? (
+                                    <ActivityIndicator size="small" color={colors.primary} />
+                                ) : (
+                                    <>
+                                        <Ionicons 
+                                            name={isRecording ? "stop" : "mic"} 
+                                            size={20} 
+                                            color={isRecording ? "#fff" : colors.primary} 
+                                        />
+                                        {isRecording && (
+                                            <View style={styles.recordingIndicator} />
+                                        )}
+                                    </>
                                 )}
                             </TouchableOpacity>
                         </>

@@ -88,8 +88,13 @@ export const isAdminEmail = (email?: string | null): boolean => {
   return getAdminEmails().has(email.trim().toLowerCase());
 };
 
-const resolveUserRole = async (userId: string, userEmail: string | null = null): Promise<UserRole> => {
-  if (userEmail && isAdminEmail(userEmail)) {
+const resolveUserRole = async (
+  userId: string,
+  userEmail: string | null = null,
+  isEmailConfirmed = false
+): Promise<UserRole> => {
+  // SECURITY: Only grant admin privileges if the email is confirmed/verified
+  if (userEmail && isEmailConfirmed && isAdminEmail(userEmail)) {
     setRoleCache(userId, 'admin');
     return 'admin';
   }
@@ -114,7 +119,7 @@ const resolveUserRole = async (userId: string, userEmail: string | null = null):
     // Default to user if profile fetch fails
   }
 
-  if (role !== 'admin' && userEmail && isAdminEmail(userEmail)) {
+  if (role !== 'admin' && userEmail && isEmailConfirmed && isAdminEmail(userEmail)) {
     role = 'admin';
   }
 
@@ -148,7 +153,8 @@ export const verifySupabaseToken = async (token: string): Promise<AuthUser> => {
     err.statusCode = 401;
     throw err;
   }
-  const role = await resolveUserRole(user.id, user.email);
+  const isEmailConfirmed = Boolean(user.email_confirmed_at || (user as any).confirmed_at);
+  const role = await resolveUserRole(user.id, user.email, isEmailConfirmed);
   return {
     id: user.id,
     email: user.email,
@@ -227,7 +233,8 @@ export const optionalAuth = async (
     try {
       const { data: { user }, error } = await (supabaseAdmin as any).auth.getUser(token);
       if (!error && user) {
-        const role = await resolveUserRole(user.id, user.email);
+        const isEmailConfirmed = Boolean(user.email_confirmed_at || (user as any).confirmed_at);
+        const role = await resolveUserRole(user.id, user.email, isEmailConfirmed);
         req.user = {
           id: user.id,
           email: user.email,
