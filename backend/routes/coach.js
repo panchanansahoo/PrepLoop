@@ -62,7 +62,8 @@ router.post('/chat', authenticateToken, async (req, res) => {
     if (groq) {
       const completion = await aiCallWithRetry({
         operation: () => groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+          ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
           messages,
           temperature: 0.6,
           max_tokens: 1024
@@ -106,7 +107,8 @@ router.post('/socratic-challenge', authenticateToken, async (req, res) => {
     if (groq) {
       const completion = await aiCallWithRetry({
         operation: () => groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+          ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
           messages: [
             {
               role: 'system',

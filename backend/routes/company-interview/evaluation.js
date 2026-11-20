@@ -1,7 +1,7 @@
 import express from 'express';
 import { optionalAuth, authenticateToken } from '../../middleware/auth.ts';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { evaluateFresherAnswer, calculateCalibrated3DScore, dimsToCalibratedScore, dimsToScore } from '../../services/interviewAnswerEvaluator.js';
 import { callInterviewReport, callTurnScoring, ROUTER_MODELS } from '../../services/llmRouter.js';
 import { quotaGuard } from '../../services/quotaGuard.js';
 import { deferredJobQueue } from '../../services/deferredJobQueue.js';
@@ -196,10 +196,14 @@ export function buildDeterministicInterviewReport({ company, role, stage, qaPair
       };
     }
     
-    // Use evaluateFresherAnswer if inlineScore and sessionScore are missing
+    // Use calibrated 3D score or evaluateFresherAnswer if inlineScore and sessionScore are missing
     let fallbackScore = 0;
     if ((qa.inlineScore === null || qa.inlineScore === undefined) && (sessionScores[index] === null || sessionScores[index] === undefined)) {
-      fallbackScore = evaluateFresherAnswer(answer, category === 'coding' || category === 'system-design' ? 'Technical' : 'HR').score;
+      if (qa.dimensions && typeof qa.dimensions === 'object') {
+        fallbackScore = calculateCalibrated3DScore(qa.dimensions);
+      } else {
+        fallbackScore = evaluateFresherAnswer(answer, category === 'coding' || category === 'system-design' ? 'Technical' : 'HR').score;
+      }
     }
 
     const heuristicsScore = clampScore(
@@ -810,5 +814,13 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
 
 
-export { reportCache, getCachedReport, setCachedReport, computeReportCacheKey };
+export {
+  reportCache,
+  getCachedReport,
+  setCachedReport,
+  computeReportCacheKey,
+  calculateCalibrated3DScore,
+  dimsToCalibratedScore,
+  dimsToScore,
+};
 export default router;

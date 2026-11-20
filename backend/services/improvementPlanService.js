@@ -377,7 +377,8 @@ Provide recommendations in JSON format with keys:
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+        ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           { role: 'system', content: 'You are an expert technical interview coach. Return only valid JSON.' },
           { role: 'user', content: prompt }

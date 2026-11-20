@@ -13,6 +13,11 @@ import {
   detectComplexityMismatch,
   pickImprovements,
   generateFeedbackSummary,
+  calculateCalibrated3DScore,
+  dimsToCalibratedScore,
+  dimsToScore,
+  calculate3DScore,
+  _calculateCalibrated3DScore,
 } from '../../services/interviewAnswerEvaluator.js';
 
 vi.mock('../../services/llmRouter.js', () => ({
@@ -538,6 +543,80 @@ describe('interviewAnswerEvaluator (Track 1.3 Semantic Rubrics)', () => {
         // Unpenalized depth would be >= 9 from 5+ tech keywords + complexity, penalized by 0.75
         expect(result.rubric.depth).toBeLessThanOrEqual(7);
       });
+    });
+  });
+
+  describe('Pillar 2: Calibrated 3D Scoring Engine & Tier Discriminability', () => {
+    it('computes non-linear depth-calibrated composite score for top tier (5, 5, 5) -> 100', () => {
+      const score = calculateCalibrated3DScore({ correctness: 5, depth: 5, communication: 5 });
+      expect(score).toBe(100);
+    });
+
+    it('implements non-linear formula: 100 * (0.45 * (C/5)^1.2 + 0.40 * (D/5)^1.4 + 0.15 * (Comm/5))', () => {
+      // For c=4, d=4, comm=4:
+      // 100 * (0.45 * (4/5)^1.2 + 0.40 * (4/5)^1.4 + 0.15 * (4/5)) = 75.73 -> 76
+      const score = calculateCalibrated3DScore(4, 4, 4);
+      expect(score).toBe(76);
+
+      // For c=5, d=4, comm=5:
+      // 100 * (0.45 * 1.0 + 0.40 * (4/5)^1.4 + 0.15 * 1.0) = 89.31 -> 89
+      const staffScore = calculateCalibrated3DScore({ c: 5, d: 4, comm: 5 });
+      expect(staffScore).toBe(89);
+    });
+
+    it('applies anti-inflation dampener when Depth is below 3.0 (< 60 for Junior shallow answers)', () => {
+      // Junior shallow textbook answer: C=3, D=2, Comm=3
+      const standardJunior = calculateCalibrated3DScore({ correctness: 3, depth: 2, communication: 3 });
+      expect(standardJunior).toBeLessThan(60);
+      expect(standardJunior).toBe(37);
+
+      // Shallow answer packed with buzzwords: high correctness (4.5) but shallow depth (2.0)
+      const shallowWithBuzzwords = calculateCalibrated3DScore({ correctness: 4.5, depth: 2, communication: 4 });
+      expect(shallowWithBuzzwords).toBeLessThan(60);
+      expect(shallowWithBuzzwords).toBe(52);
+
+      // Extreme buzzword stuffing: C=5, D=2, Comm=5 must remain < 60
+      const extremeBuzzword = calculateCalibrated3DScore({ correctness: 5, depth: 2, communication: 5 });
+      expect(extremeBuzzword).toBeLessThan(60);
+      expect(extremeBuzzword).toBe(59);
+    });
+
+    it('ensures smooth continuous scores across depth transitions without discrete snapping', () => {
+      // As depth increases smoothly from 1.0 to 5.0 with fixed c=4, comm=4:
+      const scores = [];
+      const depths = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+      for (const d of depths) {
+        scores.push(calculateCalibrated3DScore({ correctness: 4, depth: d, communication: 4 }));
+      }
+
+      // Strictly monotonically increasing
+      for (let i = 1; i < scores.length; i++) {
+        expect(scores[i]).toBeGreaterThan(scores[i - 1]);
+      }
+
+      // No flat artificial plateaus (such as hard snapping at 59, 72, or 88)
+      const uniqueScores = new Set(scores);
+      expect(uniqueScores.size).toBe(depths.length);
+    });
+
+    it('auto-normalizes 10-point scale dimensions to 1-5 scale', () => {
+      const from5Scale = calculateCalibrated3DScore({ correctness: 4, depth: 4, communication: 4 });
+      const from10Scale = calculateCalibrated3DScore({ correctness: 8, depth: 8, communication: 8 });
+      expect(from10Scale).toBe(from5Scale);
+    });
+
+    it('handles zero and edge-case inputs gracefully', () => {
+      expect(calculateCalibrated3DScore(0, 0, 0)).toBe(0);
+      expect(calculateCalibrated3DScore({})).toBe(53); // default 3, 3, 3 -> 53
+      expect(calculateCalibrated3DScore(1, 1, 1)).toBe(8);
+    });
+
+    it('provides backwards-compatible aliases for calculateCalibrated3DScore', () => {
+      const score = calculateCalibrated3DScore(4, 3, 4);
+      expect(dimsToCalibratedScore(4, 3, 4)).toBe(score);
+      expect(dimsToScore(4, 3, 4)).toBe(score);
+      expect(calculate3DScore(4, 3, 4)).toBe(score);
+      expect(_calculateCalibrated3DScore(4, 3, 4)).toBe(score);
     });
   });
 });

@@ -826,18 +826,20 @@ Rules:
 
 Question:`;
 
+      const fastModel = process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b';
       const completion = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+        model: fastModel,
+        ...(fastModel.includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 200,
+        max_tokens: 300,
       }, { signal: AbortSignal.timeout(6000) });
 
       return completion.choices[0]?.message?.content?.trim() || this.getFallbackQuestion(context);
     } catch (err) {
       if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
         interviewTelemetryService.logEvent('interview.turn.llm_timeout', {
-          model: 'llama-3.1-8b-instant',
+          model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
           context: 'generateFirstQuestion',
         });
       }
@@ -918,14 +920,16 @@ Next question:`;
         content: m.content,
       }));
 
+      const fastModel = process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b';
       const completion = await groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
+        model: fastModel,
+        ...(fastModel.includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           ...recentConversation,
           { role: 'user', content: prompt },
         ],
         temperature: 0.7,
-        max_tokens: 200,
+        max_tokens: 300,
       }, { signal: AbortSignal.timeout(6000) });
 
       const rawContent = completion.choices[0]?.message?.content?.trim();
@@ -948,7 +952,7 @@ Next question:`;
     } catch (err) {
       if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
         interviewTelemetryService.logEvent('interview.turn.llm_timeout', {
-          model: 'llama-3.1-8b-instant',
+          model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
           context: 'generateNextQuestion',
         });
       }

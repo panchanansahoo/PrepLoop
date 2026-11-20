@@ -563,7 +563,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -717,7 +717,7 @@ router.post('/jd-questions', optionalAuth, async (req, res) => {
       const completion = await aiCallWithRetry({
         operation: () =>
           createGroqChatCompletion({
-            model: 'llama-3.3-70b-versatile',
+            model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
             messages: [
               {
                 role: 'system',
@@ -927,7 +927,7 @@ router.post('/save-session', optionalAuth, async (req, res) => {
       completed_at: completedAt || new Date().toISOString(),
       ai_model_version: getSessionScorer(sessionId)
         ? `${getSessionScorer(sessionId).provider}:${getSessionScorer(sessionId).model}`
-        : (summaryData?.reportModelUsed || process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant'),
+        : (summaryData?.reportModelUsed || process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b'),
       pinned_scorer: getSessionScorer(sessionId) || (summaryData?.reportModelUsed ? { provider: summaryData?.reportProvider, model: summaryData?.reportModelUsed } : null),
     };
 

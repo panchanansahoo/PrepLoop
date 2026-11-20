@@ -124,7 +124,8 @@ export async function analyzeResumeJobGap(input: ResumeGapAnalysisInput): Promis
     const safeJd = fenceUntrustedContent(sanitizeDocumentForPrompt(input.jobDescription.slice(0, 6000)), 'job_description');
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       temperature: 0.2,
       max_tokens: 900,
       response_format: { type: 'json_object' },

@@ -23,12 +23,12 @@ import {
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export const GROQ_CHAT_MODELS = [
-  process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-  process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'openai/gpt-oss-120b',
+  process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+  process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
+  'openai/gpt-oss-120b',
+  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile',
 ].filter(Boolean);
 
 export async function verifyGroqModelsOnStartup() {
@@ -39,20 +39,70 @@ export async function verifyGroqModelsOnStartup() {
   try {
     const listRes = await groq.models.list();
     const available = (listRes.data || []).map((m) => m.id);
-    const configuredModels = [
-      process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
-    ];
-    const missing = configuredModels.filter((m) => !available.includes(m));
-    if (missing.length > 0) {
-      console.warn(
-        `[Groq Startup Warning] Configured model(s) NOT AVAILABLE on this Groq account: ${missing.join(', ')}. ` +
-        `Available models on key: ${available.join(', ')}. Fallback providers (Gemini / OpenRouter / local heuristics) will be utilized.`
-      );
-    } else {
-      console.log(`[Groq Startup] ✓ Verified configured Groq models available: ${configuredModels.join(', ')}`);
+
+    // Auto-detect best available fast model (20b / fast reply)
+    const preferredFast = [
+      process.env.GROQ_FAST_MODEL,
+      'openai/gpt-oss-20b',
+      'llama-3.1-8b-instant',
+      'llama3-8b-8192',
+    ].filter(Boolean);
+    const boundFastModel =
+      preferredFast.find((m) => available.includes(m)) ||
+      available.find((m) => /gpt-oss-20b|8b|instant|gemma|qwen/i.test(m)) ||
+      available[0] ||
+      'openai/gpt-oss-20b';
+
+    // Auto-detect best available deep evaluation model (120b / report)
+    const preferredDeep = [
+      process.env.GROQ_MODEL,
+      'openai/gpt-oss-120b',
+      'llama-3.3-70b-versatile',
+      'llama-3.1-70b-versatile',
+      'llama3-70b-8192',
+    ].filter(Boolean);
+    const boundDeepModel =
+      preferredDeep.find((m) => available.includes(m)) ||
+      available.find((m) => /gpt-oss-120b|70b|versatile/i.test(m)) ||
+      boundFastModel;
+
+    // Dynamically bind to environment
+    process.env.GROQ_FAST_MODEL = boundFastModel;
+    process.env.GROQ_MODEL = boundDeepModel;
+
+    // Reorder GROQ_CHAT_MODELS in-place with verified active models first
+    const nonChatFilter = /guard|whisper|orpheus/i;
+    const chatAvailable = available.filter((m) => !nonChatFilter.test(m));
+    const dynamicList = Array.from(new Set([
+      boundFastModel,
+      boundDeepModel,
+      ...chatAvailable,
+      'openai/gpt-oss-20b',
+      'openai/gpt-oss-120b',
+    ])).filter(Boolean);
+
+    GROQ_CHAT_MODELS.length = 0;
+    GROQ_CHAT_MODELS.push(...dynamicList);
+
+    // Bind to llmRouter if loaded
+    try {
+      const { bindGroqModels } = await import('../../services/llmRouter.js');
+      if (typeof bindGroqModels === 'function') {
+        bindGroqModels(boundFastModel, boundDeepModel);
+      }
+    } catch {
+      // llmRouter dynamic sync optional
     }
-    return { status: 'verified', availableModels: available };
+
+    console.log(
+      `[Groq Startup] ✓ Verified and dynamically bound Groq models: FAST=${boundFastModel}, DEEP=${boundDeepModel} (Available on key: ${available.join(', ')})`
+    );
+    return {
+      status: 'verified',
+      availableModels: available,
+      boundFastModel,
+      boundDeepModel,
+    };
   } catch (err) {
     console.error('[Groq Startup Error] Failed to list or verify models:', err.message);
     return { status: 'error', error: err.message };
@@ -653,7 +703,7 @@ export async function generateFresherHRQuestion(qNum, _resumeContext = null) {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -692,7 +742,7 @@ export async function generateFresherTechnicalQuestion(qNum, _resumeContext = nu
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -736,7 +786,7 @@ export async function generateInterviewerName(company = '') {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -937,7 +987,7 @@ ${styleHints.join('\n')}
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1442,4 +1492,79 @@ export const _buildFocusSignal = buildFocusSignal;
 export const _normalizeInterviewRuntimeMode = normalizeInterviewRuntimeMode;
 export const _buildInterviewRuntime = buildInterviewRuntime;
 export const _FRESHER_INTERVIEW_TOTAL_QUESTIONS = FRESHER_INTERVIEW_TOTAL_QUESTIONS;
+
+/**
+ * Calculates a continuous, non-linear depth-calibrated 3D score from
+ * Correctness (1-5), Depth (1-5), and Communication (1-5).
+ *
+ * Formula:
+ *   Composite score = 100 * (0.45 * (C / 5)^1.2 + 0.40 * (D / 5)^1.4 + 0.15 * (Comm / 5))
+ *
+ * When Depth < 3.0 (surface-level or textbook-only answers), applies a smooth
+ * continuous anti-inflation dampener to keep scores calibrated against human
+ * evaluation rubrics (< 60 for Junior shallow answers) without discrete snapping.
+ *
+ * @param {Object|number} arg1 - { correctness|c, depth|d, communication|comm } or correctness number
+ * @param {number} [arg2] - Depth if passed positionally
+ * @param {number} [arg3] - Communication if passed positionally
+ * @param {Object} [arg4] - Evaluation options
+ * @returns {number} Calibrated composite score (0-100)
+ */
+export function calculateCalibrated3DScore(arg1, arg2, arg3, _arg4) {
+  let c, d, comm;
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    c = arg1.correctness ?? arg1.c ?? 3;
+    d = arg1.depth ?? arg1.d ?? 3;
+    comm = arg1.communication ?? arg1.comm ?? 3;
+  } else {
+    c = arg1 !== undefined && arg1 !== null ? Number(arg1) : 3;
+    d = arg2 !== undefined && arg2 !== null ? Number(arg2) : 3;
+    comm = arg3 !== undefined && arg3 !== null ? Number(arg3) : 3;
+  }
+
+  let cVal = Number.isFinite(Number(c)) ? Number(c) : 3;
+  let dVal = Number.isFinite(Number(d)) ? Number(d) : 3;
+  let commVal = Number.isFinite(Number(comm)) ? Number(comm) : 3;
+
+  // Auto-detect 10-point scale (e.g. clarity/depth/correctness 1-10) and normalize to 1-5
+  if (cVal > 5 || dVal > 5 || commVal > 5) {
+    cVal = cVal / 2;
+    dVal = dVal / 2;
+    commVal = commVal / 2;
+  }
+
+  const cNorm = Math.max(0, Math.min(5, cVal));
+  const dNorm = Math.max(0, Math.min(5, dVal));
+  const commNorm = Math.max(0, Math.min(5, commVal));
+
+  if (cNorm === 0 && dNorm === 0 && commNorm === 0) {
+    return 0;
+  }
+
+  // 1. Non-linear depth-calibrated scoring formula:
+  // Composite score = 100 * (0.45 * (C / 5)^1.2 + 0.40 * (D / 5)^1.4 + 0.15 * (Comm / 5))
+  const baseScore = 100 * (
+    0.45 * Math.pow(cNorm / 5, 1.2) +
+    0.40 * Math.pow(dNorm / 5, 1.4) +
+    0.15 * (commNorm / 5)
+  );
+
+  // 2. Anti-inflation dampener when Depth is below 3.0 (surface-level or textbook-only answers)
+  // Continuous smooth power curve: at dNorm = 3.0, dampener = 1.0 (seamless transition, no discrete snapping)
+  let score = baseScore;
+  if (dNorm < 3.0) {
+    const depthRatio = Math.max(0, dNorm) / 3.0;
+    const dampener = Math.pow(depthRatio, 0.45);
+    score = baseScore * dampener;
+  }
+
+  // 3. Continuous smooth score, bounded [0, 100]
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+export const dimsToCalibratedScore = calculateCalibrated3DScore;
+export const dimsToScore = calculateCalibrated3DScore;
+export const calculate3DScore = calculateCalibrated3DScore;
+export const _calculateCalibrated3DScore = calculateCalibrated3DScore;
+
 export { createOpenRouterChatCompletion, isOpenRouterAvailable, OPENROUTER_MODELS };

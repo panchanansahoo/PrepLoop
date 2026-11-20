@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { createGroqChatCompletion } from '../routes/company-interview/helpers.js';
+import { createGroqChatCompletion, calculateCalibrated3DScore } from '../routes/company-interview/helpers.js';
 
 // 20 completely novel, leakage-free interview turns (NO mention of Redis token bucket, AVL tree, or Two Sum)
 // Each turn has independent grades from two expert human reviewers (Grader A & Grader B)
@@ -198,16 +198,7 @@ const UNSEEN_EVAL_TURNS = [
 ];
 
 function dimsToScore(dims) {
-  const raw = (0.50 * dims.c) + (0.35 * dims.d) + (0.15 * dims.comm);
-  if (raw <= 2.0) {
-    return Math.round(15 + (raw - 1.0) * 30);
-  } else if (raw <= 3.0) {
-    return Math.round(45 + (raw - 2.0) * 20);
-  } else if (raw <= 4.0) {
-    return Math.round(65 + (raw - 3.0) * 17);
-  } else {
-    return Math.round(82 + (raw - 4.0) * 14);
-  }
+  return calculateCalibrated3DScore(dims);
 }
 
 async function runValidation() {
@@ -232,7 +223,7 @@ async function runValidation() {
   console.log('Now evaluating 20 unseen turns with live LLM using dimensional 1-5 evaluation...\n');
 
   const results = [];
-  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
   for (let i = 0; i < UNSEEN_EVAL_TURNS.length; i++) {
     const turn = UNSEEN_EVAL_TURNS[i];
@@ -269,8 +260,9 @@ Respond as JSON:
   "feedback": "Internal evaluation (2 sentences)"
 }`;
 
+    const isLive = process.argv.includes('--live');
     const isCi = process.argv.includes('--ci') || process.env.CI === 'true';
-    const useMock = process.argv.includes('--mock') || !process.env.GROQ_API_KEY;
+    const useMock = (process.argv.includes('--mock') || isCi || !process.env.GROQ_API_KEY) && !isLive;
 
     let c;
     let d;
@@ -312,23 +304,8 @@ Respond as JSON:
     }
     const dt = Date.now() - t0;
 
-    const raw = (0.50 * c) + (0.35 * d) + (0.15 * comm);
-    let computedScore;
-    if (raw <= 2.0) {
-      computedScore = Math.round(15 + (raw - 1.0) * 30);
-    } else if (raw <= 3.0) {
-      computedScore = Math.round(45 + (raw - 2.0) * 20);
-    } else if (raw <= 4.0) {
-      computedScore = Math.round(65 + (raw - 3.0) * 17);
-    } else {
-      computedScore = Math.round(82 + (raw - 4.0) * 14);
-    }
-    if (diff === 'easy') {
-      computedScore = Math.min(72, computedScore);
-    } else if (diff === 'medium') {
-      computedScore = Math.min(88, computedScore);
-    }
-    computedScore = Math.max(0, Math.min(100, computedScore));
+    const raw = (0.45 * Math.pow(c / 5, 1.2) + 0.40 * Math.pow(d / 5, 1.4) + 0.15 * (comm / 5)) * 5;
+    const computedScore = calculateCalibrated3DScore({ c, d, comm }, { difficultyTag: diff });
 
     const delta = computedScore - consensus;
     results.push({

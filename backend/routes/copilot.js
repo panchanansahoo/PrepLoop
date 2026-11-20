@@ -68,7 +68,8 @@ router.post('/ask', authenticateToken, aiEndpointsLimiter, usageQuota('ai'), asy
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+        ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           { role: 'system', content: COPILOT_SYSTEM_PROMPT },
           { role: 'user', content: userMessage }
@@ -144,7 +145,8 @@ Keep it concise and actionable.`;
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+        ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           { role: 'system', content: COPILOT_SYSTEM_PROMPT },
           { role: 'user', content: prompt }

@@ -491,6 +491,15 @@ export function evaluateFresherAnswer(userAnswer, stage = 'Technical', codeText 
     if (rubric.specificity >= 7) normalizedScore += 4;
     if (rubric.starStructure >= 8) normalizedScore += 3;
 
+    // Anti-inflation dampener when Depth is below 3.0 (surface-level or textbook-only answers)
+    // to keep scores calibrated against human evaluation rubrics (< 60 for Junior shallow answers)
+    const depthOn5Scale = (rubric.depth || 0) / 2;
+    if (depthOn5Scale < 3.0) {
+        const depthRatio = Math.max(0, depthOn5Scale) / 3.0;
+        const dampener = Math.pow(depthRatio, 0.45);
+        normalizedScore = Math.round(normalizedScore * dampener);
+    }
+
     const clampedScore = Math.max(25, Math.min(98, normalizedScore));
     const strengths = pickStrengths(answer, stage);
     const improvements = pickImprovements(answer, stage, opts);
@@ -568,7 +577,16 @@ export async function evaluateAnswerWithSemanticRubric({
             });
 
             if (llmResult && Number.isFinite(llmResult.score)) {
-                const combinedScore = Math.round((llmResult.score * 0.7) + (baseEvaluation.score * 0.3));
+                let calibratedLlmScore = llmResult.score;
+                if (llmResult.dimensions && typeof llmResult.dimensions === 'object') {
+                    const c = Number(llmResult.dimensions.correctness ?? llmResult.dimensions.c);
+                    const d = Number(llmResult.dimensions.depth ?? llmResult.dimensions.d);
+                    const comm = Number(llmResult.dimensions.communication ?? llmResult.dimensions.comm);
+                    if (Number.isFinite(c) && Number.isFinite(d) && Number.isFinite(comm)) {
+                        calibratedLlmScore = calculateCalibrated3DScore({ correctness: c, depth: d, communication: comm });
+                    }
+                }
+                const combinedScore = Math.round((calibratedLlmScore * 0.7) + (baseEvaluation.score * 0.3));
                 return {
                     score: Math.max(25, Math.min(98, combinedScore)),
                     rubric: {
@@ -598,6 +616,80 @@ export async function evaluateAnswerWithSemanticRubric({
 
 // Backwards-compatible alias
 export const _evaluateFresherAnswer = evaluateFresherAnswer;
+
+/**
+ * Calculates a continuous, non-linear depth-calibrated 3D score from
+ * Correctness (1-5), Depth (1-5), and Communication (1-5).
+ *
+ * Formula:
+ *   Composite score = 100 * (0.45 * (C / 5)^1.2 + 0.40 * (D / 5)^1.4 + 0.15 * (Comm / 5))
+ *
+ * When Depth < 3.0 (surface-level or textbook-only answers), applies a smooth
+ * continuous anti-inflation dampener to keep scores calibrated against human
+ * evaluation rubrics (< 60 for Junior shallow answers) without discrete snapping.
+ *
+ * @param {Object|number} arg1 - { correctness|c, depth|d, communication|comm } or correctness number
+ * @param {number} [arg2] - Depth if passed positionally
+ * @param {number} [arg3] - Communication if passed positionally
+ * @param {Object} [arg4] - Evaluation options
+ * @returns {number} Calibrated composite score (0-100)
+ */
+export function calculateCalibrated3DScore(arg1, arg2, arg3, arg4) {
+  let c, d, comm;
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    c = arg1.correctness ?? arg1.c ?? 3;
+    d = arg1.depth ?? arg1.d ?? 3;
+    comm = arg1.communication ?? arg1.comm ?? 3;
+  } else {
+    c = arg1 !== undefined && arg1 !== null ? Number(arg1) : 3;
+    d = arg2 !== undefined && arg2 !== null ? Number(arg2) : 3;
+    comm = arg3 !== undefined && arg3 !== null ? Number(arg3) : 3;
+  }
+
+  let cVal = Number.isFinite(Number(c)) ? Number(c) : 3;
+  let dVal = Number.isFinite(Number(d)) ? Number(d) : 3;
+  let commVal = Number.isFinite(Number(comm)) ? Number(comm) : 3;
+
+  // Auto-detect 10-point scale (e.g. clarity/depth/correctness 1-10) and normalize to 1-5
+  if (cVal > 5 || dVal > 5 || commVal > 5) {
+    cVal = cVal / 2;
+    dVal = dVal / 2;
+    commVal = commVal / 2;
+  }
+
+  const cNorm = Math.max(0, Math.min(5, cVal));
+  const dNorm = Math.max(0, Math.min(5, dVal));
+  const commNorm = Math.max(0, Math.min(5, commVal));
+
+  if (cNorm === 0 && dNorm === 0 && commNorm === 0) {
+    return 0;
+  }
+
+  // 1. Non-linear depth-calibrated scoring formula:
+  // Composite score = 100 * (0.45 * (C / 5)^1.2 + 0.40 * (D / 5)^1.4 + 0.15 * (Comm / 5))
+  const baseScore = 100 * (
+    0.45 * Math.pow(cNorm / 5, 1.2) +
+    0.40 * Math.pow(dNorm / 5, 1.4) +
+    0.15 * (commNorm / 5)
+  );
+
+  // 2. Anti-inflation dampener when Depth is below 3.0 (surface-level or textbook-only answers)
+  // Continuous smooth power curve: at dNorm = 3.0, dampener = 1.0 (seamless transition, no discrete snapping)
+  let score = baseScore;
+  if (dNorm < 3.0) {
+    const depthRatio = Math.max(0, dNorm) / 3.0;
+    const dampener = Math.pow(depthRatio, 0.45);
+    score = baseScore * dampener;
+  }
+
+  // 3. Continuous smooth score, bounded [0, 100]
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+export const dimsToCalibratedScore = calculateCalibrated3DScore;
+export const dimsToScore = calculateCalibrated3DScore;
+export const calculate3DScore = calculateCalibrated3DScore;
+export const _calculateCalibrated3DScore = calculateCalibrated3DScore;
 
 /**
  * Generates a concise, high-signal 3-bullet executive summary for recruiters:

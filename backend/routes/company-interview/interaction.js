@@ -917,7 +917,7 @@ Respond as JSON:
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.75,
@@ -929,7 +929,7 @@ Respond as JSON:
     });
 
     const llmDurationMs = Date.now() - requestStartTime;
-    console.log(`[Interview Latency] Q${safeQuestionNumber} LLM: ${llmDurationMs}ms (model: ${process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'})`);
+    console.log(`[Interview Latency] Q${safeQuestionNumber} LLM: ${llmDurationMs}ms (model: ${process.env.GROQ_MODEL || 'openai/gpt-oss-120b'})`);
 
     const rawContent = completion.choices[0].message.content;
     const result = safeJsonParse(rawContent);
@@ -1118,7 +1118,7 @@ router.post('/hint', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1171,7 +1171,7 @@ router.post('/rephrase', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1219,7 +1219,7 @@ router.post('/nudge', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1270,7 +1270,7 @@ router.post('/copilot-suggest', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1344,7 +1344,7 @@ router.post('/clarify', customInterviewLimiter, optionalAuth, async (req, res) =
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1430,7 +1430,7 @@ router.post('/code-review-live', customInterviewLimiter, optionalAuth, async (re
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',

@@ -386,7 +386,8 @@ async function groqJson(systemPrompt, userPrompt, fallback) {
     const completion = await aiCallWithRetry({
       operation: () =>
         groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+          ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

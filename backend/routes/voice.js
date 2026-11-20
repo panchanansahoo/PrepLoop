@@ -376,7 +376,8 @@ Rules:
         let completion;
         try {
             completion = await groqClient.chat.completions.create({
-                model:       'llama-3.1-8b-instant',
+                model:       process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+                ...(String(process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
                 messages:    [{ role: 'user', content: analysisPrompt }],
                 temperature: 0.3,
                 max_tokens:  300,

@@ -98,7 +98,8 @@ router.post('/code-feedback', authenticateToken, usageQuota('ai'), async (req, r
     }
 
     const completion = await createGroqCompletion({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       messages: [
         {
           role: 'system',
@@ -166,7 +167,8 @@ router.post('/mock-interview', authenticateToken, usageQuota('ai'), createQuotaM
     }
 
     const completion = await createGroqCompletion({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       messages: [
         {
           role: 'system',
@@ -215,7 +217,8 @@ router.post('/hint', authenticateToken, usageQuota('ai'), async (req, res) => {
     }
 
     const completion = await createGroqCompletion({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       messages: [
         {
           role: 'system',
@@ -248,7 +251,8 @@ router.post('/explain', authenticateToken, usageQuota('ai'), async (req, res) =>
     }
 
     const completion = await createGroqCompletion({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       messages: [
         {
           role: 'system',
@@ -337,7 +341,8 @@ router.post('/playground-assist', authenticateToken, usageQuota('ai'), async (re
     }
 
     const completion = await createGroqCompletion({
-      model: 'llama-3.3-70b-versatile',
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
       messages,
       max_tokens: 1500,
       temperature: 0.3,

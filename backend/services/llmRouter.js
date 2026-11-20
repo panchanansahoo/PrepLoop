@@ -30,7 +30,7 @@ import {
   OPENROUTER_MODELS,
   stripReasoningTokens,
 } from './openRouterService.js';
-import { clampToTwoSentences, deterministicPick, safeJsonParse } from '../routes/company-interview/helpers.js';
+import { clampToTwoSentences, deterministicPick, safeJsonParse, verifyGroqModelsOnStartup } from '../routes/company-interview/helpers.js';
 import { verifyEvidenceQuote, stripAttributionPhrase, getGenericFollowUp } from '../utils/technicalPronunciation.js';
 import { sanitizeDocumentForPrompt, fenceUntrustedContent } from '../utils/promptInjectionGuard.js';
 
@@ -38,12 +38,23 @@ const logger = createLogger('llm-router');
 
 // ── Models ──
 export const ROUTER_MODELS = {
-  GROQ_20B: process.env.GROQ_FAST_MODEL || 'llama-3.1-8b-instant',
-  GROQ_120B: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+  GROQ_20B: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+  GROQ_120B: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
   GEMINI_FLASH: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   OPENROUTER_8B: OPENROUTER_MODELS.LLAMA_8B_FREE,
   OPENROUTER_70B: OPENROUTER_MODELS.LLAMA_70B_FREE,
 };
+
+export function bindGroqModels(fastModel, deepModel) {
+  if (fastModel) {
+    ROUTER_MODELS.GROQ_20B = fastModel;
+    process.env.GROQ_FAST_MODEL = fastModel;
+  }
+  if (deepModel) {
+    ROUTER_MODELS.GROQ_120B = deepModel;
+    process.env.GROQ_MODEL = deepModel;
+  }
+}
 
 // Telemetry metrics for parsing, truncation, and fast-reply latency distribution
 export const routerMetrics = {
@@ -318,8 +329,12 @@ async function executeGroqCompletion(options = {}, estimatedTokens = 400) {
   }
 
   const { signal, userId = null, ip = null, ...params } = options;
+  params.model = model;
   if (params.model?.includes('gpt-oss')) {
     params.reasoning_effort = 'low';
+    if (params.max_tokens && params.max_tokens < 350) {
+      params.max_tokens = 350;
+    }
   }
 
   // Native fetch allows reading actual response headers for rate limit synchronization
@@ -1394,6 +1409,8 @@ Return valid JSON with this shape:
   return null;
 }
 
+export { verifyGroqModelsOnStartup };
+
 export default {
   callFastReply,
   callTurnScoring,
@@ -1401,6 +1418,8 @@ export default {
   buildTokenSavingHistory,
   sanitizePromptForFreeTier,
   ROUTER_MODELS,
+  bindGroqModels,
+  verifyGroqModelsOnStartup,
   routerMetrics,
   getFastReplyLatencyStats,
 };

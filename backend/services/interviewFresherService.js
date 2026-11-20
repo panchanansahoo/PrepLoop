@@ -123,7 +123,8 @@ export async function generateFresherHRQuestion(qNum, resumeContext = null, groq
 
         const completion = await aiCallWithRetry({
             operation: () => groq.chat.completions.create({
-                model: 'llama-3.1-8b-instant',
+                model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+                ...(String(process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt },
@@ -158,7 +159,8 @@ export async function generateFresherTechnicalQuestion(qNum, resumeContext = nul
 
         const completion = await aiCallWithRetry({
             operation: () => groq.chat.completions.create({
-                model: 'llama-3.1-8b-instant',
+                model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+                ...(String(process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt },
@@ -276,7 +278,8 @@ Requirements:
 
         const completion = await aiCallWithRetry({
             operation: () => groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile',
+                model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+                ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
                 messages: [
                     { role: 'system', content: 'You generate concise, realistic fresher interview questions. Return only JSON.' },
                     { role: 'user', content: userPrompt },

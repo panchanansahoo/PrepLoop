@@ -483,7 +483,8 @@ export async function generateInterviewerName(company = '', groq = null) {
     const completion = await aiCallWithRetry({
       operation: () =>
         groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+          model: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+          ...(String(process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
           messages: [
             {
               role: 'system',

@@ -97,7 +97,8 @@ ${String(problem?.description || '').substring(0, 1500)}
 `;
 
   const completion = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+    ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
   });
@@ -498,7 +499,8 @@ Guidelines:
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+    ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessageContent },

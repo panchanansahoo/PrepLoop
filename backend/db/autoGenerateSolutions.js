@@ -55,7 +55,8 @@ Do NOT include any extra text. Make sure the JSON is totally valid.
 Problem Title: ${problem.title}
 `;
             const completion = await groq.chat.completions.create({
-                model: 'llama-3.3-70b-versatile',
+                model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+                ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
                 messages: [{ role: 'user', content: prompt }],
                 response_format: { type: 'json_object' }
             });

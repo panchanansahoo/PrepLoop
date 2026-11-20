@@ -152,7 +152,8 @@ export async function runAgenticChat({ userId, message, history = [] }) {
       const completion = await aiCallWithRetry({
         operation: () =>
           groq.chat.completions.create({
-            model: 'llama-3.3-70b-versatile',
+            model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+            ...(String(process.env.GROQ_MODEL || 'openai/gpt-oss-120b').includes('gpt-oss') ? { reasoning_effort: 'low' } : {}),
             messages,
             tools: AGENT_TOOLS_DEFINITIONS,
             tool_choice: 'auto',
