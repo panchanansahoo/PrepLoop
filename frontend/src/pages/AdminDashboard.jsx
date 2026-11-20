@@ -1,87 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import './AdminDashboard.css';
-import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { QUESTION_SET_TEMPLATES } from '../data/questionSetTemplates.js';
 import CandidateReviewDossier from '../components/interview/CandidateReviewDossier.jsx';
-
-const adminApi = {
-  get: async (url, config = {}) => {
-    let fullUrl = url;
-    if (config.params) {
-      const searchParams = new URLSearchParams();
-      for (const [key, val] of Object.entries(config.params)) {
-        if (val !== undefined && val !== null && val !== '') {
-          searchParams.append(key, val);
-        }
-      }
-      const qs = searchParams.toString();
-      if (qs) {
-        fullUrl += (fullUrl.includes('?') ? '&' : '?') + qs;
-      }
-    }
-    const res = await authFetch(fullUrl, { method: 'GET' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const error = new Error(data?.error || `Request failed with status ${res.status}`);
-      error.response = { status: res.status, data };
-      throw error;
-    }
-    return { data, status: res.status };
-  },
-  post: async (url, body = {}) => {
-    const res = await authFetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const error = new Error(data?.error || `Request failed with status ${res.status}`);
-      error.response = { status: res.status, data };
-      throw error;
-    }
-    return { data, status: res.status };
-  },
-  put: async (url, body = {}) => {
-    const res = await authFetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const error = new Error(data?.error || `Request failed with status ${res.status}`);
-      error.response = { status: res.status, data };
-      throw error;
-    }
-    return { data, status: res.status };
-  },
-  patch: async (url, body = {}) => {
-    const res = await authFetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const error = new Error(data?.error || `Request failed with status ${res.status}`);
-      error.response = { status: res.status, data };
-      throw error;
-    }
-    return { data, status: res.status };
-  },
-  delete: async (url) => {
-    const res = await authFetch(url, { method: 'DELETE' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const error = new Error(data?.error || `Request failed with status ${res.status}`);
-      error.response = { status: res.status, data };
-      throw error;
-    }
-    return { data, status: res.status };
-  },
-};
+import { adminApi } from '../features/admin';
 import {
   Users, FileText, BarChart3, Trash2, ShieldCheck, Shield,
   Search, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp,

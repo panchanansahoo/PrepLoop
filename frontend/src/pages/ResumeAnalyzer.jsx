@@ -8,94 +8,9 @@ import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { downloadResumeDocx } from '../utils/docxExport';
 import { Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2, Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic, Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers, Sliders, Plus, Minus } from 'lucide-react';
+import { ATSGauge, KeywordTag } from '../features/resume';
 
-// ── Animated circular gauge ──
-/* eslint-disable-next-line no-unused-vars */
-function ATSGauge({ score, size = 180 }) {
-  const [animatedScore, setAnimatedScore] = useState(0);
-  const radius = (size - 20) / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  useEffect(() => {
-    let frame;
-    const duration = 1500;
-    const start = performance.now();
-    const animate = (now) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setAnimatedScore(Math.round(eased * score));
-      if (progress < 1) frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, [score]);
-
-  const getColor = (s) => {
-    if (s >= 80) return 'var(--success-main, #6ee7b7)';
-    if (s >= 60) return 'var(--warning-main, #fbbf24)';
-    if (s >= 40) return 'var(--warning-dark, #fb923c)';
-    return 'var(--error-main, #f87171)';
-  };
-
-  const color = getColor(score);
-  const offset = circumference - (animatedScore / 100) * circumference;
-
-  return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-        </defs>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--border-light)" strokeWidth="10" />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none"
-          stroke={color} strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={offset}
-          style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 0.3s ease' }}
-          filter="url(#glow)"
-        />
-      </svg>
-      <div style={{
-        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{ fontSize: 42, fontWeight: 800, color, lineHeight: 1 }}>{animatedScore}</div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>ATS Score</div>
-        <div style={{
-          fontSize: 11, fontWeight: 700, marginTop: 6,
-          padding: '3px 10px', borderRadius: 20,
-          background: `${color}15`, color, letterSpacing: 0.3
-        }}>
-          {score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Needs Work'}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Keyword tag ──
-function KeywordTag({ label, type }) {
-  const colors = {
-    technical: { bg: 'rgba(139,92,246,0.12)', color: 'var(--accent-primary, #c084fc)', border: 'rgba(139,92,246,0.2)' },
-    soft: { bg: 'rgba(59,130,246,0.12)', color: 'var(--info-main, #60a5fa)', border: 'rgba(59,130,246,0.2)' },
-    missing: { bg: 'rgba(248,113,113,0.12)', color: 'var(--error-main, #f87171)', border: 'rgba(248,113,113,0.2)' },
-  };
-  const c = colors[type] || colors.technical;
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-      background: c.bg, color: c.color, border: `1px solid ${c.border}`,
-    }}>
-      {type === 'missing' && <AlertTriangle size={11} />}
-      {label}
-    </span>
-  );
-}
+export { ATSGauge, KeywordTag };
 
 // ── Main Page ──
 export default function ResumeAnalyzer() {
