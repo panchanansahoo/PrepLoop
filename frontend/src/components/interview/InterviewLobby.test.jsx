@@ -111,7 +111,7 @@ describe('InterviewLobby component', () => {
     });
 
     it('shows scheduled time in candidate local time and UTC, plus calendar links in Custom Question Set view', () => {
-        const scheduledDateIso = '2026-11-20T14:30:00.000Z';
+        const scheduledDateIso = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
         const customQuestionSet = {
             id: 'qs_123',
             title: 'Senior Distributed Systems Interview',
