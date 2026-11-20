@@ -8,6 +8,8 @@ import {
   UpdateJobApplicationSchema,
   ResumeGapAnalysisRequestSchema,
   RecordReviewRequestSchema,
+  CareerRoadmapSchema,
+  ApiErrorResponseSchema,
 } from '@preploop/contracts';
 import { validateBody } from '../../middleware/validateZod.js';
 
@@ -114,5 +116,49 @@ describe('@preploop/contracts shared Zod schemas', () => {
     middleware(req, res, next);
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.body.email).toBe('user@test.io');
+  });
+
+  it('validates CareerRoadmapSchema structured 4-week roadmap', () => {
+    const validRoadmap = {
+      targetRole: 'Backend Engineer',
+      targetCompany: 'Google',
+      readinessScore: 85,
+      weeks: [
+        {
+          weekNumber: 1,
+          title: 'Algorithms & Complexity',
+          description: 'Focus on trees and graphs',
+          milestones: [{ id: 'm1', title: 'Complete 10 Tree problems' }],
+        },
+      ],
+    };
+    expect(CareerRoadmapSchema.safeParse(validRoadmap).success).toBe(true);
+
+    const invalidRoadmap = {
+      targetRole: 'Backend Engineer',
+      readinessScore: 150, // exceeds max 100
+      weeks: [],
+    };
+    expect(CareerRoadmapSchema.safeParse(invalidRoadmap).success).toBe(false);
+  });
+
+  it('validates ApiErrorResponseSchema conforms to standard RFC 7807-like envelope', () => {
+    const errorPayload = {
+      success: false,
+      error: 'Validation failed',
+      message: 'Invalid input',
+      code: 'VALIDATION_ERROR',
+      details: [{ path: 'email', message: 'Invalid email format' }],
+      requestId: 'req_123',
+    };
+    expect(ApiErrorResponseSchema.safeParse(errorPayload).success).toBe(true);
+
+    expect(
+      ApiErrorResponseSchema.safeParse({
+        success: true, // must be false
+        error: 'Validation failed',
+        message: 'Invalid input',
+      }).success
+    ).toBe(false);
   });
 });
