@@ -1,7 +1,12 @@
 import express from 'express';
 import crypto from 'crypto';
 import { authenticateToken } from '../middleware/auth.ts';
+import { getRedisClient } from '../config/redis.js';
+import { getUpstashRedisClient } from '../config/upstashRedis.js';
 import cacheManager from '../utils/cacheManager.js';
+import { createLogger } from '../utils/structuredLogger.js';
+
+const logger = createLogger('Fresher-Interview');
 
 const router = express.Router();
 
@@ -89,14 +94,14 @@ const OTHER_TECHNICAL_QUESTIONS = [
 export const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 export const COMPLETED_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_SESSIONS = 500;
-const FRESHER_SESSION_TTL_SEC = 2 * 60 * 60;
-const FRESHER_COMPLETED_TTL_SEC = 15 * 60;
-const FRESHER_CACHE_PREFIX = 'fresher_session:';
+export const FRESHER_SESSION_TTL_SEC = 2 * 60 * 60; // 7200 seconds
+export const FRESHER_COMPLETED_TTL_SEC = 15 * 60; // 900 seconds
+export const FRESHER_CACHE_PREFIX = 'fresher_session:';
 
 export const sessions = new Map();
 
 /**
- * Remove stale or expired sessions
+ * Remove stale or expired sessions from in-process memory map
  */
 export const cleanupStaleSessions = () => {
   const now = Date.now();
@@ -112,13 +117,25 @@ export const cleanupStaleSessions = () => {
 };
 
 /**
+ * Safe periodic and on-demand cleanup for stale sessions
+ */
+export const cleanupStaleSessionsAsync = async () => {
+  try {
+    cleanupStaleSessions();
+    await Promise.resolve();
+  } catch (err) {
+    logger.warn('Failed to clean up stale sessions', { error: err.message });
+  }
+};
+
+/**
  * Periodic cleanup timer (unref'd to prevent keeping Node process open)
  */
 const cleanupInterval = setInterval(cleanupStaleSessions, 5 * 60 * 1000);
 cleanupInterval.unref();
 
 /**
- * Safe retrieval, LRU recency update, and TTL check for a session
+ * Safe retrieval, LRU recency update, and TTL check for a session in local memory
  */
 export const getActiveSession = (sessionId) => {
   if (!sessionId || !sessions.has(sessionId)) {
@@ -145,7 +162,7 @@ export const getActiveSession = (sessionId) => {
 };
 
 /**
- * Store a new session with capacity-bound LRU eviction
+ * Store a new session with capacity-bound LRU eviction in local memory
  */
 export const storeSession = (sessionId, sessionData) => {
   cleanupStaleSessions();
@@ -159,38 +176,180 @@ export const storeSession = (sessionId, sessionData) => {
   sessions.set(sessionId, sessionData);
 };
 
-async function persistSession(sessionId, sessionData) {
+/**
+ * Persist session to distributed Redis with explicit TTL (7200s active, 900s completed),
+ * synchronizing to local memory Map as a resilient fallback.
+ */
+export async function persistSession(sessionId, sessionData) {
+  if (!sessionId || !sessionData) return;
+
+  // 1. Always update local memory Map fallback first
+  sessionData.lastAccessedAt = sessionData.lastAccessedAt || Date.now();
   storeSession(sessionId, sessionData);
+
   const ttlSec = sessionData.phase === 'complete' ? FRESHER_COMPLETED_TTL_SEC : FRESHER_SESSION_TTL_SEC;
-  try {
-    await cacheManager.set(`${FRESHER_CACHE_PREFIX}${sessionId}`, sessionData, ttlSec);
-  } catch {
-    // Non-fatal: L1 bounded memory cache remains active
-  }
-}
+  const fullKey = `${FRESHER_CACHE_PREFIX}${sessionId}`;
+  const serialized = JSON.stringify(sessionData);
 
-async function loadSessionAsync(sessionId) {
-  const local = getActiveSession(sessionId);
-  if (local) return local;
-  if (!sessionId) return null;
+  // 2. Try Node-Redis client (backend/config/redis.js)
   try {
-    const remote = await cacheManager.get(`${FRESHER_CACHE_PREFIX}${sessionId}`);
-    if (remote && typeof remote === 'object') {
-      storeSession(sessionId, remote);
-      return getActiveSession(sessionId);
+    const redis = getRedisClient();
+    if (redis && (redis.isOpen || redis.isReady)) {
+      await redis.set(fullKey, serialized, { EX: ttlSec });
+      return;
     }
-  } catch {
-    // Fall back to null if Redis is unavailable
+  } catch (err) {
+    logger.warn('Node-Redis persistSession failed, trying fallbacks', { error: err.message, sessionId });
   }
-  return null;
+
+  // 3. Try Upstash Redis client (backend/config/upstashRedis.js)
+  try {
+    const upstash = getUpstashRedisClient();
+    if (upstash) {
+      await upstash.set(fullKey, serialized, { ex: ttlSec });
+      return;
+    }
+  } catch (err) {
+    logger.warn('Upstash persistSession failed, trying cacheManager fallback', { error: err.message, sessionId });
+  }
+
+  // 4. Try cacheManager if available
+  try {
+    if (cacheManager?.isConnected) {
+      await cacheManager.set(fullKey, sessionData, ttlSec);
+      return;
+    }
+  } catch (err) {
+    logger.warn('CacheManager persistSession failed, local fallback active', { error: err.message, sessionId });
+  }
 }
 
-async function deleteSessionAsync(sessionId) {
-  sessions.delete(sessionId);
+/**
+ * Helper to validate expiration, update recency, and sync remote session into local cache
+ */
+function parseAndValidateSession(data, sessionId) {
+  if (!data) return null;
+  const session = typeof data === 'string' ? JSON.parse(data) : data;
+  if (!session || typeof session !== 'object') return null;
+
+  const now = Date.now();
+  const isCompleted = session.phase === 'complete';
+  const expired = isCompleted
+    ? (session.completedAtMs && now - session.completedAtMs > COMPLETED_SESSION_TTL_MS)
+    : (session.lastAccessedAt && now - session.lastAccessedAt > SESSION_TTL_MS);
+
+  if (expired) {
+    sessions.delete(sessionId);
+    return null;
+  }
+
+  session.lastAccessedAt = now;
+  storeSession(sessionId, session);
+  return session;
+}
+
+/**
+ * Load session from distributed Redis, refreshing recency,
+ * with graceful fallback to local memory Map if Redis is unconfigured, unreachable, or throws.
+ */
+export async function loadSessionAsync(sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') return null;
+
+  const fullKey = `${FRESHER_CACHE_PREFIX}${sessionId}`;
+
+  // 1. Try Node-Redis client (backend/config/redis.js)
   try {
-    await cacheManager.delete(`${FRESHER_CACHE_PREFIX}${sessionId}`);
-  } catch {
-    // Non-fatal
+    const redis = getRedisClient();
+    if (redis && (redis.isOpen || redis.isReady)) {
+      const remoteData = await redis.get(fullKey);
+      if (remoteData) {
+        const session = parseAndValidateSession(remoteData, sessionId);
+        if (!session) {
+          await redis.del(fullKey).catch(() => {});
+          return null;
+        }
+        return session;
+      }
+    }
+  } catch (err) {
+    logger.warn('Node-Redis loadSessionAsync failed, trying fallbacks', { error: err.message, sessionId });
+  }
+
+  // 2. Try Upstash Redis client (backend/config/upstashRedis.js)
+  try {
+    const upstash = getUpstashRedisClient();
+    if (upstash) {
+      const remoteData = await upstash.get(fullKey);
+      if (remoteData) {
+        const session = parseAndValidateSession(remoteData, sessionId);
+        if (!session) {
+          await upstash.del(fullKey).catch(() => {});
+          return null;
+        }
+        return session;
+      }
+    }
+  } catch (err) {
+    logger.warn('Upstash loadSessionAsync failed, trying cacheManager fallback', { error: err.message, sessionId });
+  }
+
+  // 3. Try cacheManager if available
+  try {
+    if (cacheManager?.isConnected) {
+      const remoteData = await cacheManager.get(fullKey);
+      if (remoteData) {
+        const session = parseAndValidateSession(remoteData, sessionId);
+        if (!session) {
+          await cacheManager.delete(fullKey).catch(() => {});
+          return null;
+        }
+        return session;
+      }
+    }
+  } catch (err) {
+    logger.warn('CacheManager loadSessionAsync failed, falling back to local memory', { error: err.message, sessionId });
+  }
+
+  // 4. Graceful In-Memory Fallback
+  return getActiveSession(sessionId);
+}
+
+/**
+ * Delete session from distributed Redis and local memory Map
+ */
+export async function deleteSessionAsync(sessionId) {
+  if (!sessionId) return;
+  sessions.delete(sessionId);
+
+  const fullKey = `${FRESHER_CACHE_PREFIX}${sessionId}`;
+
+  // 1. Delete from Node-Redis client
+  try {
+    const redis = getRedisClient();
+    if (redis && (redis.isOpen || redis.isReady)) {
+      await redis.del(fullKey);
+    }
+  } catch (err) {
+    logger.warn('Node-Redis deleteSessionAsync failed', { error: err.message, sessionId });
+  }
+
+  // 2. Delete from Upstash Redis client
+  try {
+    const upstash = getUpstashRedisClient();
+    if (upstash) {
+      await upstash.del(fullKey);
+    }
+  } catch (err) {
+    logger.warn('Upstash deleteSessionAsync failed', { error: err.message, sessionId });
+  }
+
+  // 3. Delete from cacheManager
+  try {
+    if (cacheManager?.isConnected) {
+      await cacheManager.delete(fullKey);
+    }
+  } catch (err) {
+    logger.warn('CacheManager deleteSessionAsync failed', { error: err.message, sessionId });
   }
 }
 
@@ -231,7 +390,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       totalQuestions: 5
     });
   } catch (error) {
-    console.error('Error starting fresher interview:', error);
+    logger.error('Error starting fresher interview:', { error: error.message });
     res.status(500).json({ error: 'Failed to start interview' });
   }
 });
@@ -395,7 +554,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
 
     res.status(400).json({ error: 'Invalid phase' });
   } catch (error) {
-    console.error('Error processing answer:', error);
+    logger.error('Error processing answer:', { error: error.message });
     res.status(500).json({ error: 'Failed to process answer' });
   }
 });
@@ -423,7 +582,7 @@ router.get('/session/:sessionId', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching session:', error);
+    logger.error('Error fetching session:', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch session' });
   }
 });
@@ -441,7 +600,7 @@ router.delete('/session/:sessionId', authenticateToken, async (req, res) => {
     await deleteSessionAsync(sessionId);
     res.json({ success: true, message: 'Session deleted successfully' });
   } catch (error) {
-    console.error('Error deleting session:', error);
+    logger.error('Error deleting session:', { error: error.message });
     res.status(500).json({ error: 'Failed to delete session' });
   }
 });

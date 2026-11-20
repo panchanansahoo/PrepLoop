@@ -5,29 +5,160 @@ import os from 'os';
 import crypto from 'crypto';
 import { SQL_SCHEMAS } from '../data/sqlSchemas.js';
 
-function execFileAsync(command, args, { input = '', timeout = 3000, cwd, env, maxBuffer = SANDBOX_MAX_BUFFER } = {}) {
+export const SANDBOX_MAX_BUFFER = 5 * 1024 * 1024; // 5MB max output;
+export const DEFAULT_EXEC_TIMEOUT_MS = 3000;
+export const DEFAULT_COMPILE_TIMEOUT_MS = 5000;
+export const MAX_EXEC_TIMEOUT_MS = 30000;
+
+export function clampMaxBuffer(bufferSize) {
+    if (typeof bufferSize !== 'number' || Number.isNaN(bufferSize) || bufferSize <= 0) {
+        return SANDBOX_MAX_BUFFER;
+    }
+    return Math.min(bufferSize, SANDBOX_MAX_BUFFER);
+}
+
+export function clampTimeout(timeoutMs, defaultMs = DEFAULT_EXEC_TIMEOUT_MS) {
+    if (typeof timeoutMs !== 'number' || Number.isNaN(timeoutMs) || timeoutMs <= 0) {
+        return defaultMs;
+    }
+    return Math.min(timeoutMs, MAX_EXEC_TIMEOUT_MS);
+}
+
+// SECURITY: Sanitized environment for child processes — only expose PATH
+// This prevents user-submitted code from reading secrets like API keys,
+// database credentials, or service role keys via process.env
+export const SANDBOX_ENV = Object.freeze({
+    PATH: process.env.PATH || '',
+    HOME: os.tmpdir(),
+    TMPDIR: os.tmpdir(),
+    NODE_ENV: 'sandbox',
+    // Disable Node.js inspector and debugger in sandboxed code
+    NODE_OPTIONS: '--no-warnings',
+});
+
+/**
+ * Asynchronously execute a binary or script using non-blocking child_process.execFile with:
+ * - Native Promise wrapper
+ * - AbortController cancellation via signal
+ * - Safe bounded maxBuffer
+ * - Safe timeouts with process cleanup
+ * - Proper error handling (stdin EPIPE protection, stderr capture)
+ *
+ * @param {string} command - Path or binary to execute
+ * @param {string[]} args - Command arguments
+ * @param {object} [options] - Options
+ * @param {string} [options.input] - Stdin input string
+ * @param {number} [options.timeout] - Timeout in milliseconds
+ * @param {string} [options.cwd] - Working directory
+ * @param {object} [options.env] - Environment variables (defaults to SANDBOX_ENV)
+ * @param {number} [options.maxBuffer] - Maximum output buffer size
+ * @param {AbortSignal} [options.signal] - Optional external AbortSignal
+ * @returns {Promise<Buffer>} Resolves with stdout buffer
+ */
+export function execFileAsync(command, args, {
+    input = '',
+    timeout = DEFAULT_EXEC_TIMEOUT_MS,
+    cwd,
+    env = SANDBOX_ENV,
+    maxBuffer = SANDBOX_MAX_BUFFER,
+    signal = null,
+} = {}) {
     return new Promise((resolve, reject) => {
-        const child = execFile(
-            command,
-            args,
-            {
-                timeout,
-                shell: false,
-                cwd,
-                env,
-                maxBuffer,
-                encoding: 'buffer',
-            },
-            (error, stdout, stderr) => {
-                if (error) {
-                    error.stdout = stdout;
-                    error.stderr = stderr;
-                    reject(error);
-                    return;
-                }
-                resolve(stdout);
+        if (signal?.aborted) {
+            const err = new Error(signal.reason ? String(signal.reason) : 'Execution cancelled: operation was aborted');
+            err.name = 'AbortError';
+            err.code = 'ABORT_ERR';
+            return reject(err);
+        }
+
+        const controller = new AbortController();
+        const safeTimeout = clampTimeout(timeout, DEFAULT_EXEC_TIMEOUT_MS);
+        const safeMaxBuffer = clampMaxBuffer(maxBuffer);
+
+        let timeoutId = null;
+        let onExternalAbort = null;
+        let settled = false;
+        let timedOut = false;
+
+        const cleanup = () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
             }
-        );
+            if (signal && onExternalAbort && typeof signal.removeEventListener === 'function') {
+                signal.removeEventListener('abort', onExternalAbort);
+            }
+        };
+
+        if (signal && typeof signal.addEventListener === 'function') {
+            onExternalAbort = () => {
+                controller.abort(signal.reason || new Error('The operation was aborted'));
+            };
+            signal.addEventListener('abort', onExternalAbort, { once: true });
+        }
+
+        timeoutId = setTimeout(() => {
+            timedOut = true;
+            controller.abort(new Error(`Execution timed out after ${safeTimeout}ms`));
+        }, safeTimeout);
+
+        let child;
+        try {
+            child = execFile(
+                command,
+                args,
+                {
+                    timeout: safeTimeout,
+                    signal: controller.signal,
+                    shell: false,
+                    cwd,
+                    env,
+                    maxBuffer: safeMaxBuffer,
+                    encoding: 'buffer',
+                },
+                (error, stdout, stderr) => {
+                    if (settled) return;
+                    settled = true;
+                    cleanup();
+
+                    if (error) {
+                        if (timedOut && (error.name === 'AbortError' || error.code === 'ABORT_ERR')) {
+                            error.message = `Execution timed out after ${safeTimeout}ms`;
+                        }
+                        error.stdout = stdout;
+                        error.stderr = stderr;
+                        reject(error);
+                        return;
+                    }
+                    resolve(stdout);
+                }
+            );
+        } catch (syncErr) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(syncErr);
+            return;
+        }
+
+        if (controller.signal && typeof controller.signal.addEventListener === 'function') {
+            controller.signal.addEventListener('abort', () => {
+                if (child && typeof child.kill === 'function' && !child.killed) {
+                    try {
+                        child.kill('SIGTERM');
+                    } catch { /* ignore kill error */ }
+                }
+            }, { once: true });
+        }
+
+        if (child && typeof child.on === 'function') {
+            child.on('error', (streamErr) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(streamErr);
+            });
+        }
 
         if (child?.stdin) {
             child.stdin.on('error', () => { /* ignore EPIPE if child exits before reading stdin */ });
@@ -38,18 +169,6 @@ function execFileAsync(command, args, { input = '', timeout = 3000, cwd, env, ma
         }
     });
 }
-
-// SECURITY: Sanitized environment for child processes — only expose PATH
-// This prevents user-submitted code from reading secrets like API keys,
-// database credentials, or service role keys via process.env
-const SANDBOX_ENV = Object.freeze({
-    PATH: process.env.PATH || '',
-    HOME: os.tmpdir(),
-    TMPDIR: os.tmpdir(),
-    NODE_ENV: 'sandbox',
-    // Disable Node.js inspector and debugger in sandboxed code
-    NODE_OPTIONS: '--no-warnings',
-});
 
 // SECURITY: Static pattern analysis to detect and reject dangerous system calls,
 // process execution, file exfiltration, and socket operations before compilation/execution.
@@ -104,8 +223,6 @@ export function detectDangerousCode(code, language) {
     }
     return null;
 }
-
-const SANDBOX_MAX_BUFFER = 5 * 1024 * 1024; // 5MB max output
 
 export const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
 export const COMPILED_CACHE_MAX_ENTRIES = 50;
@@ -361,8 +478,26 @@ export function formatTabularOutput(columns, rows) {
 /**
  * Execute SQL in SQLite with pre-populated schema tables and sample data
  */
-export async function executeSqlite(code, input = '') {
+export async function executeSqlite(code, input = '', options = {}) {
     const startTime = Date.now();
+
+    const opts = typeof input === 'object' && input !== null
+        ? { ...input, ...(typeof options === 'object' && options !== null ? options : {}) }
+        : (typeof options === 'object' && options !== null ? options : {});
+
+    if (opts.signal?.aborted) {
+        const msg = opts.signal.reason ? String(opts.signal.reason) : 'Execution cancelled: operation was aborted';
+        return {
+            success: false,
+            output: '',
+            error: msg,
+            columns: ['Error'],
+            rows: [[msg]],
+            executionTime: 0,
+            compileTime: 0,
+            runTime: 0,
+        };
+    }
 
     if (typeof code !== 'string') {
         return {
@@ -522,9 +657,10 @@ else:
 print(json.dumps({'columns': columns, 'rows': rows}))
 `;
         const pyResult = await execFileAsync('python', ['-c', runnerScript], {
-            timeout: 3000,
-            maxBuffer: SANDBOX_MAX_BUFFER,
+            timeout: clampTimeout(opts.timeout, DEFAULT_EXEC_TIMEOUT_MS),
+            maxBuffer: clampMaxBuffer(opts.maxBuffer),
             env: SANDBOX_ENV,
+            signal: opts.signal || null,
         });
         const parsed = JSON.parse(pyResult.toString().trim());
         const output = formatTabularOutput(parsed.columns, parsed.rows);
@@ -557,13 +693,38 @@ print(json.dumps({'columns': columns, 'rows': rows}))
  * Execute code in the given language and return the result.
  * @param {string} code - The source code to execute
  * @param {string} language - The programming language (python, javascript, c, cpp, java, go, rust, sql)
- * @param {string} input - Optional stdin input
+ * @param {string|object} [input] - Optional stdin input string or options object
+ * @param {object} [options] - Optional execution options (timeout, signal, maxBuffer)
  * @returns {Promise<{ success: boolean, output: string, error?: string, executionTime: number }>}
  */
 const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java', 'typescript', 'go', 'rust', 'sql']);
 
-export async function executeCode(code, language, input = '') {
+export async function executeCode(code, language, input = '', options = {}) {
     const startTime = Date.now();
+
+    const isInputObj = typeof input === 'object' && input !== null;
+    const opts = isInputObj
+        ? { ...input, ...(typeof options === 'object' && options !== null ? options : {}) }
+        : (typeof options === 'object' && options !== null ? options : {});
+    const inputStr = isInputObj
+        ? (typeof input.input === 'string' ? input.input : '')
+        : (typeof input === 'string' ? input : String(input ?? ''));
+
+    const execTimeout = clampTimeout(opts.timeout, DEFAULT_EXEC_TIMEOUT_MS);
+    const compileTimeout = clampTimeout(opts.compileTimeout, DEFAULT_COMPILE_TIMEOUT_MS);
+    const execMaxBuffer = clampMaxBuffer(opts.maxBuffer);
+    const signal = opts.signal || null;
+
+    if (signal?.aborted) {
+        return {
+            success: false,
+            output: '',
+            error: signal.reason ? String(signal.reason) : 'Execution cancelled: operation was aborted',
+            executionTime: 0,
+            compileTime: 0,
+            runTime: 0,
+        };
+    }
 
     if (typeof code !== 'string') {
         return {
@@ -609,7 +770,7 @@ export async function executeCode(code, language, input = '') {
 
     // SQL / SQLite execution: hydrate schema DDL/DML and execute query
     if (normalizedLanguage === 'sql') {
-        return executeSqlite(code, input);
+        return executeSqlite(code, input, opts);
     }
 
     // JavaScript: execute in sandboxed child process via Node.js
@@ -624,11 +785,12 @@ export async function executeCode(code, language, input = '') {
                     `--allow-fs-read=${workspaceDir}`,
                     tmpFile
                 ], {
-                    timeout: 3000,
-                    input: input || '',
+                    timeout: execTimeout,
+                    input: inputStr || '',
                     cwd: workspaceDir,
                     env: SANDBOX_ENV,           // SECURITY: sanitized env
-                    maxBuffer: SANDBOX_MAX_BUFFER,
+                    maxBuffer: execMaxBuffer,
+                    signal,
                 });
                 const output = result.toString().trim() || '(No output — use console.log() to see results)';
                 const total = Date.now() - startTime;
@@ -663,7 +825,11 @@ export async function executeCode(code, language, input = '') {
     let availableCmd = null;
     for (const cmd of langConfig.commands) {
         try {
-            await execFileAsync(cmd, ['--version'], { timeout: 3000, maxBuffer: SANDBOX_MAX_BUFFER });
+            await execFileAsync(cmd, ['--version'], {
+                timeout: 3000,
+                maxBuffer: execMaxBuffer,
+                signal,
+            });
             availableCmd = cmd;
             break;
         } catch { /* try next */ }
@@ -718,9 +884,11 @@ export async function executeCode(code, language, input = '') {
                 try {
                     const compileExec = langConfig.compile(tmpFile, compileTarget, availableCmd, className);
                     await execFileAsync(compileExec.command, compileExec.args, {
-                        timeout: 5000, cwd: tmpDir,
+                        timeout: compileTimeout,
+                        cwd: tmpDir,
                         env: SANDBOX_ENV,           // SECURITY: sanitized env
-                        maxBuffer: SANDBOX_MAX_BUFFER,
+                        maxBuffer: execMaxBuffer,
+                        signal,
                     });
                     compileTime = Date.now() - compileStart;
                     finalExecutablePath = compileTarget;
@@ -744,9 +912,12 @@ export async function executeCode(code, language, input = '') {
         const runStart = Date.now();
         try {
             const result = await execFileAsync(runExec.command, runExec.args, {
-                timeout: 3000, input: input || '', cwd: tmpDir,
+                timeout: execTimeout,
+                input: inputStr || '',
+                cwd: tmpDir,
                 env: SANDBOX_ENV,           // SECURITY: sanitized env
-                maxBuffer: SANDBOX_MAX_BUFFER,
+                maxBuffer: execMaxBuffer,
+                signal,
             });
             const output = result.toString().trim() || '(No output)';
             const runTime = Date.now() - runStart;
