@@ -71,7 +71,9 @@
         "test:circuit-breaker": "node tests/circuitBreaker.test.js",
         "test:hardening": "node --test tests/hardening.test.js",
         "maintenance:cleanup-interview-retention": "node scripts/cleanupInterviewRetention.js",
-        "migrate:all": "node scripts/runMigrations.js"
+        "migrate:all": "node scripts/runMigrations.js",
+        "migrate:status": "node scripts/runMigrations.js --status",
+        "migrate:dry-run": "node scripts/runMigrations.js --dry-run"
     },
     "dependencies": {
         "@google/genai": "^1.50.1",
