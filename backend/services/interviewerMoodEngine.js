@@ -146,12 +146,9 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   if (scoreDrop !== null && Number.isFinite(Number(scoreDrop))) {
     drop = Number(scoreDrop);
   } else if (Array.isArray(cumulativeScores) && cumulativeScores.length >= 1) {
-    let prevScore = null;
-    if (cumulativeScores.length >= 2 && cumulativeScores[cumulativeScores.length - 1] === numScore) {
-      prevScore = Number(cumulativeScores[cumulativeScores.length - 2]);
-    } else {
-      prevScore = Number(cumulativeScores[cumulativeScores.length - 1]);
-    }
+    const prevScore = (cumulativeScores.length >= 2 && cumulativeScores[cumulativeScores.length - 1] === numScore)
+      ? Number(cumulativeScores[cumulativeScores.length - 2])
+      : Number(cumulativeScores[cumulativeScores.length - 1]);
     if (Number.isFinite(prevScore)) {
       drop = Math.max(0, prevScore - numScore);
     }

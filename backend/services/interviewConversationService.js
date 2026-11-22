@@ -2,7 +2,6 @@ import { maybeAddNaturalPrefix, getWeakestRubricDimension, getRubricCoachingCue 
 import { MISSING_AREA_HINTS } from './ragInterviewGroundingService.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
 import { isSameTopic } from './interviewStateMachine.js';
-import { ProactiveSuggestionService } from './interviewSuggestionService.js';
 
 // ── Type-specific fallback messages ──────────────────────────────────
 const FALLBACK_MESSAGES = {

@@ -231,7 +231,7 @@ export class ProactiveSuggestionService {
   /**
    * Generate Tier 0 thought-starter
    */
-  static generateThoughtStarter({ interviewType, stage, topic, problemStatement, turnNumber = 1 }) {
+  static generateThoughtStarter({ interviewType, stage, _topic, _problemStatement, turnNumber = 1 }) {
     const normStage = this.normalizeStage(stage);
     const normType = this.normalizeInterviewType(interviewType);
 
@@ -251,7 +251,7 @@ export class ProactiveSuggestionService {
   /**
    * Generate Tier 2 approach options
    */
-  static generateApproachOptions({ interviewType, stage, topic, problemStatement, missingAreas = [] }) {
+  static generateApproachOptions({ interviewType, stage, _topic, _problemStatement, _missingAreas = [] }) {
     const normStage = this.normalizeStage(stage);
     const normType = this.normalizeInterviewType(interviewType);
 
@@ -280,7 +280,7 @@ export class ProactiveSuggestionService {
   /**
    * Generate Tier 3 scaffolding steps
    */
-  static generateScaffolding({ interviewType, stage, topic, problemStatement, missingAreas = [], stuckLevel = 1 }) {
+  static generateScaffolding({ interviewType, stage, _topic, _problemStatement, _missingAreas = [], _stuckLevel = 1 }) {
     const normStage = this.normalizeStage(stage);
     const normType = this.normalizeInterviewType(interviewType);
 

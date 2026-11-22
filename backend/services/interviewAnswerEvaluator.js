@@ -634,7 +634,7 @@ export const _evaluateFresherAnswer = evaluateFresherAnswer;
  * @param {Object} [arg4] - Evaluation options
  * @returns {number} Calibrated composite score (0-100)
  */
-export function calculateCalibrated3DScore(arg1, arg2, arg3, arg4) {
+export function calculateCalibrated3DScore(arg1, arg2, arg3, _arg4) {
   let c, d, comm;
   if (typeof arg1 === 'object' && arg1 !== null) {
     c = arg1.correctness ?? arg1.c ?? 3;
