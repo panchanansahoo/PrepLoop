@@ -27,7 +27,7 @@ const INTERVIEW_MODES = [
     badgeColor: '#c4b5fd',
     time: '30–45 min',
     difficulty: 'Adaptive AI',
-    highlights: ['Live Code Editor', 'Voice AI & Barge-In', 'Company Calibration'],
+    highlights: ['Live Code Editor', 'Voice AI & Natural Pacing', 'Company Calibration'],
   },
   {
     id: 'hr',

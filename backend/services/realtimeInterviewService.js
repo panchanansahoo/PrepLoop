@@ -10,6 +10,7 @@ import { InterviewScoringService } from './interviewScoringService.ts';
 import InterviewMoodEngine, { computeNextMood, transitionMood, getMoodProfile, getMicroReaction, MOODS } from './interviewerMoodEngine.js';
 import InterviewFollowUpRulesService from './interviewFollowUpRulesService.js';
 import { InterviewPromptService } from './interviewPromptService.js';
+import ProactiveSuggestionService from './interviewSuggestionService.js';
 import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
 import { callTurnScoring } from './llmRouter.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
@@ -298,9 +299,42 @@ class RealtimeInterviewService {
         await this.handleResume(sessionId, session, message);
         break;
 
+      case 'request_suggestion':
+      case 'silence_detected':
+        this.handleSuggestion(session, message);
+        break;
+
       default:
         console.warn(`[RealtimeInterview] Unknown message type: ${message.type}`);
     }
+  }
+
+  handleSuggestion(session, message) {
+    const { ws, context } = session;
+    const stage = message.stage || context.stage || 'technical';
+    const interviewType = message.interviewType || context.interviewType || 'dsa';
+    const silenceDurationSec = Number(message.silenceDurationSec || 0);
+    const tier = typeof message.tier === 'number' ? message.tier : null;
+
+    const suggestions = ProactiveSuggestionService.getProactiveSuggestions({
+      interviewType,
+      stage,
+      missingAreas: context.missingAreas || [],
+      problemStatement: context.problemStatement || '',
+      turnNumber: context.turns || 1,
+      silenceDurationSec,
+      stuckLevel: message.stuckLevel ?? context.consecutiveLowScores ?? 0,
+      tier,
+      weakestDimension: message.weakestDimension || null,
+    });
+
+    safeSend(ws, {
+      type: 'proactive_suggestion',
+      suggestions,
+      silenceThresholdSec: suggestions.silenceThresholdSec,
+      isSilenceExceeded: suggestions.isSilenceExceeded,
+      timestamp: Date.now(),
+    });
   }
 
   handleResume(currentSessionId, session, message) {
@@ -749,6 +783,8 @@ class RealtimeInterviewService {
         recoveryDetected: Boolean(followUpDecision?.recoveryDetected),
         recoveryPhrase: followUpDecision?.recoveryPhrase || null,
         momentum: followUpDecision?.momentum || 'neutral',
+        suggestionTier: followUpDecision?.suggestionTier ?? 0,
+        progressiveCoaching: followUpDecision?.progressiveCoaching || null,
       },
       consecutiveLowScores: context.consecutiveLowScores,
       consecutiveHighScores: context.consecutiveHighScores,

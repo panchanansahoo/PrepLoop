@@ -1,7 +1,8 @@
-import { maybeAddNaturalPrefix } from './interviewPromptService.js';
+import { maybeAddNaturalPrefix, getWeakestRubricDimension, getRubricCoachingCue } from './interviewPromptService.js';
 import { MISSING_AREA_HINTS } from './ragInterviewGroundingService.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
 import { isSameTopic } from './interviewStateMachine.js';
+import { ProactiveSuggestionService } from './interviewSuggestionService.js';
 
 // ── Type-specific fallback messages ──────────────────────────────────
 const FALLBACK_MESSAGES = {
@@ -39,7 +40,7 @@ export class InterviewConversationService {
     }
   }
 
-  static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa', missingAreas = [], probedTopics = []) {
+  static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa', missingAreas = [], probedTopics = [], options = {}) {
     const typeFallback = getFallbackForType(interviewType);
     let targetedMessage = typeFallback.message;
 
@@ -56,11 +57,33 @@ export class InterviewConversationService {
       }
     }
 
+    // Resolve rubric-aware coaching cue
+    let coachingCue = null;
+    if (options?.progressiveCoaching?.cue) {
+      coachingCue = options.progressiveCoaching.cue;
+    } else if (options?.weakestDimension) {
+      coachingCue = getRubricCoachingCue(options.weakestDimension);
+    } else if (Array.isArray(options?.rubricHistory) && options.rubricHistory.length > 0) {
+      const rubricAnalysis = getWeakestRubricDimension(options.rubricHistory);
+      coachingCue = rubricAnalysis.cue;
+    }
+
+    const defaultTier = typeof options?.suggestionTier === 'number'
+      ? options.suggestionTier
+      : (options?.progressiveCoaching?.suggestedTier ?? 0);
+
+    const hints = [];
+    if (coachingCue) {
+      hints.push(coachingCue);
+    }
+
     return {
       message: targetedMessage,
       isFollowUp: true,
       clarifications: [],
-      hints: [],
+      hints,
+      coachingCue: coachingCue || null,
+      suggestionTier: defaultTier,
       encouragement: typeFallback.encouragement,
       continueInterview: true,
     };
@@ -74,6 +97,7 @@ export class InterviewConversationService {
     interviewType = 'dsa',
     missingAreas = [],
     probedTopics = [],
+    options = {},
   }) {
     const raw = await this.requestFollowUpContent({
       groqClient,
@@ -88,6 +112,7 @@ export class InterviewConversationService {
       missingAreas,
       probedTopics,
       forceFallback: raw.fallbackTriggered,
+      options,
     });
 
     return {
@@ -179,10 +204,11 @@ export class InterviewConversationService {
     missingAreas = [],
     probedTopics = [],
     forceFallback = false,
+    options = {},
   }) {
     if (forceFallback) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics, options),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -194,7 +220,7 @@ export class InterviewConversationService {
       parsed = this.parseFollowUpContent(content || '{}');
     } catch {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics, options),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -202,7 +228,7 @@ export class InterviewConversationService {
 
     if (!parsed || typeof parsed !== 'object' || !parsed.message) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics, options),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -212,16 +238,33 @@ export class InterviewConversationService {
     const candidateTopic = parsed.topic || parsed.missingArea;
     if (candidateTopic && Array.isArray(probedTopics) && probedTopics.some((t) => isSameTopic(t, candidateTopic))) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics, options),
         parseSuccess: true,
         parseFallbackTriggered: true,
       };
     }
 
+    const fallback = this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics, options);
     const baseFollowUp = {
-      ...this.buildFallbackFollowUp(interviewMode, interviewType, missingAreas, probedTopics),
+      ...fallback,
       ...parsed,
     };
+
+    if (parsed.coachingCue) {
+      baseFollowUp.coachingCue = parsed.coachingCue;
+    } else if (fallback.coachingCue) {
+      baseFollowUp.coachingCue = fallback.coachingCue;
+    }
+
+    if (typeof parsed.suggestionTier === 'number') {
+      baseFollowUp.suggestionTier = parsed.suggestionTier;
+    } else if (typeof fallback.suggestionTier === 'number') {
+      baseFollowUp.suggestionTier = fallback.suggestionTier;
+    }
+
+    if (parsed.proactiveSuggestion) {
+      baseFollowUp.proactiveSuggestion = parsed.proactiveSuggestion;
+    }
 
     if (interviewMode === 'full_realtime' && typeof baseFollowUp.message === 'string') {
       baseFollowUp.message = maybeAddNaturalPrefix(baseFollowUp.message);

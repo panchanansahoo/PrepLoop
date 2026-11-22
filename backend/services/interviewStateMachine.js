@@ -80,11 +80,14 @@ export function normalizeScoreByDifficulty(rawScore, difficulty = 'medium') {
       // Multiplier 0.70 with cap 70 ensures easy questions cannot score >= 85
       return Math.min(70, Math.round(clamped * 0.70));
     case 'hard':
-      // Multiplier 1.15 with cap 100
-      return Math.min(100, Math.round(clamped * 1.15));
+      // Quality-gated: only apply hard multiplier (1.10, cap 100) when rawScore >= 50
+      if (clamped < 50) return clamped;
+      return Math.min(100, Math.round(clamped * 1.10));
+    case 'staff':
     case 'staff_architectural':
-      // Multiplier 1.25 with cap 100
-      return Math.min(100, Math.round(clamped * 1.25));
+      // Quality-gated: only apply staff multiplier (1.18, cap 100) when rawScore >= 50
+      if (clamped < 50) return clamped;
+      return Math.min(100, Math.round(clamped * 1.18));
     case 'medium':
     default:
       return Math.min(100, Math.max(0, Math.round(clamped * 1.00)));
@@ -185,12 +188,15 @@ export class InterviewStateMachineService {
       transitionReason: 'session_initialized',
       consecutiveLowScores: 0,
       consecutiveHighScores: 0,
+      consecutiveRecoveryScores: 0,
       lastScoredDifficulty: null,
       scaffoldingActive: false,
       scaffoldingAction: 'NONE',
       skipChallenge: false,
       shouldExtendTechnical: false,
       extendedTurnsCount: 0,
+      skippedTurnsCount: 0,
+      excludeSkipsFromBudget: false,
       isTerminated: false,
       probedTopics: [],
       stageHistory: [
@@ -230,6 +236,25 @@ export class InterviewStateMachineService {
       forceEnabled: options?.forceEnabled ?? cleanState?.forceEnabled,
     });
 
+    const excludeSkipsFromBudget = Boolean(
+      options.excludeSkipsFromBudget !== undefined
+        ? options.excludeSkipsFromBudget
+        : cleanState.excludeSkipsFromBudget
+    );
+
+    const isSkippedInput = Boolean(
+      options.isSkipped !== undefined
+        ? options.isSkipped
+        : options.answerType === 'skipped' || options.turnType === 'skipped'
+          ? true
+          : state.isSkipped || state.answerType === 'skipped' || state.turnType === 'skipped'
+    );
+
+    const skippedTurnsCount = (cleanState.skippedTurnsCount || 0) + (isSkippedInput ? 1 : 0);
+    const substantiveTurns = excludeSkipsFromBudget
+      ? Math.max(0, turns - skippedTurnsCount)
+      : turns;
+
     if (!adaptiveEnabled) {
       // Exact backward-compatible proportional stage progression
       const nextStage = resolveNextStage(turns, totalQuestions);
@@ -257,12 +282,16 @@ export class InterviewStateMachineService {
         stageHistory,
         consecutiveLowScores: cleanState.consecutiveLowScores ?? 0,
         consecutiveHighScores: cleanState.consecutiveHighScores ?? 0,
+        consecutiveRecoveryScores: cleanState.consecutiveRecoveryScores ?? 0,
         lastScoredDifficulty: cleanState.lastScoredDifficulty ?? null,
         scaffoldingActive: cleanState.scaffoldingActive ?? false,
         scaffoldingAction: cleanState.scaffoldingAction ?? 'NONE',
         skipChallenge: cleanState.skipChallenge ?? false,
         shouldExtendTechnical: cleanState.shouldExtendTechnical ?? false,
         extendedTurnsCount: cleanState.extendedTurnsCount ?? 0,
+        skippedTurnsCount,
+        excludeSkipsFromBudget,
+        substantiveTurns,
         isTerminated: cleanState.isTerminated ?? false,
         probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
       };
@@ -271,7 +300,7 @@ export class InterviewStateMachineService {
     // ── ADAPTIVE PACING (Milestone 2 - Features 9–14) ────────────────────
 
     // Rule 1: Inviolable Global Hard Turn Budget Ceiling (Feature 13)
-    if (totalQuestions !== null && turns >= totalQuestions) {
+    if (totalQuestions !== null && substantiveTurns >= totalQuestions) {
       const feedbackIndex = Math.max(0, stagePlan.findIndex((s) => s.key === 'feedback'));
       const stageMeta = stagePlan[feedbackIndex] || { key: 'feedback', label: 'Feedback & Wrap-up' };
       const transitionReason = 'hard_turn_budget_ceiling_reached';
@@ -300,12 +329,16 @@ export class InterviewStateMachineService {
         stageHistory,
         consecutiveLowScores: cleanState.consecutiveLowScores ?? 0,
         consecutiveHighScores: cleanState.consecutiveHighScores ?? 0,
+        consecutiveRecoveryScores: cleanState.consecutiveRecoveryScores ?? 0,
         lastScoredDifficulty: cleanState.lastScoredDifficulty ?? null,
         scaffoldingActive: false,
         scaffoldingAction: 'NONE',
         skipChallenge: Boolean(cleanState.skipChallenge),
         shouldExtendTechnical: false,
         extendedTurnsCount: cleanState.extendedTurnsCount ?? 0,
+        skippedTurnsCount,
+        excludeSkipsFromBudget,
+        substantiveTurns,
         isTerminated: true,
         probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
       };
@@ -331,14 +364,6 @@ export class InterviewStateMachineService {
       || cleanState.currentDifficulty
       || cleanState.difficulty
       || 'medium';
-
-    const isSkippedInput = Boolean(
-      options.isSkipped !== undefined
-        ? options.isSkipped
-        : options.answerType === 'skipped' || options.turnType === 'skipped'
-          ? true
-          : state.isSkipped || state.answerType === 'skipped' || state.turnType === 'skipped'
-    );
 
     const isClarificationInput = Boolean(
       options.isClarification !== undefined
@@ -370,6 +395,7 @@ export class InterviewStateMachineService {
 
     let consecutiveLowScores = cleanState.consecutiveLowScores ?? 0;
     let consecutiveHighScores = cleanState.consecutiveHighScores ?? 0;
+    let consecutiveRecoveryScores = cleanState.consecutiveRecoveryScores ?? 0;
     let lastScoredDifficulty = cleanState.lastScoredDifficulty ?? null;
     let skipChallenge = Boolean(cleanState.skipChallenge);
     let scaffoldingActive = Boolean(cleanState.scaffoldingActive);
@@ -390,21 +416,37 @@ export class InterviewStateMachineService {
           consecutiveLowScores = 1;
         }
         consecutiveHighScores = 0;
+        consecutiveRecoveryScores = 0;
         lastScoredDifficulty = diffTier;
       } else if (normalizedScore !== null && normalizedScore >= 85 && diffTier !== 'easy') {
         // High score on non-trivial difficulty (normalized score >= 85 and tier !== 'easy')
         consecutiveHighScores += 1;
         consecutiveLowScores = 0;
+        if (scaffoldingActive && rawScore >= 65) {
+          consecutiveRecoveryScores += 1;
+        } else if (rawScore < 65) {
+          consecutiveRecoveryScores = 0;
+        }
         lastScoredDifficulty = diffTier;
       } else if (diffTier === 'easy' && rawScore >= 85) {
         // High score on easy question: MUST NEVER increment consecutiveHighScores
         // Preserves existing consecutiveHighScores, resets low score streak
         consecutiveLowScores = 0;
+        if (scaffoldingActive && rawScore >= 65) {
+          consecutiveRecoveryScores += 1;
+        } else if (rawScore < 65) {
+          consecutiveRecoveryScores = 0;
+        }
         lastScoredDifficulty = diffTier;
       } else {
         // Neutral score (40 <= score < 85, or easy question in 40..84): resets both streaks
         consecutiveLowScores = 0;
         consecutiveHighScores = 0;
+        if (scaffoldingActive && rawScore >= 65) {
+          consecutiveRecoveryScores += 1;
+        } else if (rawScore < 65) {
+          consecutiveRecoveryScores = 0;
+        }
         lastScoredDifficulty = diffTier;
       }
 
@@ -413,21 +455,28 @@ export class InterviewStateMachineService {
         skipChallenge = true;
         scaffoldingActive = true;
         shouldExtendTechnical = true;
+        consecutiveRecoveryScores = 0;
         if (consecutiveLowScores === 2) {
           scaffoldingAction = 'BREAKDOWN_QUESTION';
         } else {
           scaffoldingAction = 'PROGRESSIVE_HINT';
         }
-      } else if (rawScore >= 40) {
-        // Recovery clears active scaffolding and technical extension flag
-        scaffoldingActive = false;
-        scaffoldingAction = 'NONE';
-        shouldExtendTechnical = false;
+      } else if (scaffoldingActive) {
+        // Scaffolding exit ramp: when candidate scores >= 65,
+        // deactivate scaffolding (scaffoldingActive = false, scaffoldingAction = 'NONE') and clear technical extension.
+        // Decay extended turns budget: when candidate recovers, reset extendedTurnsCount to 0.
+        if (consecutiveRecoveryScores >= 1 || rawScore >= 65) {
+          scaffoldingActive = false;
+          scaffoldingAction = 'NONE';
+          shouldExtendTechnical = false;
+          extendedTurnsCount = 0;
+          consecutiveRecoveryScores = 0;
+        }
       }
     }
 
     // ── Stage Progression Resolution ─────────────────────────────────────
-    const baseNextStage = resolveNextStage(turns, totalQuestions);
+    const baseNextStage = resolveNextStage(substantiveTurns, totalQuestions);
     let nextStage = baseNextStage;
     let transitionReason;
 
@@ -439,7 +488,7 @@ export class InterviewStateMachineService {
       // Once advanced to challenge, remain in challenge until feedback or budget ceiling
       nextStage = 'challenge';
       transitionReason = 'remain_challenge';
-    } else if (consecutiveLowScores >= 2 && (previousStage === 'technical' || baseNextStage === 'technical') && baseNextStage !== 'feedback') {
+    } else if ((consecutiveLowScores >= 2 || shouldExtendTechnical) && (previousStage === 'technical' || baseNextStage === 'technical') && baseNextStage !== 'feedback') {
       // Check Low-Score Stage Extension (Feature 10)
       if (baseNextStage !== 'technical') {
         // Normal schedule reached followup, extend technical by up to 2 turns
@@ -449,7 +498,7 @@ export class InterviewStateMachineService {
           transitionReason = 'consecutive_low_scores_scaffolding_extension';
         } else {
           nextStage = baseNextStage;
-          transitionReason = deriveTransitionReason(previousStage, nextStage, turns);
+          transitionReason = deriveTransitionReason(previousStage, nextStage, substantiveTurns);
         }
       } else {
         // Currently within technical stage with active low-score scaffolding extension
@@ -464,7 +513,7 @@ export class InterviewStateMachineService {
     } else {
       // Default proportional transition or remain
       nextStage = baseNextStage;
-      transitionReason = deriveTransitionReason(previousStage, nextStage, turns);
+      transitionReason = deriveTransitionReason(previousStage, nextStage, substantiveTurns);
     }
 
     const stageIndex = Math.max(0, stagePlan.findIndex((stage) => stage.key === nextStage));
@@ -494,12 +543,16 @@ export class InterviewStateMachineService {
       stageHistory,
       consecutiveLowScores,
       consecutiveHighScores,
+      consecutiveRecoveryScores,
       lastScoredDifficulty,
       scaffoldingActive,
       scaffoldingAction,
       skipChallenge,
       shouldExtendTechnical,
       extendedTurnsCount,
+      skippedTurnsCount,
+      excludeSkipsFromBudget,
+      substantiveTurns,
       isTerminated: false,
       probedTopics: Array.isArray(cleanState.probedTopics) ? [...cleanState.probedTopics] : [],
     };

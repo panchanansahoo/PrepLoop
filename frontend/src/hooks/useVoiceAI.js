@@ -333,7 +333,7 @@ export function useVoiceAI({
   personaGender = "female",
   persona = null,
   question = "",
-  enableInterrupt = true,
+  enableInterrupt = false,
   onBargeIn = null,
   onInterrupt = null,
   getAuthHeaders = null,
@@ -342,9 +342,11 @@ export function useVoiceAI({
   stage = "Technical",
   candidatePacingOffset = 0,
   onResumeSpeech = null,
+  onSpeechStart = null,
   onSpeculativeCandidateAnswer = null,
   onAbortSpeculative = null,
   isCodingRound = false,
+  enableBackchannel = false,
 } = {}) {
   const [state, setState] = useState("idle");
   const [transcript, setTranscript] = useState("");
@@ -388,10 +390,12 @@ export function useVoiceAI({
 
   const onSpeculativeCandidateAnswerRef = useRef(onSpeculativeCandidateAnswer);
   const onAbortSpeculativeRef = useRef(onAbortSpeculative);
+  const onSpeechStartRef = useRef(onSpeechStart);
   useEffect(() => {
     onSpeculativeCandidateAnswerRef.current = onSpeculativeCandidateAnswer;
     onAbortSpeculativeRef.current = onAbortSpeculative;
-  }, [onSpeculativeCandidateAnswer, onAbortSpeculative]);
+    onSpeechStartRef.current = onSpeechStart;
+  }, [onSpeculativeCandidateAnswer, onAbortSpeculative, onSpeechStart]);
 
   const transcriptListener = onTranscriptUpdate || onTranscript;
   const inputLevelRef = useRef(0);
@@ -504,6 +508,7 @@ export function useVoiceAI({
 
     if (stateRef.current === "listening" && inputLevel > vadSpeechThreshold) {
       lastSpeechDetectedAtRef.current = Date.now();
+      onSpeechStartRef.current?.();
       if (!hasPreWarmedThisTurnRef.current) {
         hasPreWarmedThisTurnRef.current = true;
         authFetch("/api/voice/pre-warm", { method: "POST" }).catch(() => {});
@@ -548,7 +553,7 @@ export function useVoiceAI({
   }, [state, isPaused, micWarning]);
 
   useEffect(() => {
-    if (backchannelLoadedRef.current) return;
+    if (!enableBackchannel || backchannelLoadedRef.current) return;
     backchannelLoadedRef.current = true;
 
     authFetch(`${BACKCHANNEL_ENDPOINT}?persona=friendly&gender=${personaGender}`)
@@ -566,7 +571,7 @@ export function useVoiceAI({
       .catch((error) => {
         console.warn('[useVoiceAI] Failed to load backchannel audio clips:', error?.message || error);
       });
-  }, [personaGender]);
+  }, [enableBackchannel, personaGender]);
 
   const playImmediateBackchannel = useCallback((clipKey = 'mmhmm') => {
     const clips = backchannelRef.current;
@@ -660,6 +665,7 @@ export function useVoiceAI({
   };
 
   const playBackchannel = useCallback(() => {
+    if (!enableBackchannel) return;
     const clips = backchannelRef.current;
     if (!clips) return;
     const now = Date.now();
@@ -683,11 +689,11 @@ export function useVoiceAI({
       audio.currentTime = 0;
       audio.play().catch(() => {});
     } catch { /* no-op */ }
-  }, []);
+  }, [enableBackchannel]);
 
   const startBackchannelSchedule = useCallback(() => {
     clearBackchannelTimer();
-    if (!backchannelRef.current) return;
+    if (!enableBackchannel || !backchannelRef.current) return;
     const scheduleNext = () => {
       const delayMs = BACKCHANNEL_MIN_MS + Math.random() * (BACKCHANNEL_GAP_MS - BACKCHANNEL_MIN_MS);
       backchannelTimerRef.current = setTimeout(() => {
@@ -698,7 +704,7 @@ export function useVoiceAI({
       }, delayMs);
     };
     scheduleNext();
-  }, [playBackchannel]);
+  }, [enableBackchannel, playBackchannel]);
 
   const checkResumeWindow = useCallback((interimSpeech = "") => {
     const now = Date.now();
@@ -890,6 +896,7 @@ export function useVoiceAI({
           wordCount,
           text: currentText,
           candidatePacingOffset: candidatePacingOffsetRef.current,
+          confidence: lastConfidenceRef.current,
         });
 
         if (!endsWithHangingWord && silenceElapsedMs >= requiredSilenceMs && (inputLevelRef.current || 0) < 0.02) {
@@ -1551,7 +1558,9 @@ export function useVoiceAI({
       // so we do NOT duplicate it here — a second timer would race and could
       // fire before recognition even begins.
 
-      startBackchannelSchedule();
+      if (enableBackchannel) {
+        startBackchannelSchedule();
+      }
     } catch (err) {
       console.error("[useVoiceAI] Start error:", err);
       const errorMsg =
@@ -1676,6 +1685,9 @@ export function useVoiceAI({
    * cancel audio playback and switch smoothly to listening mode.
    */
   const bargeIn = useCallback(({ force = false } = {}) => {
+    if (!enableInterrupt && !force) {
+      return false;
+    }
     const isAiSpeaking = stateRef.current === "speaking" || stateRef.current === "loading";
     const hasActiveAudio = Boolean(audioRef.current?.src);
     if (!force && !isAiSpeaking && !hasActiveAudio) {
@@ -1734,7 +1746,7 @@ export function useVoiceAI({
     setState("listening");
     start({ isBargeIn: true });
     return true;
-  }, [onBargeIn, onInterrupt, start, stopImmediateBackchannel]);
+  }, [enableInterrupt, onBargeIn, onInterrupt, start, stopImmediateBackchannel]);
 
   useEffect(() => {
     if (!enableInterrupt) {

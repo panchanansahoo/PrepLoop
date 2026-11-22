@@ -74,7 +74,7 @@ export function useRealtimeInterview({
     personaGender,
     question: currentQuestion,
     getAuthHeaders,
-    enableInterrupt: true,
+    enableInterrupt: false,
   });
 
   // Video pipeline

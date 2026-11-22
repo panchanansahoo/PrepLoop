@@ -37,7 +37,7 @@ export function useWebSpeech({
     _interviewType = 'technical',
     personaGender = 'female',
     _question = '',
-    enableInterrupt = true,
+    enableInterrupt = false,
 } = {}) {
     const [state, setState] = useState('idle'); // idle | listening | processing | error
     const [transcript, setTranscript] = useState('');

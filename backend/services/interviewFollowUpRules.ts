@@ -5,6 +5,7 @@ import type {
   FollowUpBranchInput,
   ScoreTrendAnalysis,
   PerformanceMomentum,
+  ProgressiveCoachingPayload,
 } from '../types/interview.ts';
 import { InterviewStateMachineService, areDifficultiesComparable } from './interviewStateMachine.js';
 
@@ -210,14 +211,14 @@ export function isSameTopic(topicA?: string | null, topicB?: string | null): boo
 }
 
 // ── STAR detection helpers (behavioral interviews) ────────────────────
-const STAR_PATTERNS = {
-  situation: /(in that situation|the context was|we were facing|at that time|when we|the problem was|the challenge was)/i,
-  task: /(my task was|i was responsible for|my role was|i needed to|i had to|was assigned to)/i,
-  action: /(i took the action|i decided to|i implemented|i led|i created|i built|i organized|i initiated|the action i took|i worked on|i designed)/i,
-  result: /(the result was|as a result|the outcome|this led to|we achieved|we reduced|we improved|the impact|this resulted in|uptime|reduced by|increased by)/i,
+export const STAR_PATTERNS = {
+  situation: /(in that situation|the context was|we were facing|at that time|when we|the problem was|the challenge was|our company|at my previous|during my time|project was|team had|background was|client had|production environment)/i,
+  task: /(my task was|i was responsible for|my role was|i needed to|i had to|was assigned to|my goal was|the objective was|responsible for delivering|my mandate was|i was tasked with)/i,
+  action: /(i took the action|i decided to|i implemented|i led|i created|i built|i organized|i initiated|the action i took|i worked on|i designed|i architected|i wrote|i investigated|i collaborated|i refactored|i spearheaded)/i,
+  result: /(the result was|as a result|the outcome|this led to|we achieved|we reduced|we improved|the impact|this resulted in|uptime|reduced by|increased by|metrics?|saved|successfully deployed|scaled to|boosted by|delivered on time)/i,
 };
 
-function detectStarComponents(text: string): StarAnalysis {
+export function detectStarComponents(text: string): StarAnalysis {
   const lower = String(text || '').toLowerCase();
   return {
     hasSituation: STAR_PATTERNS.situation.test(lower),
@@ -227,10 +228,66 @@ function detectStarComponents(text: string): StarAnalysis {
   };
 }
 
-function isStarComplete(star: StarAnalysis): boolean {
+export function isStarComplete(star: StarAnalysis): boolean {
   const count = [star.hasSituation, star.hasTask, star.hasAction, star.hasResult]
     .filter(Boolean).length;
   return count >= 3;
+}
+
+export function computeProgressiveStarGuidance(star: StarAnalysis | null): ProgressiveCoachingPayload {
+  if (!star) {
+    return {
+      phase: 'none',
+      cue: '',
+      missingElements: [],
+      suggestedTier: 0,
+    };
+  }
+
+  const missing: string[] = [];
+  if (!star.hasSituation) missing.push('situation');
+  if (!star.hasTask) missing.push('task');
+  if (!star.hasAction) missing.push('action');
+  if (!star.hasResult) missing.push('result');
+
+  // Phased guidance order:
+  // 1. Missing situation/task -> guide scene setting
+  if (!star.hasSituation || !star.hasTask) {
+    return {
+      phase: 'scene_setting',
+      cue: 'Could you set the scene by clarifying the background situation and what your core responsibility/goal was?',
+      missingElements: missing.filter((m) => m === 'situation' || m === 'task'),
+      suggestedTier: 1,
+    };
+  }
+
+  // 2. Missing action -> personal contribution probe
+  if (!star.hasAction) {
+    return {
+      phase: 'personal_contribution',
+      cue: 'What specific technical or operational actions did you personally take to tackle this?',
+      missingElements: ['action'],
+      suggestedTier: 1,
+    };
+  }
+
+  // 3. Missing result -> outcome/metrics probe
+  if (!star.hasResult) {
+    return {
+      phase: 'outcome_metrics',
+      cue: 'What was the concrete outcome or measurable impact of that work (e.g. metrics, performance, adoption)?',
+      missingElements: ['result'],
+      suggestedTier: 1,
+    };
+  }
+
+  // 4. Complete STAR -> depth probe
+  return {
+    phase: 'depth_probe',
+    cue: 'What was the most challenging obstacle or trade-off you encountered, and what would you do differently in retrospect?',
+    missingElements: [],
+    suggestedTier: 0,
+  };
 }
 
 // ── Code quality signal extraction ────────────────────────────────────
@@ -415,6 +472,13 @@ export class InterviewFollowUpRulesService {
       }
     }
 
+    // ── Progressive STAR Coaching & Suggestion Tier Resolution ─────────
+    const progressiveCoaching: ProgressiveCoachingPayload | undefined =
+      starAnalysis ? computeProgressiveStarGuidance(starAnalysis) : undefined;
+
+    let suggestionTier = 0;
+    const stuckCount = Number(interviewContext.stuckCount ?? input.stuckCount ?? 0);
+
     // ── Decision Flow ─────────────────────────────────────────────────
     let nextAction = 'deepen';
     let branchReason = 'high_quality_answer';
@@ -429,27 +493,37 @@ export class InterviewFollowUpRulesService {
       if (!starAnalysis.hasAction) missing.push('action');
       if (!starAnalysis.hasResult) missing.push('result');
       branchReason = `incomplete_star_missing_${missing.join('_')}`;
+      suggestionTier = progressiveCoaching?.suggestedTier ?? 1;
     } else if (isRecoveryEligible) {
       // 2. Genuine recovery branch detected
       nextAction = 'affirm_recovery';
       branchReason = 'genuine_recovery_detected';
       recoveryDetected = true;
+      suggestionTier = 0;
     } else if (trend.volatility === 'volatile' && scoreHistory.length >= 3) {
       // 3. Score volatility
       nextAction = 'volatility_scaffold';
       branchReason = 'volatile_score_pattern';
+      suggestionTier = 3;
+    } else if (stuckCount >= 2) {
+      suggestionTier = 3;
     } else if (score < 60 || missedConcepts.length > 1) {
       // 4. Missed concepts / low score
       nextAction = 'targeted_correction';
       branchReason = 'missed_core_concepts';
+      suggestionTier = 2;
     } else if (lowConfidenceSignals && interviewType !== 'hr' && interviewType !== 'behavioral') {
       // 5. Low confidence signal
       nextAction = 'confidence_rebuild';
       branchReason = 'low_confidence_signal';
+      suggestionTier = 1;
     } else if (!depthSignals) {
       // 6. Shallow explanation
       nextAction = 'depth_probe';
       branchReason = 'shallow_explanation';
+      suggestionTier = 1;
+    } else {
+      suggestionTier = progressiveCoaching?.suggestedTier ?? 0;
     }
 
     // ── Improvement Arc Tracking ──────────────────────────────────────
@@ -500,7 +574,21 @@ export class InterviewFollowUpRulesService {
       recoveryDetected,
       recoveryPhrase,
       phrasing: recoveryPhrase,
+      suggestionTier,
+      progressiveCoaching,
     };
+  }
+
+  static detectStarComponents(text: string): StarAnalysis {
+    return detectStarComponents(text);
+  }
+
+  static isStarComplete(star: StarAnalysis): boolean {
+    return isStarComplete(star);
+  }
+
+  static computeProgressiveStarGuidance(star: StarAnalysis | null): ProgressiveCoachingPayload {
+    return computeProgressiveStarGuidance(star);
   }
 }
 

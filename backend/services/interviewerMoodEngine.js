@@ -110,6 +110,9 @@ export const MOOD_PROFILES = {
  * @param {number} params.wordCount - Number of words in user answer
  * @param {number[]} params.cumulativeScores - Historical scores
  * @param {number} params.consecutiveLowScores - Count of consecutive sub-50 answers
+ * @param {string} params.stage - Current interview stage (warmup, challenge, technical, etc.)
+ * @param {number} params.scoreDrop - Explicit score drop from previous turn
+ * @param {number} params.consecutiveTriggers - Number of consecutive negative triggers
  * @returns {{ nextMood: string, reason: string }}
  */
 export function computeNextMood(currentMood = MOODS.NEUTRAL, {
@@ -121,6 +124,11 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   isTopicSwitch = false,
   trend = null,
   scoreTrend = null,
+  stage = null,
+  interviewStage = null,
+  scoreDrop = null,
+  consecutiveTriggers = 0,
+  impatientTriggers = 0,
 } = {}) {
   // Topic switch resets mood to neutral baseline
   if (topicSwitch || isTopicSwitch) {
@@ -131,32 +139,81 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   const numScore = Number(score) || 0;
   const words = Number(wordCount) || 0;
   const trajectory = String(trend || scoreTrend?.trend || '').toLowerCase();
+  const currentStage = String(stage || interviewStage || '').toLowerCase();
 
-  // Very short or empty answer -> quick path to impatient or skeptical
-  if (words < 12 || consecutiveLowScores >= 2) {
-    if (validMood === MOODS.SKEPTICAL || consecutiveLowScores >= 2) {
-      return { nextMood: MOODS.IMPATIENT, reason: 'consecutive_weak_answers_or_short_stalls' };
+  // Mood inertia: calculate score drop from previous session scores
+  let drop = 0;
+  if (scoreDrop !== null && Number.isFinite(Number(scoreDrop))) {
+    drop = Number(scoreDrop);
+  } else if (Array.isArray(cumulativeScores) && cumulativeScores.length >= 1) {
+    let prevScore = null;
+    if (cumulativeScores.length >= 2 && cumulativeScores[cumulativeScores.length - 1] === numScore) {
+      prevScore = Number(cumulativeScores[cumulativeScores.length - 2]);
+    } else {
+      prevScore = Number(cumulativeScores[cumulativeScores.length - 1]);
     }
-    return { nextMood: MOODS.SKEPTICAL, reason: 'under_answered_or_stuck' };
+    if (Number.isFinite(prevScore)) {
+      drop = Math.max(0, prevScore - numScore);
+    }
+  }
+
+  const hasSignificantDrop = drop >= 25;
+  const hasConsecutiveTriggers = consecutiveLowScores >= 2
+    || Number(consecutiveTriggers) >= 2
+    || Number(impatientTriggers) >= 2;
+  const canTransitionToImpatient = hasConsecutiveTriggers || hasSignificantDrop;
+
+  // Helper to enforce stage-awareness (warmup suppression and challenge bias)
+  const finalizeMood = (nextMood, reason) => {
+    // In warmup stage, suppress impatient mood -> downgrade to skeptical
+    if (currentStage === 'warmup' && nextMood === MOODS.IMPATIENT) {
+      return { nextMood: MOODS.SKEPTICAL, reason: 'warmup_stage_suppresses_impatience' };
+    }
+
+    // In challenge stage, bias toward skeptical and curious
+    if (currentStage === 'challenge') {
+      if (nextMood === MOODS.NEUTRAL) {
+        return {
+          nextMood: numScore >= 65 ? MOODS.CURIOUS : MOODS.SKEPTICAL,
+          reason: 'challenge_stage_bias_skeptical_curious',
+        };
+      }
+    }
+
+    return { nextMood, reason };
+  };
+
+  // Very short or empty answer -> path to impatient (requires 2 triggers or drop) or skeptical
+  if (words < 12 || consecutiveLowScores >= 2) {
+    if (validMood === MOODS.IMPATIENT) {
+      return finalizeMood(MOODS.IMPATIENT, 'consecutive_weak_answers_or_short_stalls');
+    }
+    if ((canTransitionToImpatient || validMood === MOODS.SKEPTICAL) && (validMood === MOODS.SKEPTICAL || consecutiveLowScores >= 2)) {
+      return finalizeMood(MOODS.IMPATIENT, 'consecutive_weak_answers_or_short_stalls');
+    }
+    return finalizeMood(MOODS.SKEPTICAL, 'under_answered_or_stuck');
   }
 
   // Trajectory acceleration: declining trend accelerates push toward skeptical or impatient
   if (trajectory === 'declining') {
     if (validMood === MOODS.SKEPTICAL && numScore < 72) {
-      return { nextMood: MOODS.IMPATIENT, reason: 'declining_trajectory_triggers_impatience' };
+      if (canTransitionToImpatient) {
+        return finalizeMood(MOODS.IMPATIENT, 'declining_trajectory_triggers_impatience');
+      }
+      return finalizeMood(MOODS.SKEPTICAL, 'declining_trajectory_triggers_skepticism');
     }
     if (validMood === MOODS.NEUTRAL && numScore < 65) {
-      return { nextMood: MOODS.SKEPTICAL, reason: 'declining_trajectory_triggers_skepticism' };
+      return finalizeMood(MOODS.SKEPTICAL, 'declining_trajectory_triggers_skepticism');
     }
   }
 
   // Trajectory boost: improving trend sustains curious mood and facilitates rebound
   if (trajectory === 'improving' && numScore >= 65) {
     if (validMood === MOODS.SKEPTICAL || validMood === MOODS.IMPATIENT) {
-      return { nextMood: MOODS.CURIOUS, reason: 'improving_trajectory_rekindles_curiosity' };
+      return finalizeMood(MOODS.CURIOUS, 'improving_trajectory_rekindles_curiosity');
     }
     if (validMood === MOODS.CURIOUS) {
-      return { nextMood: MOODS.CURIOUS, reason: 'improving_trajectory_sustains_curiosity' };
+      return finalizeMood(MOODS.CURIOUS, 'improving_trajectory_sustains_curiosity');
     }
   }
 
@@ -164,9 +221,9 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   if (numScore >= 85) {
     if (validMood === MOODS.SKEPTICAL || validMood === MOODS.IMPATIENT) {
       // Rebound: interviewer skepticism gives way to curiosity or neutral first
-      return { nextMood: MOODS.CURIOUS, reason: 'strong_rebound_from_skepticism' };
+      return finalizeMood(MOODS.CURIOUS, 'strong_rebound_from_skepticism');
     }
-    return { nextMood: MOODS.IMPRESSED, reason: 'high_quality_comprehensive_answer' };
+    return finalizeMood(MOODS.IMPRESSED, 'high_quality_comprehensive_answer');
   }
 
   // Sustained excellence across recent questions
@@ -174,43 +231,46 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   if (recentScores.length >= 3 && numScore >= 75) {
     const avgRecent = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
     if (avgRecent >= 82 && validMood !== MOODS.IMPATIENT) {
-      return { nextMood: MOODS.IMPRESSED, reason: 'sustained_excellence_across_questions' };
+      return finalizeMood(MOODS.IMPRESSED, 'sustained_excellence_across_questions');
     }
   }
 
   // Solid response (72 - 84)
   if (numScore >= 72) {
     if (validMood === MOODS.IMPATIENT) {
-      return { nextMood: MOODS.CURIOUS, reason: 'recovery_reignites_curiosity' };
+      return finalizeMood(MOODS.CURIOUS, 'recovery_reignites_curiosity');
     }
     if (validMood === MOODS.IMPRESSED) {
-      return { nextMood: MOODS.IMPRESSED, reason: 'maintaining_strong_impression' };
+      return finalizeMood(MOODS.IMPRESSED, 'maintaining_strong_impression');
     }
-    return { nextMood: MOODS.CURIOUS, reason: 'solid_technical_depth_invites_curiosity' };
+    return finalizeMood(MOODS.CURIOUS, 'solid_technical_depth_invites_curiosity');
   }
 
   // Moderate response (55 - 71)
   if (numScore >= 55) {
     if (validMood === MOODS.IMPATIENT) {
-      return {
-        nextMood: numScore >= 70 ? MOODS.CURIOUS : MOODS.NEUTRAL,
-        reason: numScore >= 70 ? 'recovery_reignites_curiosity' : 'recovery_to_acceptable_depth',
-      };
+      return finalizeMood(
+        numScore >= 70 ? MOODS.CURIOUS : MOODS.NEUTRAL,
+        numScore >= 70 ? 'recovery_reignites_curiosity' : 'recovery_to_acceptable_depth'
+      );
     }
     if (validMood === MOODS.IMPRESSED) {
-      return { nextMood: MOODS.CURIOUS, reason: 'impressed_interviewer_shifts_to_curious' };
+      return finalizeMood(MOODS.CURIOUS, 'impressed_interviewer_shifts_to_curious');
     }
-    return { nextMood: MOODS.NEUTRAL, reason: 'baseline_moderate_answer' };
+    return finalizeMood(MOODS.NEUTRAL, 'baseline_moderate_answer');
   }
 
   // Poor / struggling response (< 55)
   if (validMood === MOODS.IMPRESSED) {
-    return { nextMood: MOODS.SKEPTICAL, reason: 'unexpected_dip_triggers_scrutiny' };
+    return finalizeMood(MOODS.SKEPTICAL, 'unexpected_dip_triggers_scrutiny');
   }
-  if (validMood === MOODS.SKEPTICAL) {
-    return { nextMood: MOODS.IMPATIENT, reason: 'continued_difficulty_triggers_impatience' };
+  if (validMood === MOODS.SKEPTICAL || validMood === MOODS.IMPATIENT) {
+    if (canTransitionToImpatient || validMood === MOODS.IMPATIENT) {
+      return finalizeMood(MOODS.IMPATIENT, 'continued_difficulty_triggers_impatience');
+    }
+    return finalizeMood(MOODS.SKEPTICAL, 'weak_score_triggers_skepticism');
   }
-  return { nextMood: MOODS.SKEPTICAL, reason: 'weak_score_triggers_skepticism' };
+  return finalizeMood(MOODS.SKEPTICAL, 'weak_score_triggers_skepticism');
 }
 
 /**

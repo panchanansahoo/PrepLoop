@@ -3,7 +3,7 @@ import {
     Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
     Play, Pause, Captions, CaptionsOff, MessageSquare,
     Bookmark, Phone, Keyboard, HelpCircle, RotateCcw, SkipForward,
-    CheckCircle2,
+    CheckCircle2, Hourglass,
 } from 'lucide-react';
 
 /**
@@ -28,6 +28,7 @@ function InterviewControls({
     voiceOnly = false,
     onRepeatQuestion,
     onSkipQuestion,
+    onNeedAMoment,
     // Decoupled controls
     onFinishAnswer,
     onSubmitAnswer,
@@ -217,6 +218,18 @@ function InterviewControls({
                     <SkipForward size={18} />
                     <span className="ai-vc-ctrl-label">Skip</span>
                 </button>
+
+                {onNeedAMoment && (
+                    <button
+                        className="ai-vc-ctrl"
+                        onClick={onNeedAMoment}
+                        title="Need a moment (+30s thinking time)"
+                        aria-label="Request 30 seconds extra thinking time"
+                    >
+                        <Hourglass size={18} />
+                        <span className="ai-vc-ctrl-label">+30s</span>
+                    </button>
+                )}
             </div>
 
             <div className="ai-vc-controls-divider" />

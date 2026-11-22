@@ -116,7 +116,20 @@ export class InterviewScoringService {
           Number((normalizedBase + engagementBonus + fresherBonus).toFixed(1))
         )
       );
+
+      // Cross-dimensional floor: if any single scored dimension is < 30, cap overall at max(dimension_scores)
+      if (scoredDimensions.length > 0 && scoredDimensions.some(d => d < 30)) {
+        const maxDimension = Math.max(...scoredDimensions);
+        overall100 = Math.min(overall100, maxDimension);
+      }
+
+      // Confidence gate: when scoringConfidence < 0.67 (only 1 valid metric), cap overall score at 70
+      if (scoringConfidence < 0.67) {
+        overall100 = Math.min(overall100, 70);
+      }
     }
+
+    const lowConfidenceScore = Boolean(!isUnscored && scoringConfidence < 0.67);
 
     return {
       overall: overall100 === null ? null : Number((overall100 / 10).toFixed(1)),
@@ -136,6 +149,7 @@ export class InterviewScoringService {
       isUnscored,
       metricsMissing: !hasAnyMetric,
       scoringConfidence,
+      lowConfidenceScore,
       fresherBonusApplied,
       scoringAnomalyDetected,
       maxDimensionSpread,
@@ -315,9 +329,22 @@ export class InterviewScoringService {
     const validDifficulties = ['easy', 'medium', 'hard', 'staff', 'staff_architectural'];
     const safePreferred = validDifficulties.includes(normPreferred) ? normPreferred : 'medium';
 
+    const lowerTierMap: Record<string, string> = {
+      staff_architectural: 'hard',
+      staff: 'hard',
+      hard: 'medium',
+      medium: 'easy',
+      easy: 'easy',
+    };
+
     if (!Array.isArray(recentSessions) || recentSessions.length === 0) {
       return safePreferred;
     }
+
+    // Completion rate guard: count abandoned sessions
+    const abandonedCount = recentSessions.filter(
+      (s: any) => s && s.status === 'abandoned'
+    ).length;
 
     // Helper to safely extract numeric score
     const extractScore = (s: any): number | null => {
@@ -335,6 +362,9 @@ export class InterviewScoringService {
       .filter((item): item is { session: any; score: number } => item.score !== null);
 
     if (completedWithScores.length === 0) {
+      if (abandonedCount >= 2) {
+        return lowerTierMap[safePreferred] || 'easy';
+      }
       return safePreferred;
     }
 
@@ -351,9 +381,16 @@ export class InterviewScoringService {
       }
     }
 
-    // Compute average score across targeted sessions
-    const totalScore = targeted.reduce((sum, item) => sum + item.score, 0);
-    const avgScore = totalScore / targeted.length;
+    // Recency weighting: 2x weight on the last 3 sessions
+    const last3Cutoff = Math.max(0, targeted.length - 3);
+    let weightedScoreSum = 0;
+    let totalWeight = 0;
+    targeted.forEach((item, idx) => {
+      const weight = idx >= last3Cutoff ? 2 : 1;
+      weightedScoreSum += item.score * weight;
+      totalWeight += weight;
+    });
+    const avgScore = totalWeight > 0 ? weightedScoreSum / totalWeight : 0;
 
     // Check if sessions were on medium/hard difficulty
     const hasMedOrHardDifficulty = targeted.some(item => {
@@ -361,28 +398,26 @@ export class InterviewScoringService {
       return d === 'medium' || d === 'hard' || d === 'staff' || d === 'staff_architectural';
     });
 
-    // Rule 1: If recent completed sessions average >= 80 on medium/hard difficulty -> return 'hard'
-    if (avgScore >= 80 && hasMedOrHardDifficulty) {
-      return 'hard';
-    }
+    let resolvedDifficulty = safePreferred;
 
-    // Rule 2: If recent completed sessions average < 50 -> return one tier lower
-    if (avgScore < 50) {
-      const lowerTierMap: Record<string, string> = {
-        hard: 'medium',
-        staff: 'hard',
-        staff_architectural: 'hard',
-        medium: 'easy',
-        easy: 'easy',
-      };
+    // Rule 1: Confidence threshold: require at least 2 completed sessions before escalating starting difficulty to 'hard'
+    // If recent completed sessions average >= 80 on medium/hard difficulty -> return 'hard'
+    if (targeted.length >= 2 && avgScore >= 80 && hasMedOrHardDifficulty) {
+      resolvedDifficulty = 'hard';
+    } else if (avgScore < 50) {
+      // Rule 2: If recent completed sessions average < 50 -> return one tier lower
       // Base lowering on preferredDifficulty, or on recent session difficulty if preferred is default
       const recentDiff = String(targeted[targeted.length - 1]?.session.difficulty || targeted[targeted.length - 1]?.session.difficulty_level || safePreferred).toLowerCase();
       const baseDiff = safePreferred !== 'medium' ? safePreferred : (recentDiff || 'medium');
-      return lowerTierMap[baseDiff] || 'easy';
+      resolvedDifficulty = lowerTierMap[baseDiff] || 'easy';
     }
 
-    // Rule 3: Otherwise return preferredDifficulty (default 'medium')
-    return safePreferred;
+    // Completion rate guard: if recent sessions contain >= 2 abandoned sessions (status === 'abandoned'), discount difficulty by one tier
+    if (abandonedCount >= 2) {
+      resolvedDifficulty = lowerTierMap[resolvedDifficulty] || 'easy';
+    }
+
+    return resolvedDifficulty;
   }
 }
 

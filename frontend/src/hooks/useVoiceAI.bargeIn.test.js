@@ -132,7 +132,7 @@ describe("useVoiceAI — Conversational Full-Duplex 'Barge-In' Interruption", ()
 
   it("safely cleans up and mutes audio elements during barge-in to prevent speaker pops", () => {
     const mockAudioInstance = new MockAudio("blob:http://localhost/tts-segment");
-    const { result } = renderHook(() => useVoiceAI());
+    const { result } = renderHook(() => useVoiceAI({ enableInterrupt: true }));
 
     act(() => {
       result.current.audioRef.current = mockAudioInstance;
@@ -143,5 +143,24 @@ describe("useVoiceAI — Conversational Full-Duplex 'Barge-In' Interruption", ()
     expect(mockAudioInstance.currentTime).toBe(0);
     expect(mockAudioInstance.src).toBe("");
     expect(result.current.state).toBe("listening");
+  });
+
+  it("disables candidate barge-in by default so AI speaking cannot be interrupted", () => {
+    const onBargeIn = vi.fn();
+    const { result } = renderHook(() => useVoiceAI({ onBargeIn }));
+
+    act(() => {
+      result.current.audioRef.current = new MockAudio("blob:http://localhost/test-audio");
+    });
+
+    let bargeInResult;
+    act(() => {
+      bargeInResult = result.current.bargeIn();
+    });
+
+    expect(bargeInResult).toBe(false);
+    expect(result.current.interruptDetected).toBe(false);
+    expect(onBargeIn).not.toHaveBeenCalled();
+    expect(cancelSpeechSpy).not.toHaveBeenCalled();
   });
 });

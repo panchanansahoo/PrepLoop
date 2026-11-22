@@ -18,7 +18,7 @@ export default function useBackchannelPlayer({
   speakerMuted = false,
   persona = 'friendly',
   gender = 'female',
-  enabled = true,
+  enabled = false,
 } = {}) {
   const clipsRef = useRef({});
   const lastPlayTimeRef = useRef(0);
@@ -27,6 +27,7 @@ export default function useBackchannelPlayer({
 
   // Fetch / cache backchannel clips
   useEffect(() => {
+    if (!enabled) return;
     let isMounted = true;
     async function loadClips() {
       try {

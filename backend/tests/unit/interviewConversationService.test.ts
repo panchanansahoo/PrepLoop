@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { InterviewPromptService } from '../../services/interviewPromptService.js';
 import { InterviewConversationService } from '../../services/interviewConversationService.js';
 

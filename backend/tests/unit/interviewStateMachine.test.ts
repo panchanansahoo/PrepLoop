@@ -262,16 +262,17 @@ describe('InterviewStateMachineService', () => {
       expect(normalizeScoreByDifficulty(40, 'medium')).toBe(40);
       expect(normalizeScoreByDifficulty(0, 'medium')).toBe(0);
 
-      // Hard tier: multiplier 1.15, cap 100
+      // Hard tier: multiplier 1.10, cap 100, quality-gated (rawScore >= 50)
       expect(normalizeScoreByDifficulty(100, 'hard')).toBe(100);
-      expect(normalizeScoreByDifficulty(80, 'hard')).toBe(92);
-      expect(normalizeScoreByDifficulty(74, 'hard')).toBe(85); // 74 * 1.15 = 85.1 -> 85
-      expect(normalizeScoreByDifficulty(30, 'hard')).toBe(35); // 30 * 1.15 = 34.5 -> 35
+      expect(normalizeScoreByDifficulty(80, 'hard')).toBe(88); // 80 * 1.10 = 88
+      expect(normalizeScoreByDifficulty(78, 'hard')).toBe(86); // 78 * 1.10 = 85.8 -> 86
+      expect(normalizeScoreByDifficulty(30, 'hard')).toBe(30); // 30 < 50: quality-gated, no multiplier
 
-      // Staff Architectural tier: multiplier 1.25, cap 100
+      // Staff Architectural tier: multiplier 1.18, cap 100, quality-gated (rawScore >= 50)
       expect(normalizeScoreByDifficulty(100, 'staff_architectural')).toBe(100);
-      expect(normalizeScoreByDifficulty(80, 'staff_architectural')).toBe(100);
-      expect(normalizeScoreByDifficulty(70, 'staff_architectural')).toBe(88); // 70 * 1.25 = 87.5 -> 88
+      expect(normalizeScoreByDifficulty(80, 'staff_architectural')).toBe(94); // 80 * 1.18 = 94.4 -> 94
+      expect(normalizeScoreByDifficulty(70, 'staff_architectural')).toBe(83); // 70 * 1.18 = 82.6 -> 83
+      expect(normalizeScoreByDifficulty(40, 'staff_architectural')).toBe(40); // 40 < 50: quality-gated, no multiplier
 
       // Edge cases: null, undefined, non-finite, clamped
       expect(normalizeScoreByDifficulty(null, 'medium')).toBeNull();
@@ -460,7 +461,7 @@ describe('InterviewStateMachineService', () => {
       expect(turn7.extendedTurnsCount).toBe(1);
     });
 
-    it('deactivates active scaffolding on recovery while preserving skipChallenge', () => {
+    it('deactivates active scaffolding on recovery (2 consecutive turns >= 65) while preserving skipChallenge and decays extended turns', () => {
       const initial = InterviewStateMachineService.createInitialState('dsa', 'medium', null, 13);
       const turn3 = InterviewStateMachineService.advanceState(
         { ...initial, turns: 3, score: 30, difficulty: 'medium' },
@@ -472,17 +473,29 @@ describe('InterviewStateMachineService', () => {
       );
       expect(turn4.scaffoldingActive).toBe(true);
       expect(turn4.skipChallenge).toBe(true);
+      expect(turn4.shouldExtendTechnical).toBe(true);
 
-      // Turn 5: Candidate recovers with score 75
+      // Turn 5: Candidate scores 75 (turn 1 of recovery) -> scaffolding stays active
       const turn5 = InterviewStateMachineService.advanceState(
         { ...turn4, turns: 5, score: 75, difficulty: 'medium' },
         { forceEnabled: true }
       );
       expect(turn5.consecutiveLowScores).toBe(0);
-      expect(turn5.scaffoldingActive).toBe(false);
-      expect(turn5.scaffoldingAction).toBe('NONE');
-      expect(turn5.shouldExtendTechnical).toBe(false);
-      expect(turn5.skipChallenge).toBe(true); // skipChallenge is preserved!
+      expect(turn5.scaffoldingActive).toBe(true);
+      expect(turn5.consecutiveRecoveryScores).toBe(1);
+
+      // Turn 6: Candidate scores 70 (turn 2 of recovery) -> scaffolding deactivated & extended turns reset
+      const turn6 = InterviewStateMachineService.advanceState(
+        { ...turn5, turns: 6, score: 70, difficulty: 'medium' },
+        { forceEnabled: true }
+      );
+      expect(turn6.consecutiveLowScores).toBe(0);
+      expect(turn6.scaffoldingActive).toBe(false);
+      expect(turn6.scaffoldingAction).toBe('NONE');
+      expect(turn6.shouldExtendTechnical).toBe(false);
+      expect(turn6.extendedTurnsCount).toBe(0);
+      expect(turn6.consecutiveRecoveryScores).toBe(0);
+      expect(turn6.skipChallenge).toBe(true); // skipChallenge is preserved!
     });
 
     it('resets low streak when difficulty is not comparable', () => {
@@ -589,9 +602,9 @@ describe('InterviewStateMachineService', () => {
 
     it('qualifies for high-score streak when hard question score normalizes to >= 85', () => {
       const initial = InterviewStateMachineService.createInitialState('dsa', 'medium', null, 13);
-      // Raw score 74 on hard: 74 * 1.15 = 85.1 -> 85 >= 85
+      // Raw score 78 on hard: 78 * 1.10 = 85.8 -> 86 >= 85
       const turn = InterviewStateMachineService.advanceState(
-        { ...initial, turns: 2, score: 74, difficulty: 'hard' },
+        { ...initial, turns: 2, score: 78, difficulty: 'hard' },
         { forceEnabled: true }
       );
       expect(turn.consecutiveHighScores).toBe(1);
@@ -696,22 +709,25 @@ describe('InterviewStateMachineService', () => {
       expect(state.consecutiveLowScores).toBe(3);
       expect(state.scaffoldingAction).toBe('PROGRESSIVE_HINT');
 
-      // Turn 6: Technical Q4 (score 70, medium) -> candidate recovers! Scaffolding deactivated
+      // Turn 6: Technical Q4 (score 70, medium) -> recovery turn 1, scaffolding still active
       state = InterviewStateMachineService.advanceState(
         { ...state, turns: 6, score: 70, difficulty: 'medium' },
         { forceEnabled: true }
       );
       expect(state.stage).toBe('technical');
       expect(state.consecutiveLowScores).toBe(0);
-      expect(state.scaffoldingActive).toBe(false);
-      expect(state.skipChallenge).toBe(true); // Still true!
+      expect(state.scaffoldingActive).toBe(true);
+      expect(state.consecutiveRecoveryScores).toBe(1);
 
-      // Turn 7: Followup (score 65)
+      // Turn 7: Followup (score 65) -> recovery turn 2! Candidate completes recovery: scaffolding deactivated
       state = InterviewStateMachineService.advanceState(
         { ...state, turns: 7, score: 65, difficulty: 'medium' },
         { forceEnabled: true }
       );
       expect(state.stage).toBe('followup');
+      expect(state.scaffoldingActive).toBe(false);
+      expect(state.scaffoldingAction).toBe('NONE');
+      expect(state.skipChallenge).toBe(true); // Still true!
 
       // Turn 8: Followup (score 60)
       state = InterviewStateMachineService.advanceState(
@@ -864,6 +880,56 @@ describe('InterviewStateMachineService', () => {
       state = InterviewStateMachineService.recordProbedTopic(state, '   ');
       state = InterviewStateMachineService.recordProbedTopic(state, null as any);
       expect(state.probedTopics).toEqual(['Concurrency']);
+    });
+  });
+
+  describe('Smart Question Skips (excludeSkipsFromBudget)', () => {
+    it('does not burn turn budget on skips when excludeSkipsFromBudget is enabled', () => {
+      // 5-question interview session
+      const stateFor5 = InterviewStateMachineService.createInitialState('dsa', 'medium', null, 5);
+
+      // Turn 1: regular scored question
+      const turn1 = InterviewStateMachineService.advanceState(
+        { ...stateFor5, turns: 1, score: 70 },
+        { forceEnabled: true, excludeSkipsFromBudget: true }
+      );
+      expect(turn1.skippedTurnsCount).toBe(0);
+      expect(turn1.substantiveTurns).toBe(1);
+
+      // Turn 2: candidate skips the question
+      const turn2 = InterviewStateMachineService.advanceState(
+        { ...turn1, turns: 2, answerType: 'skipped' },
+        { forceEnabled: true, excludeSkipsFromBudget: true }
+      );
+      expect(turn2.skippedTurnsCount).toBe(1);
+      // substantiveTurns remains 1 because skip did not count toward substantive budget!
+      expect(turn2.substantiveTurns).toBe(1);
+
+      // Turn 3: regular scored question
+      const turn3 = InterviewStateMachineService.advanceState(
+        { ...turn2, turns: 3, score: 75 },
+        { forceEnabled: true, excludeSkipsFromBudget: true }
+      );
+      expect(turn3.skippedTurnsCount).toBe(1);
+      expect(turn3.substantiveTurns).toBe(2);
+
+      // Turn 5: normally ceiling terminates at turns === 5, but substantiveTurns is 4
+      const turn5 = InterviewStateMachineService.advanceState(
+        { ...turn3, turns: 5, score: 70 },
+        { forceEnabled: true, excludeSkipsFromBudget: true }
+      );
+      expect(turn5.substantiveTurns).toBe(4);
+      expect(turn5.isTerminated).toBe(false);
+
+      // Turn 6: now substantiveTurns reaches 5, hitting the hard ceiling!
+      const turn6 = InterviewStateMachineService.advanceState(
+        { ...turn5, turns: 6, score: 70 },
+        { forceEnabled: true, excludeSkipsFromBudget: true }
+      );
+      expect(turn6.substantiveTurns).toBe(5);
+      expect(turn6.isTerminated).toBe(true);
+      expect(turn6.stage).toBe('feedback');
+      expect(turn6.transitionReason).toBe('hard_turn_budget_ceiling_reached');
     });
   });
 });

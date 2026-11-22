@@ -1268,6 +1268,12 @@ export class InterviewSimulatorService {
           if (followUpRules?.phrasing) {
             span.setAttribute('interview.followup.recovery_phrase', String(followUpRules.phrasing));
           }
+          if (typeof followUpRules?.suggestionTier === 'number') {
+            span.setAttribute('interview.followup.suggestion_tier', followUpRules.suggestionTier);
+          }
+          if (followUpRules?.progressiveCoaching?.phase) {
+            span.setAttribute('interview.followup.progressive_coaching_phase', followUpRules.progressiveCoaching.phase);
+          }
           return { currentScores: scores, adaptiveUpdate: adaptive, adaptiveFollowUp: followUpRules, scoreHistory };
         }
       );

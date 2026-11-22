@@ -15,10 +15,21 @@ import {
     decideNextTurnAction,
     PACING_MODES,
     getConversationalTransition,
+    HIGH_TRANSITIONS,
+    MID_TRANSITIONS,
+    LOW_TRANSITIONS,
     classifyCandidateAnswer,
     countFillerWords,
     detectStructureBonus,
     detectFillerPenalty,
+    createSpeculativeAbortController,
+    abortSpeculativeRequest,
+    hashTranscript,
+    validateTranscriptHash,
+    isValidTranscriptHash,
+    STAGE_SILENCE_THRESHOLDS,
+    getStageSilenceThreshold,
+    STAGE_THOUGHT_STARTERS,
 } from './aiInterviewTiming';
 
 describe('aiInterviewTiming', () => {
@@ -588,6 +599,326 @@ describe('aiInterviewTiming', () => {
             const answer = "We should use a hash table to store key value pairs for caching.";
             expect(classifyCandidateAnswer(answer, { previousAnswers: previous })).toBe('repeated');
             expect(classifyCandidateAnswer("Like I said before, we cache the results.", { previousAnswers: previous })).toBe('repeated');
+        });
+
+        it('supports returnDetails = true returning type, confidence, and details', () => {
+            const result = classifyCandidateAnswer("We can use an array.", { returnDetails: true });
+            expect(result).toHaveProperty('type', 'partial');
+            expect(result).toHaveProperty('confidence');
+            expect(typeof result.confidence).toBe('number');
+            expect(result.confidence).toBeGreaterThan(0);
+            expect(result).toHaveProperty('details');
+            expect(typeof result.details).toBe('object');
+            expect(result.details).toHaveProperty('wordCount');
+        });
+
+        it('classifies verbose_shallow when answer is >= 70 words without technical substance or structure', () => {
+            const ramblingShallowAnswer = "Well you know when I think about this question there are so many different things that come to my mind and I really want to emphasize that software engineering is about working hard and doing things properly and making sure everyone is happy with what we deliver. In my opinion this is really about dedication and making sure we do not rush into mistakes because rushing often causes many problems down the line for everybody.";
+            const words = ramblingShallowAnswer.split(/\s+/).filter(Boolean);
+            expect(words.length).toBeGreaterThanOrEqual(70);
+
+            // Default string return
+            expect(classifyCandidateAnswer(ramblingShallowAnswer)).toBe('verbose_shallow');
+
+            // With returnDetails: true
+            const detailsResult = classifyCandidateAnswer(ramblingShallowAnswer, { returnDetails: true });
+            expect(detailsResult.type).toBe('verbose_shallow');
+            expect(detailsResult.confidence).toBeGreaterThanOrEqual(0.8);
+            expect(detailsResult.details.hasStructure).toBe(false);
+            expect(detailsResult.details.techKeywordHits).toBeLessThanOrEqual(1);
+        });
+
+        it('does not classify verbose answers as verbose_shallow if they contain structure or technical keywords', () => {
+            const structuredLongAnswer = "First, we initialize an algorithm with two pointers to search through the array. Second, we verify the dynamic programming table to ensure optimal substructure and memoize overlapping subproblems. Finally, we analyze the space complexity and time complexity to confirm O(n log n) runtime across all edge cases.";
+            expect(classifyCandidateAnswer(structuredLongAnswer)).toBe('strong_complete');
+        });
+
+        it('classifies non-Latin script answers as needs_translation', () => {
+            // Cyrillic (Russian)
+            expect(classifyCandidateAnswer("Привет, я думаю использовать хэш-таблицу для этого решения.")).toBe('needs_translation');
+            // Simplified Chinese
+            expect(classifyCandidateAnswer("我们可以使用哈希表来优化时间复杂度。")).toBe('needs_translation');
+            // Japanese
+            expect(classifyCandidateAnswer("配列を使って二分探索を行います。")).toBe('needs_translation');
+            // Arabic
+            expect(classifyCandidateAnswer("يمكننا استخدام شجرة البحث الثنائية لحل المشكلة")).toBe('needs_translation');
+            // Devanagari (Hindi)
+            expect(classifyCandidateAnswer("हम इस समस्या को हल करने के लिए बाइनरी सर्च का उपयोग कर सकते हैं")).toBe('needs_translation');
+
+            // With returnDetails
+            const details = classifyCandidateAnswer("这是一个简单的回答", { returnDetails: true });
+            expect(details.type).toBe('needs_translation');
+            expect(details.confidence).toBeGreaterThanOrEqual(0.9);
+        });
+
+        it('classifies answers contradicting explicit facts as wrong', () => {
+            expect(classifyCandidateAnswer("A queue is last in first out while a stack is FIFO.")).toBe('wrong');
+            expect(classifyCandidateAnswer("In our design, hash map lookup takes O(n^2) time on average.")).toBe('wrong');
+            expect(classifyCandidateAnswer("Binary search takes O(n^2) runtime.")).toBe('wrong');
+            expect(classifyCandidateAnswer("HTTP is a layer 4 transport protocol.")).toBe('wrong');
+
+            // Via meta or options
+            expect(classifyCandidateAnswer("My approach is optimal.", { meta: { contradictsFacts: true } })).toBe('wrong');
+            expect(classifyCandidateAnswer("My approach is optimal.", { options: { isFactuallyIncorrect: true }, contradictsFacts: true })).toBe('wrong');
+            expect(classifyCandidateAnswer("We use UDP because it guarantees lossless delivery.", {
+                factualContradictions: ["UDP guarantees lossless"],
+            })).toBe('wrong');
+        });
+    });
+
+    describe('Keystroke-Aware Silence Threshold', () => {
+        it('extends silence threshold when candidate typed within the last 2000ms', () => {
+            const now = Date.now();
+            const withoutKeystroke = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "We can use a hash map to look up items in O(1) time",
+            });
+            const withKeystroke = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "We can use a hash map to look up items in O(1) time",
+                lastKeystrokeTimestamp: now - 500, // 500ms ago
+            });
+
+            expect(withKeystroke).toBeGreaterThan(withoutKeystroke);
+            expect(withKeystroke).toBeGreaterThanOrEqual(4000);
+        });
+
+        it('does not cut off completed turns prematurely when candidate is actively typing', () => {
+            const now = Date.now();
+            // "That is all." normally triggers immediate 1500ms snappy submission
+            const normalSilence = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "That is all.",
+            });
+            expect(normalSilence).toBe(1500);
+
+            // But if candidate is actively typing, threshold extends and does not cut them off
+            const typingSilence = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "That is all.",
+                lastKeystrokeTimestamp: now - 300,
+            });
+            expect(typingSilence).toBeGreaterThan(1500);
+            expect(typingSilence).toBeGreaterThanOrEqual(4000);
+        });
+
+        it('reverts to normal silence threshold when last keystroke was outside the active window', () => {
+            const now = Date.now();
+            const expiredSilence = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "That is all.",
+                lastKeystrokeTimestamp: now - 3500, // 3500ms ago (> 2000ms window)
+            });
+            expect(expiredSilence).toBe(1500);
+        });
+
+        it('supports configurable keystrokeActiveTime window', () => {
+            const now = Date.now();
+            // 2500ms ago is expired under default 2000ms
+            const defaultWindow = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "That is all.",
+                lastKeystrokeTimestamp: now - 2500,
+            });
+            expect(defaultWindow).toBe(1500);
+
+            // But active under a 4000ms custom keystrokeActiveTime
+            const customWindow = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "That is all.",
+                lastKeystrokeTimestamp: now - 2500,
+                keystrokeActiveTime: 4000,
+            });
+            expect(customWindow).toBeGreaterThan(1500);
+        });
+
+        it('caps max silence threshold up to 5000ms for active typing', () => {
+            const now = Date.now();
+            const capped = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 5,
+                text: "I think we can use a trie, um...",
+                candidatePacingOffset: 800,
+                lastKeystrokeTimestamp: now - 100,
+            });
+            expect(capped).toBeLessThanOrEqual(5000);
+            expect(capped).toBeGreaterThanOrEqual(4500);
+        });
+    });
+
+    describe('Expanded Conversational Transitions & LRU History Tracking', () => {
+        it('provides at least 15 transition phrases in HIGH, MID, and LOW pools', () => {
+            expect(HIGH_TRANSITIONS.length).toBeGreaterThanOrEqual(15);
+            expect(MID_TRANSITIONS.length).toBeGreaterThanOrEqual(15);
+            expect(LOW_TRANSITIONS.length).toBeGreaterThanOrEqual(15);
+
+            // All items should be non-empty distinct strings
+            const highSet = new Set(HIGH_TRANSITIONS);
+            const midSet = new Set(MID_TRANSITIONS);
+            const lowSet = new Set(LOW_TRANSITIONS);
+            expect(highSet.size).toBe(HIGH_TRANSITIONS.length);
+            expect(midSet.size).toBe(MID_TRANSITIONS.length);
+            expect(lowSet.size).toBe(LOW_TRANSITIONS.length);
+        });
+
+        it('prevents immediate phrase repetition via recentTransitions array', () => {
+            const history = [];
+            const phrase1 = getConversationalTransition(85, 'Technical', 1, { recentTransitions: history });
+            const phrase2 = getConversationalTransition(85, 'Technical', 1, { recentTransitions: history });
+            const phrase3 = getConversationalTransition(85, 'Technical', 1, { recentTransitions: history });
+
+            expect(phrase1).not.toBe(phrase2);
+            expect(phrase2).not.toBe(phrase3);
+            expect(phrase1).not.toBe(phrase3);
+            expect(history).toContain(phrase1);
+            expect(history).toContain(phrase2);
+            expect(history).toContain(phrase3);
+        });
+
+        it('supports lruHistory alias to avoid repeating phrases', () => {
+            const history = [HIGH_TRANSITIONS[0], HIGH_TRANSITIONS[1]];
+            const phrase = getConversationalTransition(85, 'Technical', 0, { lruHistory: history });
+            expect(phrase).not.toBe(HIGH_TRANSITIONS[0]);
+            expect(phrase).not.toBe(HIGH_TRANSITIONS[1]);
+        });
+
+        it('gracefully handles exhausting the entire pool without erroring', () => {
+            const history = [...HIGH_TRANSITIONS];
+            const nextPhrase = getConversationalTransition(90, 'Technical', 1, { recentTransitions: history });
+            expect(typeof nextPhrase).toBe('string');
+            expect(HIGH_TRANSITIONS).toContain(nextPhrase);
+        });
+    });
+
+    describe('Turn Routing Decision for New Classification Types', () => {
+        it('routes verbose_shallow to follow-up prompting for technical details', () => {
+            const first = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'verbose_shallow' });
+            expect(first.action).toBe('follow_up');
+            expect(first.promptCue).toContain('technical implementation');
+            expect(first.needsRedirect).toBe(true);
+            expect(first.neutralReaction).toBe(true);
+
+            const second = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'verbose_shallow' });
+            expect(second.action).toBe('next_question');
+            expect(second.needsRedirect).toBe(true);
+        });
+
+        it('routes needs_translation to clarification/language prompt without penalty', () => {
+            const action = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'needs_translation' });
+            expect(action.action).toBe('follow_up');
+            expect(action.promptCue).toContain('English');
+            expect(action.noScore).toBe(true);
+            expect(action.nextTopicFollowUpCount).toBe(0); // doesn't count against follow-up budget
+        });
+    });
+
+    describe('Speculative Abort Controller Utilities & Transcript Hash Validator', () => {
+        it('creates a speculative abort controller with signal, hash, and abort function', () => {
+            const transcript = "We can use binary search on the sorted array";
+            const sac = createSpeculativeAbortController({ transcript });
+
+            expect(sac).toHaveProperty('controller');
+            expect(sac).toHaveProperty('signal');
+            expect(sac.signal.aborted).toBe(false);
+            expect(sac.isAborted).toBe(false);
+            expect(sac).toHaveProperty('hash');
+            expect(typeof sac.hash).toBe('string');
+            expect(sac.transcript).toBe(transcript);
+
+            // Abort
+            sac.abort();
+            expect(sac.signal.aborted).toBe(true);
+            expect(sac.isAborted).toBe(true);
+        });
+
+        it('aborts speculative request safely via abortSpeculativeRequest', () => {
+            const sac = createSpeculativeAbortController({ transcript: "hello" });
+            const aborted = abortSpeculativeRequest(sac);
+            expect(aborted).toBe(true);
+            expect(sac.signal.aborted).toBe(true);
+
+            // No-op / safe on null
+            expect(abortSpeculativeRequest(null)).toBe(false);
+            expect(abortSpeculativeRequest(undefined)).toBe(false);
+
+            // Supports ref-style { current: sac }
+            const ref = { current: createSpeculativeAbortController() };
+            expect(abortSpeculativeRequest(ref)).toBe(true);
+            expect(ref.current.signal.aborted).toBe(true);
+        });
+
+        it('hashes transcript deterministically and normalizes whitespace/case', () => {
+            const h1 = hashTranscript("Quick Brown Fox");
+            const h2 = hashTranscript("  quick   brown   fox  ");
+            expect(h1).toBe(h2);
+            expect(typeof h1).toBe('string');
+            expect(h1.length).toBeGreaterThan(0);
+        });
+
+        it('validates transcript hash to detect stale speculative responses', () => {
+            const original = "Let us partition the array with pivot element";
+            const hash = hashTranscript(original);
+
+            // Valid when current matches original
+            expect(validateTranscriptHash(hash, original)).toBe(true);
+            expect(validateTranscriptHash(hash, "  let us   partition the array with pivot element  ")).toBe(true);
+
+            // Stale / invalid when candidate continues speaking or edits answer
+            const edited = "Let us partition the array with pivot element and then recurse on subarrays";
+            expect(validateTranscriptHash(hash, edited)).toBe(false);
+
+            // Works directly with controller object
+            const sac = createSpeculativeAbortController({ transcript: original });
+            expect(validateTranscriptHash(sac, original)).toBe(true);
+            expect(validateTranscriptHash(sac, edited)).toBe(false);
+
+            // Alias isValidTranscriptHash works identically
+            expect(isValidTranscriptHash(hash, original)).toBe(true);
+            expect(isValidTranscriptHash(hash, edited)).toBe(false);
+        });
+    });
+
+    describe('Stage Silence Thresholds & Proactive Thought Starters', () => {
+        it('defines silence thresholds per stage according to plan', () => {
+            expect(STAGE_SILENCE_THRESHOLDS.intake).toBe(12000);
+            expect(STAGE_SILENCE_THRESHOLDS.warmup).toBe(14000);
+            expect(STAGE_SILENCE_THRESHOLDS.technical).toBe(20000);
+            expect(STAGE_SILENCE_THRESHOLDS.coding).toBe(20000);
+            expect(STAGE_SILENCE_THRESHOLDS['system-design']).toBe(22000);
+            expect(STAGE_SILENCE_THRESHOLDS.followup).toBe(14000);
+            expect(STAGE_SILENCE_THRESHOLDS.challenge).toBe(22000);
+        });
+
+        it('resolves stage silence thresholds based on stage label and pacing mode', () => {
+            expect(getStageSilenceThreshold('intake', 'HR')).toBe(12000);
+            expect(getStageSilenceThreshold('Warmup', 'Technical')).toBe(14000);
+            expect(getStageSilenceThreshold('Technical', 'coding')).toBe(20000);
+            expect(getStageSilenceThreshold('System Design', 'system-design')).toBe(22000);
+            expect(getStageSilenceThreshold('Followup', 'behavioral')).toBe(14000);
+            expect(getStageSilenceThreshold('Challenge', 'technical')).toBe(22000);
+
+            // Scales with pacing mode
+            expect(getStageSilenceThreshold('Technical', 'coding', 'relaxed')).toBe(Math.round(20000 * 1.3));
+            expect(getStageSilenceThreshold('Technical', 'coding', 'fast')).toBe(Math.round(20000 * 0.8));
+        });
+
+        it('provides rich structured thought starter templates with guidance bullets for every stage', () => {
+            const stages = ['intake', 'warmup', 'technical', 'coding', 'system-design', 'followup', 'challenge', 'default'];
+            for (const s of stages) {
+                const starter = STAGE_THOUGHT_STARTERS[s];
+                expect(starter).toBeDefined();
+                expect(typeof starter.message).toBe('string');
+                expect(starter.message.length).toBeGreaterThan(15);
+                expect(Array.isArray(starter.bullets)).toBe(true);
+                expect(starter.bullets.length).toBeGreaterThanOrEqual(2);
+            }
         });
     });
 });

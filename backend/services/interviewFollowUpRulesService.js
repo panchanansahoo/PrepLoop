@@ -1,6 +1,17 @@
-import InterviewFollowUpRulesService from './interviewFollowUpRules.ts';
+import InterviewFollowUpRulesService, {
+  detectStarComponents,
+  isStarComplete,
+  computeProgressiveStarGuidance,
+  STAR_PATTERNS,
+} from './interviewFollowUpRules.ts';
 
-// Provide a named export used by aiService.js
-export { InterviewFollowUpRulesService };
+// Provide named exports
+export {
+  InterviewFollowUpRulesService,
+  detectStarComponents,
+  isStarComplete,
+  computeProgressiveStarGuidance,
+  STAR_PATTERNS,
+};
 
 export default InterviewFollowUpRulesService;

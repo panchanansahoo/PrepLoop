@@ -349,33 +349,65 @@ export function getQuestionTimeLimit(stage) {
 // ── Conversational Transitions ──────────────────────────────────────
 // Generates natural, varied interviewer transition phrases so the interviewer
 // feels like an attentive human, avoiding robotic repetitions.
-const HIGH_TRANSITIONS = [
+export const HIGH_TRANSITIONS = [
     "Yeah, that's a really solid answer.",
     "Nice, I like that approach.",
     "Good thinking — that makes a lot of sense.",
     "That's exactly the kind of depth I was looking for.",
-    "Great, you touched on the key points there."
+    "Great, you touched on the key points there.",
+    "Spot on — your reasoning is very clear.",
+    "Excellent breakdown, that covers the core trade-offs nicely.",
+    "Really well articulated, especially on the edge cases.",
+    "Terrific, that demonstrates a strong grasp of the fundamentals.",
+    "Love that insight — exactly right.",
+    "Solid analysis, that shows deep practical intuition.",
+    "Very crisp explanation, right to the point.",
+    "Impressive attention to detail in that walkthrough.",
+    "That's a thorough answer, hits all the right notes.",
+    "Outstanding — clear, structured, and technically sound."
 ];
 
-const MID_TRANSITIONS = [
+export const MID_TRANSITIONS = [
     "Got it, thanks for walking me through that.",
     "Okay, I see where you're going with that.",
     "Alright, fair enough — that gives me good context.",
     "Understood, I appreciate you explaining that.",
-    "Right, okay — let me follow up on that."
+    "Right, okay — let me follow up on that.",
+    "Makes sense — let's look at another angle here.",
+    "Good start — let's take that thought a step further.",
+    "I see the intuition there; let me probe into that slightly.",
+    "Okay, helpful context — let's dig into that detail.",
+    "Fair points — let's see how that holds up under different conditions.",
+    "Understood — let's expand on one aspect of that.",
+    "Got your point — let's explore the practical implications.",
+    "That gives me a solid foundation to ask about next.",
+    "I follow your thinking — let's see where that leads.",
+    "Alright, noted — let's pivot to the next part of the problem."
 ];
 
-const LOW_TRANSITIONS = [
+export const LOW_TRANSITIONS = [
     "Okay, let's try a slightly different angle on this.",
     "Alright, let me rephrase that a bit.",
     "Got it — let's explore this from another direction.",
     "Sure, let's dig into this a bit more.",
-    "Okay, let me ask you about this differently."
+    "Okay, let me ask you about this differently.",
+    "No worries at all — let's step back and look at the bigger picture.",
+    "That's alright — let's break this down into smaller steps.",
+    "Fair enough — let's tackle this from a simpler starting point.",
+    "Understood — let's refocus on the primary requirement here.",
+    "That's completely fine — let me provide a quick hint to guide us.",
+    "Okay, let's pause there and look at an alternative perspective.",
+    "No problem — let's reset and approach this from first principles.",
+    "Got it — let me narrow the scope so we can zoom in.",
+    "Alright, let's see if we can unpack that concept together.",
+    "Fair enough — let's shift focus to another relevant area."
 ];
 
 export function getConversationalTransition(score = 70, stage = 'Technical', questionIndex = 1, sessionOrOptions = null) {
     const list = score >= 80 ? HIGH_TRANSITIONS : (score >= 60 ? MID_TRANSITIONS : LOW_TRANSITIONS);
     let sessionOffset = 0;
+    let recentTransitions = null;
+
     if (typeof sessionOrOptions === 'number' && Number.isFinite(sessionOrOptions)) {
         sessionOffset = Math.abs(Math.floor(sessionOrOptions));
     } else if (typeof sessionOrOptions === 'string' && sessionOrOptions.length > 0) {
@@ -395,9 +427,55 @@ export function getConversationalTransition(score = 70, stage = 'Technical', que
             }
             sessionOffset = Math.abs(hash);
         }
+        recentTransitions = sessionOrOptions.recentTransitions || sessionOrOptions.lruHistory || null;
     }
-    const index = Math.abs(questionIndex + Math.round(score) + sessionOffset) % list.length;
-    return list[index];
+
+    const baseIndex = Math.abs(questionIndex + Math.round(score) + sessionOffset) % list.length;
+    let chosenPhrase = list[baseIndex];
+
+    if (recentTransitions) {
+        const historyArray = Array.isArray(recentTransitions)
+            ? recentTransitions
+            : (recentTransitions instanceof Set ? Array.from(recentTransitions) : []);
+        const historySet = new Set(historyArray);
+
+        // Try to pick the first candidate starting from baseIndex that was not recently used
+        let foundUnused = false;
+        for (let i = 0; i < list.length; i++) {
+            const candidate = list[(baseIndex + i) % list.length];
+            if (!historySet.has(candidate)) {
+                chosenPhrase = candidate;
+                foundUnused = true;
+                break;
+            }
+        }
+
+        // If all phrases in the pool have been used, pick the least recently used one
+        if (!foundUnused && historyArray.length > 0) {
+            let oldestIndex = Infinity;
+            let oldestCandidate = chosenPhrase;
+            for (const candidate of list) {
+                const lastIdx = historyArray.lastIndexOf(candidate);
+                if (lastIdx < oldestIndex) {
+                    oldestIndex = lastIdx;
+                    oldestCandidate = candidate;
+                }
+            }
+            chosenPhrase = oldestCandidate;
+        }
+
+        // Update tracking history if mutable
+        if (Array.isArray(recentTransitions)) {
+            recentTransitions.push(chosenPhrase);
+            if (recentTransitions.length > 30) {
+                recentTransitions.shift();
+            }
+        } else if (typeof recentTransitions.add === 'function') {
+            recentTransitions.add(chosenPhrase);
+        }
+    }
+
+    return chosenPhrase;
 }
 
 
@@ -439,12 +517,170 @@ export function getModeConfig(mode = 'realistic') {
     return PACING_MODES[mode] || PACING_MODES.realistic;
 }
 
+// ── Stage Silence Thresholds & Proactive Thought Starters ──────────
+export const STAGE_SILENCE_THRESHOLDS = {
+    intake: 12000,
+    warmup: 14000,
+    technical: 20000,
+    coding: 20000,
+    dsa: 20000,
+    'system-design': 22000,
+    followup: 14000,
+    challenge: 22000,
+    default: 15000,
+};
+
+export function getStageSilenceThreshold(stage = '', interviewType = '', pacingMode = 'realistic') {
+    const norm = String(stage || interviewType || '').toLowerCase();
+    let baseMs = STAGE_SILENCE_THRESHOLDS.default;
+    if (norm.includes('intake')) baseMs = STAGE_SILENCE_THRESHOLDS.intake;
+    else if (norm.includes('warmup') || norm.includes('warm-up')) baseMs = STAGE_SILENCE_THRESHOLDS.warmup;
+    else if (norm.includes('challenge')) baseMs = STAGE_SILENCE_THRESHOLDS.challenge;
+    else if (norm.includes('followup') || norm.includes('follow-up')) baseMs = STAGE_SILENCE_THRESHOLDS.followup;
+    else if (norm.includes('system') || norm.includes('design')) baseMs = STAGE_SILENCE_THRESHOLDS['system-design'];
+    else if (norm.includes('coding') || norm.includes('dsa')) baseMs = STAGE_SILENCE_THRESHOLDS.coding;
+    else if (norm.includes('technical') || norm.includes('tech')) baseMs = STAGE_SILENCE_THRESHOLDS.technical;
+
+    if (pacingMode === 'relaxed') return Math.round(baseMs * 1.3);
+    if (pacingMode === 'fast') return Math.round(baseMs * 0.8);
+    return baseMs;
+}
+
+// ── Real-Time Speaking Pace Coach Evaluation ─────────────────────────
+export function evaluateSpeakingPace({ wordCount = 0, durationSecs = 0, isListening = true } = {}) {
+    if (!isListening || durationSecs < 3) return null;
+    const minutes = durationSecs / 60;
+    const wpm = minutes > 0 && wordCount >= 2 ? Math.round(wordCount / minutes) : null;
+
+    // Sparse / terse detection: candidate microphone active for >= 10s but gave very short answer (<= 7 words)
+    if (durationSecs >= 10 && wordCount > 0 && wordCount <= 7) {
+        return {
+            status: 'sparse',
+            label: 'Elaborate',
+            message: 'Brief response — feel free to elaborate with an example or trade-offs',
+            wpm,
+        };
+    }
+
+    if (wpm == null) return null;
+
+    if (wpm > 175) {
+        return {
+            status: 'fast',
+            label: 'Too fast',
+            message: 'Pacing fast — slow down slightly so your points land clearly',
+            wpm,
+        };
+    }
+    if (wpm > 160) {
+        return {
+            status: 'fast',
+            label: 'Brisk pace',
+            message: 'Good tempo — consider pausing between key thoughts',
+            wpm,
+        };
+    }
+    if (wpm < 95 && wordCount >= 6) {
+        return {
+            status: 'slow',
+            label: 'Too slow',
+            message: 'Pacing slow — pick up momentum to cover your full solution',
+            wpm,
+        };
+    }
+    if (wpm < 115 && wordCount >= 6) {
+        return {
+            status: 'slow',
+            label: 'Deliberate',
+            message: 'Deliberate tempo — feel free to pick up momentum',
+            wpm,
+        };
+    }
+    return {
+        status: 'good',
+        label: 'Optimal pace',
+        message: 'Optimal pace — clear, steady, and easy to follow',
+        wpm,
+    };
+}
+
+export const STAGE_THOUGHT_STARTERS = {
+    intake: {
+        message: "Start with a 1-minute snapshot: your background, current focus, and what drew you to this opportunity.",
+        bullets: [
+            "Brief introduction and current role or university background",
+            "Key technical strengths and primary tech stack",
+            "Why this company and role excite you",
+        ],
+    },
+    warmup: {
+        message: "Anchor your response in a real project you've worked on recently.",
+        bullets: [
+            "What was the goal of the project?",
+            "What was your individual contribution?",
+            "What was the outcome or takeaway?",
+        ],
+    },
+    technical: {
+        message: "Break the problem down step by step before diving into code or implementation.",
+        bullets: [
+            "Clarify input formats, constraints, and edge cases",
+            "Mention a simple brute-force approach first",
+            "Identify optimal data structure (e.g. Hash Map, Two Pointers, Heap)",
+        ],
+    },
+    coding: {
+        message: "Start by articulating your approach and edge cases before writing code.",
+        bullets: [
+            "Consider edge cases: empty input, duplicates, single element",
+            "State target time & space complexity",
+            "Walk through a quick 2-element example",
+        ],
+    },
+    'system-design': {
+        message: "Start by scoping requirements and high-level architectural components.",
+        bullets: [
+            "Scope functional requirements (read vs write paths)",
+            "Estimate scale & throughput (QPS, storage)",
+            "Outline core components: API gateway, database, cache",
+        ],
+    },
+    followup: {
+        message: "Structure your follow-up using the STAR framework to keep it concrete.",
+        bullets: [
+            "Situation & Task: context and challenge you faced",
+            "Action: technical decisions and trade-offs you made",
+            "Result: measurable impact (latency, throughput, user metrics)",
+        ],
+    },
+    challenge: {
+        message: "Think through system limits and bottleneck failure modes under extreme load.",
+        bullets: [
+            "Identify the single point of failure or bottleneck",
+            "Evaluate trade-offs between consistency, availability, and latency",
+            "Propose mitigation (sharding, caching, queue backpressure)",
+        ],
+    },
+    default: {
+        message: "Take a moment to structure your thoughts: state your approach, then walk through your reasoning.",
+        bullets: [
+            "Clarify any assumptions",
+            "Outline your core approach or architecture",
+            "Discuss trade-offs and alternative solutions",
+        ],
+    },
+};
+
 // ── P0-A Answer Classification Heuristics ───────────────────────────
 export const DONT_KNOW_REGEX = /\b(?:i\s*(?:don'?t|do\s*not)(?:\s+(?:really|actually|quite))?\s*know|not\s+(?:sure|quite\s+sure|certain|familiar)|no\s+idea|haven'?t\s+used|don'?t\s+remember|do\s*not\s+remember|can'?t\s+recall|cannot\s+recall|do\s*not\s+recall|don'?t\s+recall|no\s+clue|haven'?t\s+(?:implemented|worked)|have\s+not\s+(?:implemented|worked)|not\s+(?:very\s+)?familiar|blanking\s+on|drawing\s+a\s+blank|look\s+that\s+up|haven'?t\s+encountered|pass\s+on\s+this|not\s+sure\s+how\s+to\s+approach|skip\s+this\s+question)\b/i;
 
 export const CLARIFICATION_REGEX = /^(?:could\s+you|can\s+you|can\s+we|are\s+we|should\s+this|does\s+the|can\s+it|do\s+you\s+mean|what\s+do\s+you\s+mean|would\s+you|repeat|please\s+clarify|could\s+you\s+repeat|could\s+you\s+explain|what\s+are\s+the\s+constraints|what\s+is\s+the\s+expected\s+input|can\s+i\s+assume|should\s+i\s+assume)\b/i;
 
 export const OFF_TOPIC_REGEX = /\b(?:hiking|crypto|bitcoin|ethereum|laptop\s+battery|professor\s+was|vacation|weather|order\s+pizza|sports\s+score)\b/i;
+
+export const NON_LATIN_SCRIPT_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Devanagari}\p{Script=Hebrew}\p{Script=Thai}\p{Script=Bengali}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Greek}]/u;
+
+export const CONTRADICTORY_FACT_REGEX = /(?:\bqueues?\s+(?:is|are)\s+(?:a\s+)?lifo\b|\bqueues?\s+(?:is|are)\s+last\s+in\s+first\s+out\b|\bstacks?\s+(?:is|are)\s+(?:a\s+)?fifo\b|\bstacks?\s+(?:is|are)\s+first\s+in\s+first\s+out\b|\b(?:hash\s*map|hash\s*table|hashmap)\b[^.!?\n]{0,40}?\b(?:lookup|search|access|takes|has|is)\b[^.!?\n]{0,20}?o\(n\^2\)|\b(?:binary\s+search)\b[^.!?\n]{0,40}?\b(?:takes|is|has|complexity)\b[^.!?\n]{0,20}?o\(n\^2\)|\barrays?\s+(?:has|allows?)\s+o\(1\)\s+(?:arbitrary\s+insertion|insert\s+at\s+index)|\b(?:http|https)\s+is\s+(?:a\s+)?(?:(?:layer\s*4\s+)?transport|layer\s*4)\s+protocol\b|\b(?:tcp|udp)\s+is\s+(?:a\s+)?(?:(?:layer\s*7\s+)?application|layer\s*7)\s+protocol\b)/i;
 
 /**
  * Classifies candidate answers into distinct turn routing categories:
@@ -458,6 +694,8 @@ export const OFF_TOPIC_REGEX = /\b(?:hiking|crypto|bitcoin|ethereum|laptop\s+bat
  * - 'repeated'
  * - 'strong_complete'
  * - 'wrong'
+ * - 'verbose_shallow'
+ * - 'needs_translation'
  * - 'partial' (accurate fallback, not blind default)
  */
 export function classifyCandidateAnswer(answerText = '', options = {}) {
@@ -466,25 +704,40 @@ export function classifyCandidateAnswer(answerText = '', options = {}) {
         meta = {},
         isAutoSkip = false,
         previousAnswers = [],
+        returnDetails = false,
     } = options;
-
-    if (meta?.answerType) {
-        return meta.answerType;
-    }
-
-    if (meta?.submissionType === 'voluntary_skip' || (isAutoSkip && meta?.reason === 'user_skipped')) {
-        return 'skipped';
-    }
 
     const trimmedText = String(answerText || '').trim();
     const trimmedCode = String(code || '').trim();
 
+    function wrapResult(type, confidence = 0.85, details = {}) {
+        if (returnDetails) {
+            return {
+                type,
+                confidence: Number(confidence.toFixed(2)),
+                details: {
+                    ...details,
+                    wordCount: details.wordCount ?? (trimmedText ? trimmedText.split(/\s+/).filter(Boolean).length : 0),
+                },
+            };
+        }
+        return type;
+    }
+
+    if (meta?.answerType) {
+        return wrapResult(meta.answerType, 1.0, { reason: 'Explicit meta answerType' });
+    }
+
+    if (meta?.submissionType === 'voluntary_skip' || (isAutoSkip && meta?.reason === 'user_skipped')) {
+        return wrapResult('skipped', 1.0, { reason: 'User explicitly skipped question' });
+    }
+
     if (meta?.submissionType === 'timeout_empty' || (isAutoSkip && !trimmedText && meta?.reason === 'silence_timeout')) {
-        return 'stuck_silence';
+        return wrapResult('stuck_silence', 0.95, { reason: 'Silence timeout with no answer' });
     }
 
     if (meta?.submissionType === 'timeout_partial' || meta?.answerType === 'timed_out') {
-        return 'timed_out';
+        return wrapResult('timed_out', 0.95, { reason: 'Answer timed out' });
     }
 
     const isDefaultNoResponse = !trimmedText ||
@@ -492,35 +745,66 @@ export function classifyCandidateAnswer(answerText = '', options = {}) {
         trimmedText === '[Code submitted]';
 
     if (isDefaultNoResponse && trimmedCode.length > 0) {
-        return 'code_only';
+        return wrapResult('code_only', 0.9, { codeLength: trimmedCode.length });
     }
 
     if (isDefaultNoResponse) {
-        return isAutoSkip ? 'stuck_silence' : 'partial';
+        return wrapResult(isAutoSkip ? 'stuck_silence' : 'partial', 0.8, { reason: 'No response submitted' });
+    }
+
+    // Check for unexpected / non-Latin scripts requiring translation
+    if (NON_LATIN_SCRIPT_REGEX.test(trimmedText)) {
+        return wrapResult('needs_translation', 0.95, {
+            reason: 'Non-Latin or unexpected script text detected',
+        });
     }
 
     // Clarification question
     if (CLARIFICATION_REGEX.test(trimmedText) || (trimmedText.endsWith('?') && /\b(clarify|repeat|constraints?|rephrase|mean by)\b/i.test(trimmedText))) {
-        return 'clarification';
+        return wrapResult('clarification', 0.9, { reason: 'Candidate requested clarification' });
     }
 
     // Don't know / surrender / pass
     if (DONT_KNOW_REGEX.test(trimmedText)) {
-        return 'dont_know';
+        return wrapResult('dont_know', 0.95, { reason: 'Candidate expressed uncertainty or surrender' });
     }
 
     // Off-topic response
     if (OFF_TOPIC_REGEX.test(trimmedText)) {
-        return 'off_topic';
+        return wrapResult('off_topic', 0.9, { reason: 'Response is off-topic' });
     }
 
-    // Explicit wrong marking in meta
-    if (meta?.isWrong === true) {
-        return 'wrong';
+    // Explicit wrong marking in meta or contradicting explicit facts
+    const lower = trimmedText.toLowerCase();
+    const matchesContradictionList = (list) => {
+        if (!Array.isArray(list)) return false;
+        return list.some(item => {
+            if (!item) return false;
+            if (item instanceof RegExp) return item.test(trimmedText);
+            const str = String(item).toLowerCase().trim();
+            if (lower.includes(str)) return true;
+            const words = str.split(/\s+/).filter(Boolean);
+            return words.length > 1 && words.every(w => lower.includes(w));
+        });
+    };
+
+    const contradictsFacts =
+        meta?.isWrong === true ||
+        meta?.contradictsFacts === true ||
+        meta?.isFactuallyIncorrect === true ||
+        options?.isWrong === true ||
+        options?.contradictsFacts === true ||
+        options?.isFactuallyIncorrect === true ||
+        CONTRADICTORY_FACT_REGEX.test(trimmedText) ||
+        matchesContradictionList(options?.factualContradictions) ||
+        matchesContradictionList(meta?.factualContradictions) ||
+        matchesContradictionList(options?.contradictions);
+
+    if (contradictsFacts) {
+        return wrapResult('wrong', 0.9, { reason: 'Contradicts explicit facts' });
     }
 
     // Repeated answer detection
-    const lower = trimmedText.toLowerCase();
     if (Array.isArray(previousAnswers) && previousAnswers.length > 0) {
         const isRepeated = previousAnswers.some(prev => {
             if (!prev || typeof prev !== 'string') return false;
@@ -528,21 +812,40 @@ export function classifyCandidateAnswer(answerText = '', options = {}) {
             return prevLower.length > 15 && (prevLower === lower || (lower.length > 25 && prevLower.includes(lower)) || (prevLower.length > 25 && lower.includes(prevLower)));
         });
         if (isRepeated || /\b(?:as\s+i\s+(?:already\s+)?(?:said|mentioned)|like\s+i\s+said\s+before|i\s+already\s+answered)\b/i.test(lower)) {
-            return 'repeated';
+            return wrapResult('repeated', 0.9, { reason: 'Candidate repeated previous answer' });
         }
     }
 
-    // Substantive complete answer with depth, trade-offs, or structure
     const words = trimmedText.split(/\s+/).filter(Boolean);
-    const hasTechnicalKeywords = TECHNICAL_KEYWORDS.some(kw => lower.includes(kw));
-    const hasTradeOffs = /\b(trade-off|tradeoff|complexity|O\([1nlog\s]+\)|in terms of space|in terms of time|bottleneck|scalab|edge case)\b/i.test(trimmedText);
-    const hasStructure = /\b(first(?:ly)?|second(?:ly)?|finally|situation|task|action|result)\b/i.test(trimmedText);
+    const techHits = countKeywordHits(trimmedText);
+    const structBonus = detectStructureBonus(trimmedText);
+    const hasStructurePattern = /\b(first(?:ly)?|second(?:ly)?|finally|situation|task|action|result)\b/i.test(trimmedText);
+    const hasStructure = structBonus > 0 || hasStructurePattern;
 
-    if (words.length >= 35 || (words.length >= 12 && (hasTradeOffs || hasStructure || hasTechnicalKeywords) && (trimmedCode.length > 0 || hasTradeOffs))) {
-        return 'strong_complete';
+    // Verbose shallow detection: wordCount >= 70 with <= 1 technical keyword hit and no structure
+    if (words.length >= 70 && techHits <= 1 && !hasStructure) {
+        return wrapResult('verbose_shallow', 0.85, {
+            reason: 'Verbose answer lacking technical substance and structure',
+            wordCount: words.length,
+            techKeywordHits: techHits,
+            hasStructure: false,
+        });
     }
 
-    return 'partial';
+    // Substantive complete answer with depth, trade-offs, or structure
+    const hasTechnicalKeywords = TECHNICAL_KEYWORDS.some(kw => lower.includes(kw));
+    const hasTradeOffs = /\b(trade-off|tradeoff|complexity|O\([1nlog\s]+\)|in terms of space|in terms of time|bottleneck|scalab|edge case)\b/i.test(trimmedText);
+
+    if (words.length >= 35 || (words.length >= 12 && (hasTradeOffs || hasStructure || hasTechnicalKeywords) && (trimmedCode.length > 0 || hasTradeOffs))) {
+        return wrapResult('strong_complete', 0.9, {
+            wordCount: words.length,
+            hasTechnicalKeywords,
+            hasTradeOffs,
+            hasStructure,
+        });
+    }
+
+    return wrapResult('partial', 0.75, { wordCount: words.length });
 }
 
 // ── Turn Routing Decision Engine ───────────────────────────────────
@@ -741,6 +1044,39 @@ export function decideNextTurnAction({
         };
     }
 
+    // verbose_shallow: candidate spoke a lot of words without technical substance or structure
+    if (answerType === 'verbose_shallow') {
+        if (topicFollowUpCount < 1) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: true,
+                noScore: false,
+                neutralReaction: true,
+                promptCue: 'Can you focus specifically on the concrete technical implementation and trade-offs?',
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: true,
+            noScore: false,
+            neutralReaction: true,
+        };
+    }
+
+    // needs_translation: non-Latin or unexpected script text detected
+    if (answerType === 'needs_translation') {
+        return {
+            action: 'follow_up',
+            nextTopicFollowUpCount: topicFollowUpCount,
+            needsRedirect: true,
+            noScore: true,
+            neutralReaction: true,
+            promptCue: 'Please respond in English so we can evaluate your response.',
+        };
+    }
+
     // Fallback: unrecognized answerType → move to next question
     return {
         action: 'next_question',
@@ -872,14 +1208,35 @@ export function isFinishedTurn(text = '') {
     return hasPunctuation && words.length >= 4 && !isUnfinishedTurn(trimmed);
 }
 
+export const CONSECUTIVE_SILENT_THRESHOLD = 3;
+
+export function isConsecutiveSilenceLimitReached(count = 0) {
+    return Number(count) >= CONSECUTIVE_SILENT_THRESHOLD;
+}
+
 // ── Semantic Silence & Turn-Taking Threshold Engine ────────────────
 // Scales required silence duration based on interview stage and word count.
 // Uses adaptive silence (1.5s - 3.6s cap), the filler allowance, and the 2s resume window.
-export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0, text = '', candidatePacingOffset = 0, isCodingActive = false } = {}) {
+export function getSemanticSilenceThreshold({
+    stage = 'Technical',
+    wordCount = 0,
+    text = '',
+    candidatePacingOffset = 0,
+    isCodingActive = false,
+    lastKeystrokeTimestamp = null,
+    keystrokeActiveTime = 2000,
+    confidence = null,
+} = {}) {
     const trimmed = String(text || '').trim();
 
-    // Definitively finished turns trigger immediate snappy 1500ms submission
-    if (isFinishedTurn(trimmed) && !isCodingActive) {
+    const activeWindow = Number.isFinite(keystrokeActiveTime) && keystrokeActiveTime > 0 ? keystrokeActiveTime : 2000;
+    const hasRecentKeystroke = Number.isFinite(lastKeystrokeTimestamp) &&
+        (Date.now() - lastKeystrokeTimestamp >= -500) &&
+        (Date.now() - lastKeystrokeTimestamp < activeWindow);
+
+    // Definitively finished turns trigger immediate snappy 1500ms submission,
+    // unless candidate is actively coding or typing
+    if (isFinishedTurn(trimmed) && !isCodingActive && !hasRecentKeystroke) {
         return 1500;
     }
 
@@ -890,8 +1247,16 @@ export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0
     const isMidList = /(?:\b(?:firstly|first|secondly|second|third|also|additionally|plus)\b[^.!?]*$|,\s*$)/i.test(trimmed);
     const listMomentumBonus = isMidList ? 500 : 0;
 
+    // Substantive pause tolerance: if candidate has articulated a substantial answer (>25 words)
+    // and paused with a hanging connector or comma, grant extra thinking buffer (+800ms)
+    const midThoughtBonus = (wordCount >= 25 && isUnfinishedTurn(trimmed)) ? 800 : 0;
+
+    // Low confidence speech buffer: give candidate extra 500ms before auto-submitting unclear speech
+    const lowConfidenceBonus = (Number.isFinite(confidence) && confidence > 0 && confidence < 0.75 && wordCount < 10) ? 500 : 0;
+
     // Active coding/typing buffer: allows thought and typing without auto-submitting
     const codingBonus = isCodingActive ? 1400 : 0;
+    const keystrokeBonus = hasRecentKeystroke ? 2000 : 0;
 
     const baseOffset = Number.isFinite(candidatePacingOffset) ? candidatePacingOffset : 0;
     // Clamp individual pacing offset to [-300ms, +500ms]
@@ -909,8 +1274,96 @@ export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0
         threshold = wordCount < 10 ? 2200 : 1800;
     }
 
-    // Clamped up to 3600ms for voice-only, or 5000ms when candidate is actively coding
-    const maxThreshold = isCodingActive ? 5000 : 3600;
-    const totalBonus = Math.max(fillerBonus, unfinishedBonus, listMomentumBonus, codingBonus);
+    // Clamped up to 3600ms for voice-only (or 4200ms with mid-thought/low-confidence), or 5000ms when candidate is actively coding or typing
+    const maxThreshold = (isCodingActive || hasRecentKeystroke) ? 5000 : (midThoughtBonus > 0 || lowConfidenceBonus > 0 ? 4200 : 3600);
+    const totalBonus = Math.max(fillerBonus, unfinishedBonus, listMomentumBonus, codingBonus, keystrokeBonus) + midThoughtBonus + lowConfidenceBonus;
     return Math.min(maxThreshold, Math.max(1500, threshold + totalBonus + clampedOffset));
 }
+
+// ── Speculative Abort Controller Utilities & Transcript Hash Validator ──
+export function hashTranscript(transcript = '') {
+    const normalized = String(transcript || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    let hash = 2166136261;
+    for (let i = 0; i < normalized.length; i++) {
+        hash ^= normalized.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+}
+
+export function createSpeculativeAbortController(options = {}) {
+    const controller = new AbortController();
+    const transcript = typeof options === 'string' ? options : (options?.transcript || '');
+    const hash = options?.hash || (transcript ? hashTranscript(transcript) : null);
+    const id = options?.id || options?.requestId || `spec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    return {
+        id,
+        controller,
+        signal: controller.signal,
+        transcript,
+        hash,
+        createdAt: Date.now(),
+        isAborted: false,
+        abort(reason = 'speculative_aborted') {
+            if (!this.isAborted) {
+                this.isAborted = true;
+                try {
+                    controller.abort(reason);
+                } catch {
+                    // Ignore already aborted
+                }
+            }
+        },
+    };
+}
+
+export function abortSpeculativeRequest(controllerOrHolder, reason = 'speculative_aborted') {
+    if (!controllerOrHolder) return false;
+    try {
+        if (typeof controllerOrHolder.abort === 'function') {
+            controllerOrHolder.abort(reason);
+            if ('isAborted' in controllerOrHolder) {
+                controllerOrHolder.isAborted = true;
+            }
+            return true;
+        }
+        if (controllerOrHolder.controller && typeof controllerOrHolder.controller.abort === 'function') {
+            controllerOrHolder.controller.abort(reason);
+            controllerOrHolder.isAborted = true;
+            return true;
+        }
+        if (controllerOrHolder.current) {
+            return abortSpeculativeRequest(controllerOrHolder.current, reason);
+        }
+    } catch {
+        return false;
+    }
+    return false;
+}
+
+export function validateTranscriptHash(expectedHashOrObj, currentTranscriptOrHash) {
+    if (!expectedHashOrObj || !currentTranscriptOrHash) return false;
+    const expectedHash = typeof expectedHashOrObj === 'object' && expectedHashOrObj !== null
+        ? (expectedHashOrObj.hash || expectedHashOrObj.transcriptHash || (expectedHashOrObj.transcript ? hashTranscript(expectedHashOrObj.transcript) : ''))
+        : String(expectedHashOrObj);
+
+    if (!expectedHash) return false;
+
+    let currentHash;
+    if (typeof currentTranscriptOrHash === 'object' && currentTranscriptOrHash !== null) {
+        currentHash = currentTranscriptOrHash.hash || currentTranscriptOrHash.transcriptHash || (currentTranscriptOrHash.transcript ? hashTranscript(currentTranscriptOrHash.transcript) : '');
+    } else {
+        const str = String(currentTranscriptOrHash).trim();
+        // If already a hex hash string (1-8 chars, no spaces)
+        if (/^[0-9a-f]{1,8}$/i.test(str) && !str.includes(' ')) {
+            currentHash = str.toLowerCase();
+        } else {
+            currentHash = hashTranscript(str);
+        }
+    }
+
+    return String(expectedHash).trim().toLowerCase() === String(currentHash).trim().toLowerCase();
+}
+
+export const isValidTranscriptHash = validateTranscriptHash;

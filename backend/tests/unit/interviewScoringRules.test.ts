@@ -42,10 +42,11 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
   });
 
   it('gates fresher bonus on having at least 2 valid metrics (scoringConfidence >= 0.67)', () => {
-    // 1 metric: fresher bonus should NOT be applied
+    // 1 metric: fresher bonus should NOT be applied, lowConfidenceScore flagged
     const sparseAnalysis = { metrics: { communication: 60 } };
     const sparseResult = InterviewScoringService.calculateRollingScores(sparseAnalysis, [], 'dsa', 'fresher');
     expect(sparseResult.scoringConfidence).toBe(0.33);
+    expect(sparseResult.lowConfidenceScore).toBe(true);
     expect(sparseResult.fresherBonusApplied).toBe(false);
     expect(sparseResult.communication).toBe(6.0);
     expect(sparseResult.problem_solving).toBeNull();
@@ -55,10 +56,36 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
     const adequateAnalysis = { metrics: { communication: 60, problemDecomposition: 65 } };
     const adequateResult = InterviewScoringService.calculateRollingScores(adequateAnalysis, [], 'dsa', 'fresher');
     expect(adequateResult.scoringConfidence).toBe(0.67);
+    expect(adequateResult.lowConfidenceScore).toBe(false);
     expect(adequateResult.fresherBonusApplied).toBe(true);
     expect(adequateResult.communication).toBe(6.0);
     expect(adequateResult.problem_solving).toBe(6.5);
     expect(adequateResult.technical_depth).toBeNull();
+  });
+
+  it('caps overall score at 70 and sets lowConfidenceScore when scoringConfidence < 0.67', () => {
+    const singleMetricAnalysis = { metrics: { communication: 95 } };
+    const result = InterviewScoringService.calculateRollingScores(singleMetricAnalysis, [], 'dsa');
+    expect(result.scoringConfidence).toBe(0.33);
+    expect(result.lowConfidenceScore).toBe(true);
+    // Overall capped at 70 / 10 = 7.0
+    expect(result.overall).toBe(7.0);
+  });
+
+  it('enforces cross-dimensional floor: caps overall at max(dimension_scores) if any dimension < 30', () => {
+    // If dimensions are [20, 25, 25], max is 25, overall must not exceed 2.5
+    const lowDimsAnalysis = {
+      metrics: { communication: 20, problemDecomposition: 25, efficiency: 25 },
+    };
+    const result = InterviewScoringService.calculateRollingScores(lowDimsAnalysis, [], 'dsa');
+    expect(result.overall).toBeLessThanOrEqual(2.5);
+
+    // If one dimension is 20, but max is 60, overall is capped at 6.0
+    const mixedDimsAnalysis = {
+      metrics: { communication: 20, problemDecomposition: 60, efficiency: 60 },
+    };
+    const mixedResult = InterviewScoringService.calculateRollingScores(mixedDimsAnalysis, [], 'dsa');
+    expect(mixedResult.overall).toBeLessThanOrEqual(6.0);
   });
 
   it('replaces || 65 fallback with ?? null and propagates unscored status when all dimensions are null', () => {
@@ -209,21 +236,78 @@ describe('Interview Scoring & Adaptive Difficulty Rules', () => {
     it('filters completed sessions by matching interview type when supplied', () => {
       const mixedTypeSessions = [
         { score: 90, difficulty: 'medium', interview_type: 'dsa' },
+        { score: 85, difficulty: 'medium', interview_type: 'dsa' },
         { score: 40, difficulty: 'medium', interview_type: 'behavioral' },
       ];
 
-      // Matching 'dsa' averages 90 -> hard
+      // Matching 'dsa' (2 completed sessions) averages 87.5 -> hard
       expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'dsa')).toBe('hard');
 
       // Matching 'behavioral' averages 40 -> easy
       expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'behavioral')).toBe('easy');
 
-      // Unmatched type 'system-design' falls back to overall average (65) -> medium
+      // Unmatched type 'system-design' falls back to overall average (71.7) -> medium
       expect(deriveStartingDifficulty(mixedTypeSessions, 'medium', 'system-design')).toBe('medium');
     });
 
+    it('requires at least 2 completed sessions before escalating starting difficulty to "hard"', () => {
+      // Single completed session with >= 80 does not escalate to hard
+      const singleSession = [{ score: 95, difficulty: 'medium' }];
+      expect(deriveStartingDifficulty(singleSession, 'medium')).toBe('medium');
+
+      // Two completed sessions with average >= 80 escalate to hard
+      const twoSessions = [
+        { score: 85, difficulty: 'medium' },
+        { score: 88, difficulty: 'medium' },
+      ];
+      expect(deriveStartingDifficulty(twoSessions, 'medium')).toBe('hard');
+    });
+
+    it('discounts difficulty by one tier when recent sessions contain >= 2 abandoned sessions', () => {
+      // 2 high scoring sessions that would normally escalate to hard, but 2 abandoned sessions discount to medium
+      const sessionsWithAbandoned = [
+        { score: 90, difficulty: 'medium' },
+        { score: 90, difficulty: 'medium' },
+        { status: 'abandoned' },
+        { status: 'abandoned' },
+      ];
+      expect(deriveStartingDifficulty(sessionsWithAbandoned, 'medium')).toBe('medium');
+
+      // Preferred medium with 2 abandoned sessions discounts to easy
+      const abandonedOnly = [
+        { status: 'abandoned' },
+        { status: 'abandoned' },
+      ];
+      expect(deriveStartingDifficulty(abandonedOnly, 'medium')).toBe('easy');
+
+      // 1 abandoned session does not discount
+      const singleAbandoned = [
+        { score: 85, difficulty: 'medium' },
+        { score: 85, difficulty: 'medium' },
+        { status: 'abandoned' },
+      ];
+      expect(deriveStartingDifficulty(singleAbandoned, 'medium')).toBe('hard');
+    });
+
+    it('applies 2x recency weighting on the last 3 sessions', () => {
+      // 4 sessions: session 0 has weight 1, sessions 1-3 have weight 2
+      // [40, 85, 90, 85]
+      // Unweighted average: (40 + 85 + 90 + 85) / 4 = 75 (< 80)
+      // Weighted average: (40*1 + 85*2 + 90*2 + 85*2) / 7 = 560 / 7 = 80 (>= 80 -> hard)
+      const sessions = [
+        { score: 40, difficulty: 'medium' },
+        { score: 85, difficulty: 'medium' },
+        { score: 90, difficulty: 'medium' },
+        { score: 85, difficulty: 'medium' },
+      ];
+      expect(deriveStartingDifficulty(sessions, 'medium')).toBe('hard');
+    });
+
     it('works as a static method on InterviewScoringService', () => {
-      const sessions = [{ score: 85, difficulty: 'medium' }];
+      const sessions = [
+        { score: 85, difficulty: 'medium' },
+        { score: 85, difficulty: 'medium' },
+      ];
       expect(InterviewScoringService.deriveStartingDifficulty(sessions, 'medium')).toBe('hard');
     });
   });

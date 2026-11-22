@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getThinkingDelayMs, getQuestionTimeLimit } from './aiInterviewTiming';
+import { getThinkingDelayMs, getQuestionTimeLimit, evaluateSpeakingPace } from './aiInterviewTiming';
 import { shouldAutoSubmitAnswer, getAdaptiveSilenceMs } from '../hooks/useVoiceAI';
 
 describe('AI interview timing helpers', () => {
@@ -11,6 +11,46 @@ describe('AI interview timing helpers', () => {
 
   it('returns known stage timing', () => {
     expect(getQuestionTimeLimit('Technical')).toBe(90);
+  });
+});
+
+describe('Real-time Speaking Pace Coach evaluation', () => {
+  it('returns null if not listening or under minimum 3 seconds', () => {
+    expect(evaluateSpeakingPace({ isListening: false })).toBeNull();
+    expect(evaluateSpeakingPace({ durationSecs: 2, isListening: true })).toBeNull();
+  });
+
+  it('detects optimal speaking pace (120-160 WPM)', () => {
+    // 70 words in 30 seconds = 140 WPM
+    const coach = evaluateSpeakingPace({ wordCount: 70, durationSecs: 30, isListening: true });
+    expect(coach).toBeDefined();
+    expect(coach.status).toBe('good');
+    expect(coach.label).toBe('Optimal pace');
+    expect(coach.wpm).toBe(140);
+  });
+
+  it('detects fast speaking pace (>165 WPM) and offers gentle slowing nudge', () => {
+    // 100 words in 30 seconds = 200 WPM
+    const coach = evaluateSpeakingPace({ wordCount: 100, durationSecs: 30, isListening: true });
+    expect(coach).toBeDefined();
+    expect(coach.status).toBe('fast');
+    expect(coach.message).toMatch(/slow down slightly/i);
+  });
+
+  it('detects slow speaking pace (<100 WPM) and offers gentle momentum nudge', () => {
+    // 25 words in 20 seconds = 75 WPM
+    const coach = evaluateSpeakingPace({ wordCount: 25, durationSecs: 20, isListening: true });
+    expect(coach).toBeDefined();
+    expect(coach.status).toBe('slow');
+    expect(coach.message).toMatch(/pick up momentum/i);
+  });
+
+  it('detects sparse/terse responses (>10s active with <=7 words) and nudges elaboration', () => {
+    const coach = evaluateSpeakingPace({ wordCount: 4, durationSecs: 14, isListening: true });
+    expect(coach).toBeDefined();
+    expect(coach.status).toBe('sparse');
+    expect(coach.label).toBe('Elaborate');
+    expect(coach.message).toMatch(/elaborate with an example/i);
   });
 });
 

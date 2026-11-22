@@ -47,6 +47,7 @@ export interface RollingScoresResult {
   isUnscored?: boolean;
   metricsMissing?: boolean;
   scoringConfidence?: number;
+  lowConfidenceScore?: boolean;
   fresherBonusApplied?: boolean;
   scoringAnomalyDetected?: boolean;
   maxDimensionSpread?: number;
@@ -123,6 +124,13 @@ export type FollowUpBranchReason =
   | 'shallow_explanation'
   | string;
 
+export interface ProgressiveCoachingPayload {
+  phase: 'scene_setting' | 'personal_contribution' | 'outcome_metrics' | 'depth_probe' | 'none';
+  cue: string;
+  missingElements: string[];
+  suggestedTier: number;
+}
+
 export interface FollowUpDecision {
   answerQuality: 'strong' | 'medium' | 'weak';
   missedConcepts: string[];
@@ -140,6 +148,8 @@ export interface FollowUpDecision {
   recoveryDetected: boolean;
   recoveryPhrase?: string;
   phrasing?: string;
+  suggestionTier?: number;
+  progressiveCoaching?: ProgressiveCoachingPayload;
 }
 
 export interface FollowUpBranchInput {
@@ -181,6 +191,7 @@ export interface FollowUpBranchInput {
   scoreTrend?: ScoreTrendAnalysis | null;
   turnIndex?: number;
   turnNumber?: number;
+  stuckCount?: number;
   sessionSeed?: number | string;
   phraseIndex?: number;
   forceEnabled?: boolean;

@@ -5,6 +5,7 @@ import { authenticateToken } from '../../middleware/auth.ts';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { InterviewScoringService } from '../../services/interviewScoringService.ts';
 import { interviewTelemetryService } from '../../services/interviewTelemetryService.js';
+import ProactiveSuggestionService from '../../services/interviewSuggestionService.js';
 import {
   groq,
   INTERVIEW_START_COIN_COST,
@@ -278,6 +279,95 @@ router.post('/classify-answer', (req, res, next) => {
     console.error('Error classifying answer turn:', error);
     res.status(500).json({
       error: 'Failed to classify answer',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
+  }
+});
+
+router.post('/suggestion', (req, res, next) => {
+  if (req.headers.authorization || req.headers.cookie) {
+    return authenticateToken(req, res, next);
+  }
+  next();
+}, (req, res) => {
+  try {
+    const {
+      interviewType = 'dsa',
+      stage = 'technical',
+      missingAreas = [],
+      problemStatement = '',
+      turnNumber = 1,
+      silenceDurationSec = 0,
+      stuckLevel = 0,
+      tier = null,
+      weakestDimension = null,
+    } = req.body || {};
+
+    const thresholdSec = ProactiveSuggestionService.getSilenceThreshold(stage);
+    const isSilenceExceeded = ProactiveSuggestionService.isSilenceThresholdExceeded(stage, silenceDurationSec);
+    const suggestions = ProactiveSuggestionService.getProactiveSuggestions({
+      interviewType,
+      stage,
+      missingAreas,
+      problemStatement,
+      turnNumber,
+      silenceDurationSec,
+      stuckLevel,
+      tier,
+      weakestDimension,
+    });
+
+    res.json({
+      success: true,
+      silenceThresholdSec: thresholdSec,
+      isSilenceExceeded,
+      suggestions,
+    });
+  } catch (error) {
+    console.error('Error generating proactive suggestions:', error);
+    res.status(500).json({
+      error: 'Failed to generate proactive suggestion',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
+  }
+});
+
+router.post('/tiered-hint', (req, res, next) => {
+  if (req.headers.authorization || req.headers.cookie) {
+    return authenticateToken(req, res, next);
+  }
+  next();
+}, (req, res) => {
+  try {
+    const {
+      tier = 1,
+      interviewType = 'dsa',
+      stage = 'technical',
+      missingAreas = [],
+      problemStatement = '',
+      weakestDimension = null,
+      stuckCount = 0,
+    } = req.body || {};
+
+    const hintPayload = ProactiveSuggestionService.generateTieredSuggestion({
+      tier,
+      interviewType,
+      stage,
+      missingAreas,
+      problemStatement,
+      weakestDimension,
+      stuckCount,
+    });
+
+    res.json({
+      success: true,
+      tier,
+      hint: hintPayload,
+    });
+  } catch (error) {
+    console.error('Error generating tiered hint:', error);
+    res.status(500).json({
+      error: 'Failed to generate tiered hint',
       ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
     });
   }

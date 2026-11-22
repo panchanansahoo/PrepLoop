@@ -130,6 +130,67 @@ describe('Interviewer Mood Engine & Emotional Arc (Phase 1A & 1B)', () => {
     expect(typeof recycled).toBe('string');
     expect(recycled.length).toBeGreaterThan(0);
   });
+
+  describe('Mood Inertia & Stage Awareness', () => {
+    it('suppresses impatient mood in warmup stage and downgrades to skeptical', () => {
+      const result = computeNextMood(MOODS.SKEPTICAL, {
+        score: 30,
+        wordCount: 5,
+        consecutiveLowScores: 2,
+        stage: 'warmup',
+      });
+      expect(result.nextMood).toBe(MOODS.SKEPTICAL);
+      expect(result.reason).toBe('warmup_stage_suppresses_impatience');
+    });
+
+    it('biases toward skeptical and curious in challenge stage', () => {
+      // Score 60 (moderate) normally yields NEUTRAL, in challenge stage biases to SKEPTICAL
+      const lowChallenge = computeNextMood(MOODS.NEUTRAL, {
+        score: 60,
+        wordCount: 30,
+        stage: 'challenge',
+      });
+      expect(lowChallenge.nextMood).toBe(MOODS.SKEPTICAL);
+      expect(lowChallenge.reason).toBe('challenge_stage_bias_skeptical_curious');
+
+      // Score 68 (moderate/good) normally yields NEUTRAL, in challenge stage biases to CURIOUS
+      const highChallenge = computeNextMood(MOODS.NEUTRAL, {
+        score: 68,
+        wordCount: 30,
+        stage: 'challenge',
+      });
+      expect(highChallenge.nextMood).toBe(MOODS.CURIOUS);
+      expect(highChallenge.reason).toBe('challenge_stage_bias_skeptical_curious');
+    });
+
+    it('requires 2 consecutive triggers or significant score drop before transitioning to impatient', () => {
+      // Single weak turn with no significant drop from skeptical mood stays skeptical (inertia)
+      const singleTrigger = computeNextMood(MOODS.SKEPTICAL, {
+        score: 45,
+        wordCount: 20,
+        consecutiveLowScores: 1,
+        cumulativeScores: [50],
+      });
+      expect(singleTrigger.nextMood).toBe(MOODS.SKEPTICAL);
+
+      // Significant score drop (>= 25 pts) transitions to impatient even on single turn
+      const bigDrop = computeNextMood(MOODS.SKEPTICAL, {
+        score: 45,
+        wordCount: 20,
+        consecutiveLowScores: 1,
+        cumulativeScores: [80], // 80 - 45 = 35 pt drop
+      });
+      expect(bigDrop.nextMood).toBe(MOODS.IMPATIENT);
+
+      // 2 consecutive triggers transitions to impatient
+      const twoTriggers = computeNextMood(MOODS.SKEPTICAL, {
+        score: 45,
+        wordCount: 20,
+        consecutiveLowScores: 2,
+      });
+      expect(twoTriggers.nextMood).toBe(MOODS.IMPATIENT);
+    });
+  });
 });
 
 describe('Company-Specific Interview Styles (Phase 6A)', () => {

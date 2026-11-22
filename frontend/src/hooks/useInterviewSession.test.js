@@ -664,4 +664,65 @@ describe("useInterviewSession", () => {
     expect(classifyCandidateAnswer("", { code: "const x = 1;" })).toBe("code_only");
     expect(classifyCandidateAnswer("We can use dynamic programming with memoization to solve this in linear time.", { code: "function solve() {}" })).toBe("strong_complete");
   });
+
+  describe("Conversational AI Suggestion Plan — Proactive Thought Starters & Adaptive Notifications", () => {
+    it("exposes proactive suggestion timer and triggers Tier 0 Thought Starter when invoked", async () => {
+      const { result } = renderHook(() => useInterviewSession({ stage: "Technical" }));
+
+      expect(result.current.refs.proactiveSuggestionTimerRef).toBeDefined();
+      expect(typeof result.current.actions.triggerProactiveThoughtStarter).toBe("function");
+
+      await act(async () => {
+        await result.current.actions.triggerProactiveThoughtStarter({ force: true });
+      });
+
+      // Active hint is set with Tier 0 Thought Starter and structured guidance bullets
+      expect(result.current.state.activeHint).toBeDefined();
+      expect(result.current.state.activeHint.hintTier).toBe(0);
+      expect(result.current.state.activeHint.title).toBe("Thought Starter");
+      expect(result.current.state.activeHint.source).toBe("proactive_silence");
+      expect(Array.isArray(result.current.state.activeHint.bullets)).toBe(true);
+      expect(result.current.state.activeHint.bullets.length).toBeGreaterThan(0);
+    });
+
+    it("tracks difficulty changes and triggers encouraging toasts when stepping up or scaffolding", () => {
+      const { result } = renderHook(() => useInterviewSession({ difficulty: "medium" }));
+
+      expect(result.current.state.currentDifficulty).toBe("medium");
+
+      // Stepping up notification
+      act(() => {
+        result.current.actions.setScoreCue({
+          isDifficultyChange: true,
+          isStepUp: true,
+          text: "Difficulty Stepped Up: HARD",
+          color: "purple",
+          adaptiveNotification: "Great performance! Stepping up difficulty to challenge your technical depth.",
+          questionIndex: 2,
+        });
+        result.current.actions.setCurrentDifficulty("hard");
+      });
+
+      expect(result.current.state.currentDifficulty).toBe("hard");
+      expect(result.current.state.scoreCue.isDifficultyChange).toBe(true);
+      expect(result.current.state.scoreCue.isStepUp).toBe(true);
+      expect(result.current.state.scoreCue.text).toBe("Difficulty Stepped Up: HARD");
+
+      // Scaffolding notification
+      act(() => {
+        result.current.actions.setScoreCue({
+          isDifficultyChange: true,
+          isScaffolding: true,
+          text: "Scaffolding Support Active",
+          color: "cyan",
+          adaptiveNotification: "Guided breakdown active to help you build the solution.",
+          questionIndex: 3,
+        });
+      });
+
+      expect(result.current.state.scoreCue.isDifficultyChange).toBe(true);
+      expect(result.current.state.scoreCue.isScaffolding).toBe(true);
+      expect(result.current.state.scoreCue.text).toBe("Scaffolding Support Active");
+    });
+  });
 });

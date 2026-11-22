@@ -159,27 +159,22 @@ export function buildConversationSummary(turnSummaries = [], askedTopics = []) {
   return parts.length > 0 ? '\n' + parts.join('\n\n') : '';
 }
 
-// ── Rubric trend builder (B.4) ──────────────────────────────────────
-export function buildRubricTrendSection(rubricHistory = []) {
-  if (!Array.isArray(rubricHistory) || rubricHistory.length === 0) return '';
+// ── Rubric trend builder & coaching cue resolver (B.4) ─────────────
+export function getWeakestRubricDimension(rubricHistory = []) {
+  if (!Array.isArray(rubricHistory) || rubricHistory.length === 0) {
+    return { weakest: 'depth', cue: getRubricCoachingCue('depth') };
+  }
 
   const recent = rubricHistory.slice(-3);
   let totalClarity = 0;
   let totalDepth = 0;
   let totalCorrectness = 0;
 
-  const lines = recent.map((entry, idx) => {
-    const turnNum = entry.turn ?? idx + 1;
-    const clarity = Number(entry.clarity ?? entry.rubric?.clarity ?? 0);
-    const depth = Number(entry.depth ?? entry.rubric?.depth ?? 0);
-    const correctness = Number(entry.correctness ?? entry.rubric?.correctness ?? 0);
-
-    totalClarity += clarity;
-    totalDepth += depth;
-    totalCorrectness += correctness;
-
-    return `- Turn ${turnNum}: Clarity=${clarity}/10, Depth=${depth}/10, Correctness=${correctness}/10`;
-  });
+  for (const entry of recent) {
+    totalClarity += Number(entry.clarity ?? entry.rubric?.clarity ?? 0);
+    totalDepth += Number(entry.depth ?? entry.rubric?.depth ?? 0);
+    totalCorrectness += Number(entry.correctness ?? entry.rubric?.correctness ?? 0);
+  }
 
   const count = recent.length;
   const avgClarity = totalClarity / count;
@@ -197,14 +192,49 @@ export function buildRubricTrendSection(rubricHistory = []) {
     weakest = 'correctness';
   }
 
-  let cue;
-  if (weakest === 'clarity') {
-    cue = 'Candidate has struggled with clarity. Probe for clearer structure and precise communication.';
-  } else if (weakest === 'correctness') {
-    cue = 'Candidate has struggled with correctness. Probe assumptions, boundary conditions, or edge case accuracy.';
-  } else {
-    cue = 'Candidate has struggled with technical depth. Probe deeper into implementation trade-offs, internal mechanics, or scale limits.';
+  return {
+    weakest,
+    avgClarity,
+    avgDepth,
+    avgCorrectness,
+    cue: getRubricCoachingCue(weakest),
+  };
+}
+
+export function getRubricCoachingCue(weakestDimension) {
+  const norm = String(weakestDimension || 'depth').toLowerCase();
+  if (norm === 'clarity') {
+    return 'Candidate has struggled with clarity. Probe for clearer structure and precise communication.';
   }
+  if (norm === 'correctness') {
+    return 'Candidate has struggled with correctness. Probe assumptions, boundary conditions, or edge case accuracy.';
+  }
+  return 'Candidate has struggled with technical depth. Probe deeper into implementation trade-offs, internal mechanics, or scale limits.';
+}
+
+export const STAGE_GUIDANCE_RULES = {
+  intake: 'Guide candidate through problem comprehension, constraints, and scope framing.',
+  warmup: 'Encourage a concise engineering background snapshot and ease into the problem domain.',
+  technical: 'Focus on core algorithmic or architectural problem solving, code clarity, and edge cases.',
+  followup: 'Push for scalability, performance bottlenecks, fault tolerance, and trade-offs.',
+  'follow-up': 'Push for scalability, performance bottlenecks, fault tolerance, and trade-offs.',
+  challenge: 'Test edge conditions under extreme scale, race conditions, or hostile inputs.',
+  feedback: 'Provide constructive feedback, summarize strengths, and discuss lessons learned.',
+};
+
+export function buildRubricTrendSection(rubricHistory = []) {
+  if (!Array.isArray(rubricHistory) || rubricHistory.length === 0) return '';
+
+  const recent = rubricHistory.slice(-3);
+  const lines = recent.map((entry, idx) => {
+    const turnNum = entry.turn ?? idx + 1;
+    const clarity = Number(entry.clarity ?? entry.rubric?.clarity ?? 0);
+    const depth = Number(entry.depth ?? entry.rubric?.depth ?? 0);
+    const correctness = Number(entry.correctness ?? entry.rubric?.correctness ?? 0);
+    return `- Turn ${turnNum}: Clarity=${clarity}/10, Depth=${depth}/10, Correctness=${correctness}/10`;
+  });
+
+  const { weakest, cue } = getWeakestRubricDimension(rubricHistory);
 
   return `\nRUBRIC TREND (recent turns):\n${lines.join('\n')}\nTARGET WEAKEST DIMENSION (${weakest.toUpperCase()}): ${cue}`;
 }
@@ -306,6 +336,12 @@ export class InterviewPromptService {
         followUpSignals.push(`Follow-up action: ${af.nextAction}`);
       }
 
+      if (af.progressiveCoaching && af.progressiveCoaching.phase !== 'none') {
+        followUpSignals.push(`PROGRESSIVE STAR COACHING (${af.progressiveCoaching.phase}): ${af.progressiveCoaching.cue}`);
+      }
+      if (typeof af.suggestionTier === 'number') {
+        followUpSignals.push(`SUGGESTION TIER: Tier ${af.suggestionTier}`);
+      }
       if (af.improvementArc && af.improvementArc !== 'stable') {
         followUpSignals.push(`Candidate trend: ${af.improvementArc}`);
       }
@@ -375,6 +411,7 @@ INTERVIEW CONTEXT:
 - Turns completed: ${interviewContext.turns || 0}
 - Current stage: ${currentStage}
 - Stage directive: ${stageDirective}
+- Stage guidance: ${STAGE_GUIDANCE_RULES[String(currentStage).toLowerCase()] || 'Guide candidate methodically through this phase.'}${interviewContext.weakestDimension ? `\n- Weakest rubric dimension: ${interviewContext.weakestDimension} (${getRubricCoachingCue(interviewContext.weakestDimension)})` : ''}
 - Candidate likely missing: ${missingAreas.join(', ') || 'none'}
 - Current difficulty: ${interviewContext.currentDifficulty || 'medium'}
 - Last candidate summary: ${interviewContext.lastCandidateSummary || 'n/a'}
@@ -400,6 +437,8 @@ Generate a JSON response:
   "isFollowUp": true/false,
   "clarifications": ["Any clarifications you need?"],
   "hints": ["Hint to provide if they're stuck"],
+  "coachingCue": "Targeted coaching cue addressing weakest dimension or STAR phase",
+  "suggestionTier": 0,
   "encouragement": "Positive feedback or encouragement",
   "continueInterview": true/false
 }`;

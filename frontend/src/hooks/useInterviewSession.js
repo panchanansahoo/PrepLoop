@@ -4,6 +4,7 @@ import { useVoiceAI } from "./useVoiceAI";
 import useInterviewIntelligence from "./useInterviewIntelligence";
 import { useAuth } from "../context/AuthContext";
 import { buildAuthHeaders } from "../utils/authHeaders";
+import { useInterviewSilenceManager, CONSECUTIVE_SILENT_THRESHOLD } from "./useInterviewSilenceManager";
 import {
   getThinkingDelayMs,
   getInterviewerReaction,
@@ -17,6 +18,9 @@ import {
   PACING_MODES,
   classifyCandidateAnswer,
   decideNextTurnAction,
+  STAGE_SILENCE_THRESHOLDS,
+  getStageSilenceThreshold,
+  STAGE_THOUGHT_STARTERS,
 } from "../pages/aiInterviewTiming";
 import {
   playTurnChime,
@@ -128,7 +132,11 @@ export function useInterviewSession(options = {}) {
   const silenceNudgeTimerRef = useRef(null);
   const silenceCheckInTimerRef = useRef(null);
   const silenceAutoAdvanceTimerRef = useRef(null);
+  const proactiveSuggestionTimerRef = useRef(null);
   const lastSilencePromptTimeRef = useRef(0);
+  const currentDifficultyRef = useRef(options?.difficulty || "medium");
+  const [currentDifficulty, setCurrentDifficulty] = useState(options?.difficulty || "medium");
+  const [adaptiveNotice, setAdaptiveNotice] = useState(null);
   const wrapUpTimerRef = useRef(null);
   const recentOpenersRef = useRef([]);
   const { user: _user, getAuthHeaders: authHeadersFn } = useAuth();
@@ -345,6 +353,10 @@ export function useInterviewSession(options = {}) {
   const [loading, setLoading] = useState(false);
   const [consecutiveSilentQuestions, setConsecutiveSilentQuestions] =
     useState(0);
+  const consecutiveSilentQuestionsRef = useRef(0);
+  useEffect(() => {
+    consecutiveSilentQuestionsRef.current = consecutiveSilentQuestions;
+  }, [consecutiveSilentQuestions]);
   const [scoreCue, setScoreCue] = useState(null);
   const [activeHint, setActiveHint] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -445,6 +457,8 @@ export function useInterviewSession(options = {}) {
     stage: STAGE_API_MAP[interviewType] || "Technical",
     candidatePacingOffset,
     isCodingRound,
+    enableInterrupt: false,
+    enableBackchannel: false,
     onResumeSpeech: useCallback((previousAnswer) => {
       console.log("[Interview] Speech resumed in 2s resume window! Aborting pending follow-up and stopping audio.");
       resumedTurnsCountRef.current += 1;
@@ -519,7 +533,9 @@ export function useInterviewSession(options = {}) {
       const isSilentAnswer =
         !completeAnswer ||
         completeAnswer === "I do not have a response to this question.";
-      setConsecutiveSilentQuestions((prev) => (isSilentAnswer ? prev + 1 : 0));
+      const updatedSilent = isSilentAnswer ? consecutiveSilentQuestionsRef.current + 1 : 0;
+      consecutiveSilentQuestionsRef.current = updatedSilent;
+      setConsecutiveSilentQuestions(updatedSilent);
 
       if (completeAnswer && !isSilentAnswer) {
         emptyTranscriptCountRef.current = 0;
@@ -538,6 +554,10 @@ export function useInterviewSession(options = {}) {
         setAnswerReview(false);
         handleEmptyTranscriptRef.current?.();
       }
+    }, []),
+    onSpeechStart: useCallback(() => {
+      setAwaitingAnswer(false);
+      setInterviewerStatus("");
     }, []),
     onTranscriptUpdate: useCallback((partial) => {
       setTranscriptRaw(partial || "");
@@ -706,17 +726,8 @@ export function useInterviewSession(options = {}) {
     speakerMuted,
     persona: "friendly",
     gender: interviewerGender,
-    enabled: true,
+    enabled: false,
   });
-
-  // Soft backchannel audio triggers when candidate speaks substantive responses
-  useEffect(() => {
-    if (!isListening || aiSpeaking || speakerMuted) return;
-    const words = (transcript || "").trim().split(/\s+/).filter(Boolean).length;
-    if (words >= 15 && words % 25 === 0) {
-      backchannel.playBackchannel();
-    }
-  }, [transcript, isListening, aiSpeaking, speakerMuted, backchannel]);
 
   // Thinking sound effect when server analysis takes > 1.5s (Phase 8B)
   useEffect(() => {
@@ -2658,9 +2669,13 @@ export function useInterviewSession(options = {}) {
           ? "I do not have a response to this question."
           : providedAnswer || "I do not have a response to this question.";
 
-      if (isAutoSkip === true && !providedAnswer)
-        setConsecutiveSilentQuestions((prev) => prev + 1);
-      else if (answer && answer.length > 10 && answer !== "I do not have a response to this question.") setConsecutiveSilentQuestions(0);
+      if (isAutoSkip === true && !providedAnswer) {
+        consecutiveSilentQuestionsRef.current += 1;
+        setConsecutiveSilentQuestions(consecutiveSilentQuestionsRef.current);
+      } else if (answer && answer.length > 10 && answer !== "I do not have a response to this question.") {
+        consecutiveSilentQuestionsRef.current = 0;
+        setConsecutiveSilentQuestions(0);
+      }
 
       if (answer && answer.length > 10 && answer !== "I do not have a response to this question.")
         intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
@@ -2834,15 +2849,17 @@ export function useInterviewSession(options = {}) {
         const finalAnswerTrimmed = (fullAnswer || "").trim();
         const speculatedAnswerTrimmed = (speculativeFastReplyRef.current?.answer || "").trim();
 
-        // STRICT EXACT TRANSCRIPT COMPARISON:
-        // If final transcript differs from speculated text by even a single character,
-        // discard the speculative prefetch immediately and regenerate with complete transcript!
+        // NORMALIZED EXACT TRANSCRIPT COMPARISON:
+        // Strip trailing punctuation & collapse whitespace so punctuation variations don't discard valid prefetches
+        const normFinal = finalAnswerTrimmed.toLowerCase().replace(/[.,!?;:]/g, "").replace(/\s+/g, " ").trim();
+        const normSpec = speculatedAnswerTrimmed.toLowerCase().replace(/[.,!?;:]/g, "").replace(/\s+/g, " ").trim();
+
         if (
           speculativeFastReplyRef.current &&
-          speculatedAnswerTrimmed === finalAnswerTrimmed &&
+          (speculatedAnswerTrimmed === finalAnswerTrimmed || (normFinal.length >= 10 && normSpec === normFinal)) &&
           Date.now() - speculativeFastReplyRef.current.timestamp < 12000
         ) {
-          console.log("[Interview] ⚡ Speculative Fast-Reply HIT (Exact transcript match)! Reusing pre-generated spoken response.");
+          console.log("[Interview] ⚡ Speculative Fast-Reply HIT (Exact/Normalized match)! Reusing pre-generated spoken response.");
           data = speculativeFastReplyRef.current.data;
           speculativeHitsRef.current += 1;
         } else {
@@ -2988,25 +3005,82 @@ export function useInterviewSession(options = {}) {
         const reachedQuestionLimit = questionIndexRef.current >= totalQuestions;
         const isInterviewOver = data.complete === true || nextTurnDecision.action === 'complete' || reachedQuestionLimit;
 
-        // Micro-coaching toast update (Phase 5B)
+        // Micro-coaching toast & Adaptive difficulty notification update
+        const newDifficulty = (data.difficultyLevel || data.difficulty || '').toLowerCase().trim();
+        const prevDifficulty = currentDifficultyRef.current;
+        const difficultyRank = { easy: 1, medium: 2, hard: 3, staff_architectural: 4 };
+
+        const isStepUp = Boolean(
+          data.isStepUp ||
+          (newDifficulty && prevDifficulty && difficultyRank[newDifficulty] > difficultyRank[prevDifficulty]) ||
+          (data.adaptiveNote && /step(ping)?\s*up|increased?\s*difficulty|challenging|advanced/i.test(data.adaptiveNote))
+        );
+
+        const isScaffolding = Boolean(
+          data.scaffoldingAction === 'BREAKDOWN_QUESTION' ||
+          data.scaffoldingAction === 'PROGRESSIVE_HINT' ||
+          data.scaffoldingActive ||
+          data.wasRescued ||
+          (data.adaptiveNote && /scaffold|rescue|breaking\s*down/i.test(data.adaptiveNote))
+        );
+
+        if (newDifficulty && difficultyRank[newDifficulty]) {
+          currentDifficultyRef.current = newDifficulty;
+          setCurrentDifficulty(newDifficulty);
+        }
+
+        const firstStrength = Array.isArray(data.strengths) && data.strengths[0] ? data.strengths[0] : null;
+        const firstImprovement = Array.isArray(data.improvements) && data.improvements[0] ? data.improvements[0] : null;
+
         if (feedbackScore !== undefined) {
           if (typeof feedbackScore === "number" && feedbackScore > 0 && !rollingScoresRef.current.includes(feedbackScore)) {
             rollingScoresRef.current.push(feedbackScore);
             if (rollingScoresRef.current.length > 10) rollingScoresRef.current.shift();
           }
-          const scoreBand = feedbackScore >= 85 ? { level: 'strong', text: 'Strong Answer', color: 'green' }
-            : feedbackScore >= 70 ? { level: 'good', text: 'Good Response', color: 'yellow' }
-            : feedbackScore >= 55 ? { level: 'fair', text: 'Fair Attempt', color: 'orange' }
-            : { level: 'weak', text: 'Needs Improvement', color: 'red' };
-          const firstStrength = Array.isArray(data.strengths) && data.strengths[0] ? data.strengths[0] : null;
-          const firstImprovement = Array.isArray(data.improvements) && data.improvements[0] ? data.improvements[0] : null;
-          setScoreCue({
-            ...scoreBand,
-            score: feedbackScore,
-            strength: firstStrength,
-            improvement: firstImprovement,
-            questionIndex: questionIndexRef.current,
-          });
+
+          if (isStepUp) {
+            const stepUpToast = {
+              level: 'strong',
+              text: `Difficulty Stepped Up: ${(newDifficulty || 'advanced').toUpperCase()}`,
+              color: 'purple',
+              score: feedbackScore > 0 ? feedbackScore : undefined,
+              adaptiveNotification: data.adaptiveNote || 'Great performance! Stepping up difficulty to challenge your technical depth.',
+              isDifficultyChange: true,
+              isStepUp: true,
+              questionIndex: questionIndexRef.current,
+              strength: firstStrength,
+              improvement: firstImprovement,
+            };
+            setScoreCue(stepUpToast);
+            setAdaptiveNotice(stepUpToast.adaptiveNotification);
+          } else if (isScaffolding) {
+            const scaffoldToast = {
+              level: 'fair',
+              text: 'Scaffolding Support Active',
+              color: 'cyan',
+              score: feedbackScore > 0 ? feedbackScore : undefined,
+              adaptiveNotification: data.adaptiveNote || "We've broken this down into guided steps to help you build toward the complete solution.",
+              isDifficultyChange: true,
+              isScaffolding: true,
+              questionIndex: questionIndexRef.current,
+              strength: firstStrength,
+              improvement: firstImprovement,
+            };
+            setScoreCue(scaffoldToast);
+            setAdaptiveNotice(scaffoldToast.adaptiveNotification);
+          } else {
+            const scoreBand = feedbackScore >= 85 ? { level: 'strong', text: 'Strong Answer', color: 'green' }
+              : feedbackScore >= 70 ? { level: 'good', text: 'Good Response', color: 'yellow' }
+              : feedbackScore >= 55 ? { level: 'fair', text: 'Fair Attempt', color: 'orange' }
+              : { level: 'weak', text: 'Needs Improvement', color: 'red' };
+            setScoreCue({
+              ...scoreBand,
+              score: feedbackScore,
+              strength: firstStrength,
+              improvement: firstImprovement,
+              questionIndex: questionIndexRef.current,
+            });
+          }
         }
 
         // Per-answer feedback is part of the conversation so the sidebar,
@@ -3112,9 +3186,9 @@ export function useInterviewSession(options = {}) {
           setLoading(false);
           await speakSequence(closingSeq, { pauseMs: 600 });
           setTimeout(() => endInterview(), 1500);
-        } else if (consecutiveSilentQuestions >= 3) {
+        } else if (consecutiveSilentQuestionsRef.current >= CONSECUTIVE_SILENT_THRESHOLD) {
           const earlyEndText =
-            "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
+            "I notice you might need more time to prepare today. That's completely okay! Let's wrap up our session here. I've compiled your feedback on the questions we covered. Thank you for your time, and feel free to return whenever you're ready!";
           setConversation((prev) => [
             ...prev,
             {
@@ -3125,7 +3199,7 @@ export function useInterviewSession(options = {}) {
           ]);
           setLoading(false);
           await speakInterviewerText(earlyEndText);
-          setTimeout(() => endInterview(), 1500);
+          setTimeout(() => endInterview("consecutive_silence"), 1500);
         } else {
           let finalMicroToSpeak = microToSpeak;
           const effectiveAnswerType = data?.answerType || classifiedAnswerType;
@@ -3377,41 +3451,71 @@ export function useInterviewSession(options = {}) {
     };
   }, [currentQuestion, targetCompany, targetRole, interviewType, conversation]);
 
-  const requestHint = useCallback(async () => {
+  const requestHint = useCallback(async (requestedTier = 1) => {
     const context = hintContextRef.current || {};
     const questionText = String(context.currentQuestion || "").trim();
     if (!questionText || hintInFlightRef.current) return;
-    if (hintRequestedForRef.current === questionText) return;
-    hintRequestedForRef.current = questionText;
+    const reqKey = `${questionText}:t${requestedTier}`;
+    if (hintRequestedForRef.current === reqKey) return;
+    hintRequestedForRef.current = reqKey;
     hintInFlightRef.current = true;
     try {
-      const res = await authFetch("/api/company-interview/hint", {
+      let res = await authFetch("/api/interview/tiered-hint", {
         method: "POST",
         body: JSON.stringify({
-          company: context.targetCompany || "Google",
-          role: context.targetRole || "Software Engineer",
-          stage: STAGE_API_MAP[context.interviewType] || "Technical",
+          tier: requestedTier,
+          interviewType: context.interviewType || "dsa",
+          stage: (STAGE_API_MAP[context.interviewType] || "Technical").toLowerCase(),
+          problemStatement: questionText,
           currentQuestion: questionText,
-          conversationHistory: (context.conversation || [])
-            .filter(
-              (m) =>
-                m.role === "interviewer" ||
-                m.role === "candidate" ||
-                m.role === "clarification-question",
-            )
-            .slice(-6)
-            .map((m) => ({
-              role: m.role === "interviewer" ? "interviewer" : "candidate",
-              content: m.content,
-            })),
         }),
       });
+
+      if (!res.ok) {
+        res = await authFetch("/api/company-interview/hint", {
+          method: "POST",
+          body: JSON.stringify({
+            company: context.targetCompany || "Google",
+            role: context.targetRole || "Software Engineer",
+            stage: STAGE_API_MAP[context.interviewType] || "Technical",
+            tier: requestedTier,
+            currentQuestion: questionText,
+            conversationHistory: (context.conversation || [])
+              .filter(
+                (m) =>
+                  m.role === "interviewer" ||
+                  m.role === "candidate" ||
+                  m.role === "clarification-question",
+              )
+              .slice(-6)
+              .map((m) => ({
+                role: m.role === "interviewer" ? "interviewer" : "candidate",
+                content: m.content,
+              })),
+          }),
+        });
+      }
+
       if (!res.ok) return;
       const data = await res.json();
-      const hintText = String(data?.hint || "").trim();
+      const hintText = String(
+        data?.hint ||
+        data?.suggestion ||
+        data?.thoughtStarter ||
+        data?.message ||
+        ""
+      ).trim();
+
       // Don't pop a hint over an answer that has already started.
       if (hintText && !hasRecentSpeech()) {
-        setActiveHint({ isHint: true, hintTier: 1, hintMessage: hintText });
+        setActiveHint({
+          isHint: true,
+          hintTier: data?.hintTier ?? data?.tier ?? requestedTier,
+          title: data?.title || (requestedTier === 0 ? "Thought Starter" : undefined),
+          hintMessage: hintText,
+          options: data?.options || data?.approachOptions,
+          bullets: data?.bullets || data?.guidanceBullets || data?.scaffolding?.steps,
+        });
       }
     } catch {
       // Hints are best-effort; a failure must never interrupt the interview.
@@ -3420,7 +3524,112 @@ export function useInterviewSession(options = {}) {
     }
   }, [hasRecentSpeech]);
 
+  // Proactive suggestion during candidate turn (triggers Tier 0 thought starter when candidate is silent/thinking)
+  const triggerProactiveThoughtStarter = useCallback(async ({ force = false } = {}) => {
+    if (!force && (!isListeningRef.current || hasRecentSpeech())) return;
+    if (activeHint) return;
+    const context = hintContextRef.current || {};
+    const questionText = String(context.currentQuestion || "").trim();
+    const resolvedStage = STAGE_API_MAP[context.interviewType] || stageLabel || "Technical";
+    const normStage = String(stageLabel || context.interviewType || "").toLowerCase();
+
+    let templateKey = "default";
+    if (normStage.includes("intake")) templateKey = "intake";
+    else if (normStage.includes("warmup") || normStage.includes("warm-up")) templateKey = "warmup";
+    else if (normStage.includes("challenge")) templateKey = "challenge";
+    else if (normStage.includes("followup") || normStage.includes("follow-up")) templateKey = "followup";
+    else if (normStage.includes("system") || normStage.includes("design")) templateKey = "system-design";
+    else if (normStage.includes("coding") || normStage.includes("dsa")) templateKey = "coding";
+    else if (normStage.includes("technical") || normStage.includes("tech")) templateKey = "technical";
+
+    const fallbackStarter = STAGE_THOUGHT_STARTERS[templateKey] || STAGE_THOUGHT_STARTERS.default;
+
+    // First attempt to fetch live proactive suggestion from backend
+    try {
+      let res = await authFetch("/api/interview/suggestion", {
+        method: "POST",
+        body: JSON.stringify({
+          interviewType: context.interviewType || "dsa",
+          stage: resolvedStage.toLowerCase(),
+          tier: 0,
+          currentQuestion: questionText,
+          problemStatement: questionText,
+        }),
+      });
+
+      if (!res.ok) {
+        res = await authFetch("/api/company-interview/suggestion", {
+          method: "POST",
+          body: JSON.stringify({
+            company: context.targetCompany || "Google",
+            role: context.targetRole || "Software Engineer",
+            stage: resolvedStage,
+            tier: 0,
+            currentQuestion: questionText,
+            conversationHistory: (context.conversation || [])
+              .filter((m) => m.role === "interviewer" || m.role === "candidate")
+              .slice(-4)
+              .map((m) => ({ role: m.role, content: m.content })),
+          }),
+        });
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        const msg = String(
+          data?.hint ||
+          data?.suggestion ||
+          data?.thoughtStarter ||
+          data?.suggestions?.thoughtStarter ||
+          ""
+        ).trim();
+
+        if (msg && (force || (!hasRecentSpeech() && isListeningRef.current))) {
+          setActiveHint({
+            isHint: true,
+            hintTier: 0,
+            title: data?.title || "Thought Starter",
+            hintMessage: msg,
+            options: data?.options || data?.approachOptions || data?.suggestions?.approachOptions,
+            bullets: data?.bullets || data?.suggestions?.scaffolding?.steps || fallbackStarter.bullets,
+            source: "proactive_silence",
+          });
+          logInterviewTelemetry("proactive_thought_starter_shown", {
+            stage: resolvedStage,
+            questionIndex: questionIndexRef.current,
+            tier: 0,
+            source: "api",
+          });
+          return;
+        }
+      }
+    } catch {
+      // Best-effort; fall back to structured stage template
+    }
+
+    if (force || (!hasRecentSpeech() && isListeningRef.current)) {
+      setActiveHint({
+        isHint: true,
+        hintTier: 0,
+        title: "Thought Starter",
+        hintMessage: fallbackStarter.message,
+        bullets: fallbackStarter.bullets,
+        source: "proactive_silence",
+      });
+      logInterviewTelemetry("proactive_thought_starter_shown", {
+        stage: resolvedStage,
+        questionIndex: questionIndexRef.current,
+        tier: 0,
+        source: "template",
+      });
+    }
+  }, [hasRecentSpeech, activeHint, stageLabel]);
+
   const clearAllSilenceTimers = useCallback(() => {
+    if (proactiveSuggestionTimerRef.current) {
+      clearTimeout(proactiveSuggestionTimerRef.current);
+      proactiveSuggestionTimerRef.current = null;
+    }
     if (silenceStageTimerRef.current) {
       clearTimeout(silenceStageTimerRef.current);
       silenceStageTimerRef.current = null;
@@ -3457,6 +3666,13 @@ export function useInterviewSession(options = {}) {
     const autoAdvanceMs = isTechnicalStage ? 60000 : modeConfig.autoAdvanceMs;
     const nudgeMs = isTechnicalStage ? 30000 : modeConfig.nudgeMs;
 
+    // 0. Proactive suggestion timer during candidate turn (triggers Tier 0 thought starter when candidate is silent/thinking)
+    const stageSilenceThreshold = getStageSilenceThreshold(stageLabel, interviewType, pacingMode);
+    proactiveSuggestionTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current || hasRecentSpeech()) return;
+      triggerProactiveThoughtStarter();
+    }, stageSilenceThreshold);
+
     // 1. Nudge timer (hint offered before auto-advance)
     silenceNudgeTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
@@ -3468,7 +3684,7 @@ export function useInterviewSession(options = {}) {
         setInterviewerStatus(getSilencePrompt(interviewType, 0));
       }
       logInterviewTelemetry("nudge_shown", { questionIndex, mode: pacingMode });
-      requestHint();
+      requestHint(1);
     }, nudgeMs);
 
     // 2. Interactive check-in timer
@@ -3518,6 +3734,8 @@ export function useInterviewSession(options = {}) {
     stopSilenceHandling,
     questionIndex,
     requestHint,
+    triggerProactiveThoughtStarter,
+    stageLabel,
   ]);
 
   const requestNeedAMoment = useCallback(() => {
@@ -3981,6 +4199,10 @@ export function useInterviewSession(options = {}) {
     handleInterviewerTimeUpdate,
     handleInterviewerLoadedMetadata,
     handleInterviewerCanPlay,
+    triggerProactiveThoughtStarter,
+    setCurrentDifficulty,
+    setAdaptiveNotice,
+    requestHint,
   }), [
     fetchNextQuestion,
     updateTargetRole,
@@ -4046,6 +4268,8 @@ export function useInterviewSession(options = {}) {
       consecutiveSilentQuestions,
       scoreCue,
       activeHint,
+      currentDifficulty,
+      adaptiveNotice,
       analysisLoading,
       cameraOn,
       bookmarked,
@@ -4125,6 +4349,8 @@ export function useInterviewSession(options = {}) {
       ttsAudioRef,
       chatEndRef,
       silenceStageTimerRef,
+      proactiveSuggestionTimerRef,
+      currentDifficultyRef,
       stateRefs,
       tabSwitchCountRef,
       pasteCountRef,

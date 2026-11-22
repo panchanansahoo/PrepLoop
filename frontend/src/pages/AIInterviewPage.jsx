@@ -22,6 +22,7 @@ import {
     HR_INTERVIEWER_VIDEOS,
     formatTime,
 } from './aiInterviewConfig';
+import { evaluateSpeakingPace } from './aiInterviewTiming';
 import useInterviewSession from '../hooks/useInterviewSession';
 import './AIInterviewPage.css';
 
@@ -420,20 +421,26 @@ export default function AIInterviewPage() {
         setShowEndConfirm(false);
     }, [setShowEndConfirm]);
 
-    const liveWpm = useMemo(() => {
-        if (!isListening || questionElapsed < 3) return null;
+    const paceCoach = useMemo(() => {
         const words = (transcript || '').trim().split(/\s+/).filter(Boolean).length;
-        if (words < 2) return null;
-        const minutes = questionElapsed / 60;
-        return Math.round(words / minutes);
+        return evaluateSpeakingPace({
+            wordCount: words,
+            durationSecs: questionElapsed,
+            isListening,
+        });
     }, [isListening, questionElapsed, transcript]);
 
+    const liveWpm = paceCoach?.wpm ?? null;
+
     const wpmInfo = useMemo(() => {
-        if (liveWpm == null) return null;
-        if (liveWpm > 165) return { label: 'Too fast', status: 'fast' };
-        if (liveWpm < 110) return { label: 'Too slow', status: 'slow' };
-        return { label: 'Good pace', status: 'good' };
-    }, [liveWpm]);
+        if (!paceCoach) return null;
+        return {
+            label: paceCoach.label,
+            status: paceCoach.status,
+            message: paceCoach.message,
+            wpm: paceCoach.wpm,
+        };
+    }, [paceCoach]);
 
     const fillerTooltip = useMemo(() => {
         if (!intelligence?.fillerCounts) return 'No fillers detected';
@@ -686,12 +693,23 @@ export default function AIInterviewPage() {
                                 <VoiceWaveform bars={[0.3, 0.6, 0.45, 0.7, 0.5, 0.35]} active={true} color="#818cf8" height={28} />
                             </div>
                         ) : null}
+                        {isListening && paceCoach && (
+                            <div className="ai-vc-pace-coach-overlay" style={{ position: 'absolute', bottom: 56, left: '50%', transform: 'translateX(-50%)', zIndex: 12, pointerEvents: 'none' }}>
+                                <div className={`ai-vc-pace-coach-pill ai-vc-pace-coach-pill--${paceCoach.status}`} title={paceCoach.message}>
+                                    <Activity size={12} className="ai-vc-pace-coach-icon" />
+                                    <span className="ai-vc-pace-coach-text">
+                                        <strong>{paceCoach.wpm ? `${paceCoach.wpm} WPM · ` : ''}{paceCoach.label}</strong>
+                                        <span className="ai-vc-pace-coach-nudge"> — {paceCoach.message}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         {isListening && (
                             <div className="ai-vc-speech-analytics" style={{ position: 'absolute', top: 14, right: 14, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
-                                {wpmInfo && (
-                                    <div className={`ai-vc-wpm-badge ai-vc-wpm-badge--${wpmInfo.status}`} title={`Current pace: ${liveWpm} WPM (${wpmInfo.label})`}>
+                                {paceCoach && (
+                                    <div className={`ai-vc-wpm-badge ai-vc-wpm-badge--${paceCoach.status}`} title={paceCoach.message}>
                                         <Activity size={11} />
-                                        <span>{liveWpm} WPM · {wpmInfo.label}</span>
+                                        <span>{paceCoach.wpm ? `${paceCoach.wpm} WPM · ` : ''}{paceCoach.label}</span>
                                     </div>
                                 )}
                                 {intelligence.totalFillers > 0 && (
@@ -856,6 +874,7 @@ export default function AIInterviewPage() {
                         voiceOnly={voiceOnlyInterview}
                         onRepeatQuestion={repeatCurrentQuestion}
                         onSkipQuestion={skipCurrentQuestion}
+                        onNeedAMoment={requestNeedAMoment}
                     />
                 </div>
 
@@ -887,6 +906,7 @@ export default function AIInterviewPage() {
                         onRequestNeedAMoment={requestNeedAMoment}
                         onRepeatQuestion={repeatCurrentQuestion}
                         onSkipQuestion={skipCurrentQuestion}
+                        onNeedAMoment={requestNeedAMoment}
                         onDoneAnswering={handleDoneAnswering}
                         onDismissCheckIn={() => setCheckInActive(false)}
                         onWhiteboardSnapshot={setWhiteboardSnapshot}
@@ -941,7 +961,18 @@ export default function AIInterviewPage() {
                 )}
 
                 <ScoreCueToast cue={scoreCue} onDismiss={dismissScoreCue} />
-                <HintBanner hint={activeHint} onDismiss={dismissHint} />
+                <HintBanner
+                    hint={activeHint}
+                    onDismiss={dismissHint}
+                    onSelectOption={(option) => {
+                        const optText = typeof option === 'object' && option !== null
+                            ? (option.title || option.description)
+                            : option;
+                        if (optText && typeof setUserInput === 'function') {
+                            setUserInput((prev) => (prev ? `${prev} (Approach: ${optText})` : `Approach: ${optText}`));
+                        }
+                    }}
+                />
             </div>
         </div>
     );
