@@ -1541,10 +1541,6 @@ function InterviewLobby({
                             )}
                         </div>
                     </div>
-
-                    <div className="ai-setup-privacy" style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
-                        🔒 <strong>Privacy:</strong> Speech processed via browser speech vendors or Groq Whisper. AI evaluation (Groq / Gemini) uses best-effort redaction. Session recordings deleted after 14 days.
-                    </div>
                 </div>
             </div>
         </div>
