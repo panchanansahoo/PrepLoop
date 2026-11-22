@@ -462,10 +462,10 @@ export class InterviewStateMachineService {
           scaffoldingAction = 'PROGRESSIVE_HINT';
         }
       } else if (scaffoldingActive) {
-        // Scaffolding exit ramp: when candidate scores >= 65,
+        // Scaffolding exit ramp: when candidate scores >= 65 for 2 consecutive scored turns,
         // deactivate scaffolding (scaffoldingActive = false, scaffoldingAction = 'NONE') and clear technical extension.
         // Decay extended turns budget: when candidate recovers, reset extendedTurnsCount to 0.
-        if (consecutiveRecoveryScores >= 1 || rawScore >= 65) {
+        if (consecutiveRecoveryScores >= 2) {
           scaffoldingActive = false;
           scaffoldingAction = 'NONE';
           shouldExtendTechnical = false;

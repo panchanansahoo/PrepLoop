@@ -341,8 +341,14 @@ describe('Adversarial Stress Testing — Milestone 2 Adaptive State Machine', ()
       state = InterviewStateMachineService.advanceState({ ...state, turns: 4 }, { score: 30, difficultyTier: 'medium' });
       expect(state.scaffoldingAction).toBe('PROGRESSIVE_HINT');
 
-      // Recovery: Candidate answers with score 65 (>= 40)
+      // Recovery turn 1: Candidate scores 65 -> scaffolding remains active, recovery counter is 1
       state = InterviewStateMachineService.advanceState({ ...state, turns: 5 }, { score: 65, difficultyTier: 'medium' });
+      expect(state.consecutiveLowScores).toBe(0);
+      expect(state.scaffoldingActive).toBe(true);
+      expect(state.consecutiveRecoveryScores).toBe(1);
+
+      // Recovery turn 2: Candidate scores 65 -> scaffolding exit ramp activates, resets cleanly
+      state = InterviewStateMachineService.advanceState({ ...state, turns: 6 }, { score: 65, difficultyTier: 'medium' });
       expect(state.consecutiveLowScores).toBe(0);
       expect(state.scaffoldingActive).toBe(false);
       expect(state.scaffoldingAction).toBe('NONE');
