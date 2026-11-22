@@ -981,7 +981,7 @@ export default function CompanyInterview() {
         return recognition;
     }, []);
 
-    // ── Stop AI speech (for interruption) ──
+    // ── Stop AI speech (guarded cleanup on unmount/reset) ──
     const stopAiSpeech = useCallback(() => {
         window.speechSynthesis?.cancel();
         if (audioPlayerRef.current) {
@@ -993,9 +993,9 @@ export default function CompanyInterview() {
 
     const toggleListening = useCallback(async (forceStart = false) => {
         if (config.format !== 'voice') return; // Don't auto-listen in text mode
+        if (aiSpeaking && !forceStart) return; // Uninterrupted AI speech: candidate cannot interrupt AI while speaking
 
-        // Interrupt AI speech when user starts speaking
-        if (!isListeningRef.current || forceStart) {
+        if (forceStart) {
             stopAiSpeech();
         }
 
@@ -2705,7 +2705,9 @@ export default function CompanyInterview() {
                                 <div className="ci-chat-input-row">
                                     <button
                                         className={`ci-chat-mic-btn ${isListening ? 'active' : ''}`}
+                                        disabled={aiSpeaking || loading}
                                         onClick={() => {
+                                            if (aiSpeaking || loading) return;
                                             const liveInputValue = document
                                                 .querySelector('.ci-chat-input-row textarea')
                                                 ?.value
@@ -2722,7 +2724,7 @@ export default function CompanyInterview() {
                                                 toggleListening();
                                             }
                                         }}
-                                        title={isListening ? 'Stop & send' : 'Start speaking'}
+                                        title={aiSpeaking ? 'AI speaking...' : isListening ? 'Stop & send' : 'Start speaking'}
                                     >
                                         {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                                     </button>

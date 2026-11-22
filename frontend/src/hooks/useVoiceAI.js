@@ -5,8 +5,8 @@
  *   getUserMedia → window.SpeechRecognition
  *   → interim + final transcripts in real-time → silence detection → onAnswer()
  *   → caller invokes speak(text) → POST /api/voice/tts-stream → AI audio plays
- *   → Backchannel clips play during long user speech
- *   → User can interrupt AI speech by speaking
+ *   → Candidate answers in uninterrupted focus (backchannel audio disabled by default)
+ *   → AI delivers complete question uninterrupted (candidate interruption disabled by default)
  */
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useAudioVisualizer from "./useAudioVisualizer";
