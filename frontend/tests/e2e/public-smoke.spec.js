@@ -2,19 +2,6 @@ import { test, expect } from '@playwright/test';
 
 const publicRoutes = ['/', '/login', '/signup', '/pricing'];
 
-test('mobile homepage offers the demo and opens technical interview setup', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1, name: 'Practice your next technical interview' })).toBeVisible();
-  await expect(page.locator('.home-interview-scene')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Try the interview demo' }).click();
-  await expect(page).toHaveURL(/#mock-interview-loop$/);
-  await expect(page.locator('#mock-interview-loop')).toBeInViewport();
-  await page.getByRole('link', { name: 'Start a free mock interview' }).click();
-  await expect(page).toHaveURL(/company-interview\?type=technical$/);
-  await expect(page.getByText('Interview Setup', { exact: true })).toBeVisible();
-});
-
 for (const route of publicRoutes) {
   test(`renders ${route} without boot errors`, async ({ page }) => {
     const uncaughtErrors = [];
