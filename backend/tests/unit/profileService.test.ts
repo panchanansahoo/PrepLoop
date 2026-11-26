@@ -88,6 +88,23 @@ describe('Profile Service & Response Formatter', () => {
     const otherError = { code: '23505', message: 'unique constraint violation' };
     expect(isProfilesAccessBlocked(otherError)).toBe(false);
   });
+
+  it('does not leak beginner experienceLevel into experience and preserves non-empty social columns', () => {
+    const response = buildProfileResponse(
+      { id: 'usr_2', email: 'new@example.com' },
+      {
+        id: 'usr_2',
+        experience_level: 'beginner',
+        linkedin: 'https://linkedin.com/in/new-user',
+        social_links: JSON.stringify({ linkedin: '', twitter: 'newhandle' }),
+      },
+    );
+
+    expect(response.user.experience).toBe('');
+    expect(response.user.experienceLevel).toBe('beginner');
+    expect(response.user.socialLinks.linkedin).toBe('https://linkedin.com/in/new-user');
+    expect(response.user.socialLinks.twitter).toBe('newhandle');
+  });
 });
 
 

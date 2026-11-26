@@ -20,6 +20,10 @@ import {
   filterHighConfidenceExperienceAreas,
   readApiErrorMessage,
   AUTOFILL_FIELD_LABELS,
+  normalizeExternalUrl,
+  buildSocialUrl,
+  normalizeGithubHandle,
+  getPlanBadgeMeta,
 } from '../utils/profileHelpers';
 
 export default function Profile() {
@@ -56,6 +60,10 @@ export default function Profile() {
   const [claimStatus, setClaimStatus] = useState('idle');
   const [themeSaving, setThemeSaving] = useState(false);
   const [toastExiting, setToastExiting] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const [githubChartError, setGithubChartError] = useState(false);
+  const toastHideTimerRef = useRef(null);
+  const toastFadeTimerRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -216,15 +224,28 @@ export default function Profile() {
   }, [resumeSnapshot]);
 
   useEffect(() => {
+    setAvatarLoadError(false);
+  }, [profile.avatar_url]);
+
+  useEffect(() => {
+    setGithubChartError(false);
+  }, [profile.githubUsername]);
+
+  useEffect(() => {
     if (status !== 'saved' && status !== 'error') return undefined;
-    const timer = window.setTimeout(() => {
+    window.clearTimeout(toastFadeTimerRef.current);
+    window.clearTimeout(toastHideTimerRef.current);
+    toastFadeTimerRef.current = window.setTimeout(() => {
       setToastExiting(true);
-      window.setTimeout(() => {
+      toastHideTimerRef.current = window.setTimeout(() => {
         setStatus('idle');
         setToastExiting(false);
       }, 300);
     }, 3000);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(toastFadeTimerRef.current);
+      window.clearTimeout(toastHideTimerRef.current);
+    };
   }, [status]);
 
   useEffect(() => {
@@ -257,6 +278,7 @@ export default function Profile() {
       }
       refreshBalance();
       refreshDashboard();
+      fetchJobMatches();
       setEditing(false);
       setSuccessMessage('Profile saved successfully.');
       setStatus('saved');
@@ -270,20 +292,35 @@ export default function Profile() {
   };
 
   const handleGithubConnect = async () => {
-    if (!githubUsername.trim()) return;
+    const normalizedHandle = normalizeGithubHandle(githubUsername);
+    if (!normalizedHandle) {
+      setErrorMessage('Please enter a valid GitHub username or profile URL.');
+      setStatus('error');
+      return;
+    }
     setSaving(true);
     setStatus('idle');
+    setErrorMessage('');
+    setSuccessMessage('');
     try {
-      const payload = buildProfilePayload({ ...profile, githubUsername: githubUsername.trim() });
       const res = await authFetch('/api/user/profile', {
         method: 'PUT',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ githubUsername: normalizedHandle })
       });
-      if (!res.ok) throw new Error('Failed to save github username');
-      setProfile(prev => ({ ...prev, githubUsername: githubUsername.trim() }));
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Failed to save GitHub username.'));
+      }
+      const data = await res.json();
+      const normalized = normalizeProfileData(data);
+      const savedHandle = normalized.githubUsername || normalizedHandle;
+      setProfile(prev => ({ ...prev, githubUsername: savedHandle }));
+      setGithubUsername(savedHandle);
+      setGithubChartError(false);
+      setSuccessMessage('GitHub account connected.');
       setStatus('saved');
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || 'Failed to save GitHub username.');
       setStatus('error');
     }
     setSaving(false);
@@ -292,18 +329,24 @@ export default function Profile() {
   const handleGithubDisconnect = async () => {
     setSaving(true);
     setStatus('idle');
+    setErrorMessage('');
+    setSuccessMessage('');
     try {
-      const payload = buildProfilePayload({ ...profile, githubUsername: '' });
       const res = await authFetch('/api/user/profile', {
         method: 'PUT',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ githubUsername: '' })
       });
-      if (!res.ok) throw new Error('Failed to disconnect github');
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Failed to disconnect GitHub.'));
+      }
       setProfile(prev => ({ ...prev, githubUsername: '' }));
       setGithubUsername('');
+      setGithubChartError(false);
+      setSuccessMessage('GitHub account disconnected.');
       setStatus('saved');
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || 'Failed to disconnect GitHub.');
       setStatus('error');
     }
     setSaving(false);
@@ -682,7 +725,9 @@ export default function Profile() {
 
       const normalized = normalizeProfileData(data);
 
+      setAvatarLoadError(false);
       setProfile((prev) => ({ ...prev, ...normalized }));
+      setSuccessMessage('Profile photo updated.');
       setStatus('saved');
     } catch (err) {
       console.error('Avatar upload error:', err);
@@ -722,13 +767,29 @@ export default function Profile() {
   const completionLabel = profileCompletion >= 100 ? 'Complete!' : `${profileCompletion}%`;
   const RING_CIRCUMFERENCE = 2 * Math.PI * 20;
   const ringDashoffset = RING_CIRCUMFERENCE - (profileCompletion / 100) * RING_CIRCUMFERENCE;
+  const planBadgeMeta = getPlanBadgeMeta(profile.subscriptionTier || user?.subscriptionTier);
+  const websiteHref = normalizeExternalUrl(profile.website);
+  const linkedinHref = buildSocialUrl('linkedin', profile.socialLinks?.linkedin);
+  const twitterHref = buildSocialUrl('twitter', profile.socialLinks?.twitter);
+  const portfolioHref = buildSocialUrl('portfolio', profile.socialLinks?.portfolio);
+  const dribbbleHref = buildSocialUrl('dribbble', profile.socialLinks?.dribbble);
 
   const dismissToast = () => {
+    window.clearTimeout(toastFadeTimerRef.current);
+    window.clearTimeout(toastHideTimerRef.current);
     setToastExiting(true);
-    window.setTimeout(() => {
+    toastHideTimerRef.current = window.setTimeout(() => {
       setStatus('idle');
       setToastExiting(false);
     }, 300);
+  };
+
+  const handleDiscard = () => {
+    setEditing(false);
+    setAutofillSuggestions({});
+    setErrorMessage('');
+    setStatus('idle');
+    fetchProfile();
   };
 
   return (
@@ -738,37 +799,43 @@ export default function Profile() {
         <div className="du-profile-identity">
           <div className="du-profile-left">
             <div className="du-avatar">
-              {profile.avatar_url ? (
+              {profile.avatar_url && !avatarLoadError ? (
                 <img
                   src={profile.avatar_url}
                   alt={`${displayName}'s avatar`}
                   className="du-avatar-img"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  onError={() => setAvatarLoadError(true)}
                 />
               ) : (
                 initial
               )}
               <span className="du-avatar-online" />
-              {editing && (
-                <>
-                  <button className="du-change-photo-btn" type="button" onClick={handleAvatarButtonClick}>
-                    <Camera size={14} />
-                    Change Photo
-                  </button>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={handleAvatarFileChange}
-                  />
-                </>
-              )}
+              <button
+                className={`du-change-photo-btn${editing ? ' is-visible' : ''}`}
+                type="button"
+                onClick={handleAvatarButtonClick}
+                aria-label="Change profile photo"
+              >
+                <Camera size={14} />
+                Change Photo
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleAvatarFileChange}
+              />
             </div>
             <div className="du-profile-info">
               <h1 className="du-profile-name">
                 {displayName}
-                <button className="du-name-edit" type="button" aria-label="Edit display name" onClick={() => setEditing(true)}>
+                <button
+                  className="du-name-edit"
+                  type="button"
+                  aria-label="Edit display name"
+                  onClick={() => { setActiveTab('basic'); setEditing(true); }}
+                >
                   <PenSquare size={14} />
                 </button>
               </h1>
@@ -789,9 +856,9 @@ export default function Profile() {
                 </span>
               </div>
               
-              <span className="du-plan-badge">
+              <span className={`du-plan-badge is-${planBadgeMeta.tier}`}>
                 <Sparkles size={12} />
-                Explorer (Free)
+                {planBadgeMeta.label}
               </span>
 
               {/* Profile Completion Ring */}
@@ -1047,11 +1114,11 @@ export default function Profile() {
                         <div className="du-contact-value">{profile.location}</div>
                       </div>
                     )}
-                    {profile.website && (
+                    {profile.website && websiteHref && (
                       <div className="du-showcase-contact-item">
                         <Link2 size={16} className="du-contact-icon" />
                         <div className="du-contact-label">Website</div>
-                        <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} 
+                        <a href={websiteHref}
                            target="_blank" rel="noopener noreferrer" 
                            className="du-contact-value du-link">
                           {profile.website}
@@ -1152,8 +1219,8 @@ export default function Profile() {
                   <div className="du-social-link-item">
                     <div className="du-social-platform">LinkedIn</div>
                     <div className="du-social-url">
-                      {profile.socialLinks?.linkedin ? (
-                        <a href={`https://linkedin.com/in/${profile.socialLinks.linkedin}`} 
+                      {linkedinHref ? (
+                        <a href={linkedinHref}
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.linkedin}
                         </a>
@@ -1161,10 +1228,10 @@ export default function Profile() {
                     </div>
                   </div>
                   <div className="du-social-link-item">
-                    <div className="du-social-platform">Twitter</div>
+                    <div className="du-social-platform">Twitter / X</div>
                     <div className="du-social-url">
-                      {profile.socialLinks?.twitter ? (
-                        <a href={`https://twitter.com/${profile.socialLinks.twitter}`} 
+                      {twitterHref ? (
+                        <a href={twitterHref}
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.twitter}
                         </a>
@@ -1174,12 +1241,23 @@ export default function Profile() {
                   <div className="du-social-link-item">
                     <div className="du-social-platform">Portfolio</div>
                     <div className="du-social-url">
-                      {profile.socialLinks?.portfolio ? (
-                        <a href={profile.socialLinks.portfolio.startsWith('http') ? profile.socialLinks.portfolio : `https://${profile.socialLinks.portfolio}`} 
+                      {portfolioHref ? (
+                        <a href={portfolioHref}
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.portfolio}
                         </a>
                       ) : 'Not set'}
+                    </div>
+                  </div>
+                  <div className="du-social-link-item">
+                    <div className="du-social-platform">Dribbble</div>
+                    <div className="du-social-url">
+                      {dribbbleHref ? (
+                        <a href={dribbbleHref}
+                           target="_blank" rel="noopener noreferrer">
+                          {profile.socialLinks.dribbble}
+                        </a>
+                      ) : 'Not connected'}
                     </div>
                   </div>
                 </div>
@@ -1203,9 +1281,7 @@ export default function Profile() {
                         state: {
                           form: {
                             githubUsername: profile.githubUsername || '',
-                            linkedinUrl: profile.socialLinks?.linkedin
-                              ? `https://linkedin.com/in/${profile.socialLinks.linkedin}`
-                              : '',
+                            linkedinUrl: linkedinHref || '',
                           },
                         },
                       })}
@@ -1287,10 +1363,10 @@ export default function Profile() {
                               <Phone size={16} /> {profile.phone}
                             </li>
                           )}
-                          {profile.website && (
+                          {profile.website && websiteHref && (
                             <li className="du-portfolio-contact-item">
                               <Link2 size={16} /> 
-                              <a href={profile.website} target="_blank" rel="noopener noreferrer">
+                              <a href={websiteHref} target="_blank" rel="noopener noreferrer">
                                 {profile.website}
                               </a>
                             </li>
@@ -1545,7 +1621,8 @@ export default function Profile() {
                 </button>
                 <button
                   className="du-cancel-btn"
-                  onClick={() => { setEditing(false); fetchProfile(); }}
+                  type="button"
+                  onClick={handleDiscard}
                 >
                   <X size={14} />
                   Discard
@@ -1591,11 +1668,26 @@ export default function Profile() {
               </>
             ) : (
               <div className="du-heatmap-wrapper">
-                <img 
-                  src={`https://ghchart.rshah.org/2cee91/${profile.githubUsername}`} 
-                  alt={`${profile.githubUsername}'s Github chart`} 
-                  style={{ width: '100%', maxWidth: '100%' }}
-                />
+                {githubChartError ? (
+                  <p className="du-card-subtitle">
+                    Could not load contribution chart for <strong>@{profile.githubUsername}</strong>. Verify your GitHub username or{' '}
+                    <a
+                      href={`https://github.com/${encodeURIComponent(profile.githubUsername)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="du-link"
+                    >
+                      view profile on GitHub
+                    </a>.
+                  </p>
+                ) : (
+                  <img 
+                    src={`https://ghchart.rshah.org/2cee91/${encodeURIComponent(profile.githubUsername)}`} 
+                    alt={`${profile.githubUsername}'s Github chart`} 
+                    style={{ width: '100%', maxWidth: '100%' }}
+                    onError={() => setGithubChartError(true)}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -1657,7 +1749,7 @@ export default function Profile() {
               <h2 className="du-card-title">
                 <Sparkles /> Subscription
               </h2>
-              <span className="du-plan-pill">FREE</span>
+              <span className={`du-plan-pill is-${planBadgeMeta.tier}`}>{planBadgeMeta.pill}</span>
             </div>
             <div className="du-sub-meters">
               <div className="du-sub-meter">

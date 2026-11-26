@@ -123,8 +123,16 @@
   transition: opacity 0.2s ease;
 }
 
-.du-avatar:hover .du-change-photo-btn {
+.du-avatar:hover .du-change-photo-btn,
+.du-avatar:focus-within .du-change-photo-btn,
+.du-change-photo-btn.is-visible {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .du-change-photo-btn {
+    opacity: 0.9;
+  }
 }
 
 .du-profile-info {
@@ -2480,4 +2488,18 @@ a.du-profile-url:hover {
 }
 [data-theme="light"] .du-portfolio-cta-btn:hover {
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.du-plan-badge.is-pro,
+.du-plan-pill.is-pro {
+  background: rgba(99, 102, 241, 0.14);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.du-plan-badge.is-premium,
+.du-plan-pill.is-premium {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.35);
 }

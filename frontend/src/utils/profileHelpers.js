@@ -7,6 +7,8 @@ export function buildInitialProfile(user) {
     fullName: user?.fullName || '',
     full_name: user?.fullName || '',
     email: user?.email || '',
+    subscriptionTier: user?.subscriptionTier || user?.subscription_tier || 'free',
+    coins: user?.coins ?? 0,
     bio: '',
     currentRole: '',
     designation: '',
@@ -38,10 +40,12 @@ export function normalizeProfileData(data) {
     fullName: merged.fullName ?? merged.full_name ?? '',
     full_name: merged.full_name ?? merged.fullName ?? '',
     email: merged.email ?? '',
+    subscriptionTier: merged.subscriptionTier ?? merged.subscription_tier ?? 'free',
+    coins: merged.coins ?? 0,
     bio: merged.bio ?? '',
     currentRole: merged.currentRole ?? merged.designation ?? merged.role_title ?? '',
     designation: merged.designation ?? merged.currentRole ?? '',
-    experience: merged.experience ?? merged.experienceLevel ?? merged.experience_level ?? '',
+    experience: merged.experience ?? merged.experienceSummary ?? merged.experience_summary ?? '',
     experienceLevel: merged.experienceLevel ?? merged.experience_level ?? '',
     experience_level: merged.experience_level ?? merged.experienceLevel ?? '',
     skills: merged.skills ?? '',
@@ -201,4 +205,64 @@ export const AUTOFILL_FIELD_LABELS = {
   experience: 'Experience',
   bio: 'Bio',
 };
+
+const UNSAFE_PROTOCOL_RE = /^(?:javascript|data|vbscript):/i;
+
+export function normalizeExternalUrl(rawValue) {
+  const trimmed = String(rawValue || '').trim();
+  if (!trimmed || UNSAFE_PROTOCOL_RE.test(trimmed)) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed.replace(/^\/+/, '')}`;
+}
+
+export function buildSocialUrl(platform, rawValue) {
+  const trimmed = String(rawValue || '').trim();
+  if (!trimmed || UNSAFE_PROTOCOL_RE.test(trimmed)) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const clean = trimmed.replace(/^@+/, '').replace(/^\/+/, '');
+  switch (platform) {
+    case 'linkedin':
+      if (/linkedin\.com\//i.test(clean)) return `https://${clean}`;
+      return `https://www.linkedin.com/in/${clean}`;
+    case 'twitter':
+      if (/(?:twitter|x)\.com\//i.test(clean)) return `https://${clean}`;
+      return `https://x.com/${clean}`;
+    case 'dribbble':
+      if (/dribbble\.com\//i.test(clean)) return `https://${clean}`;
+      return `https://dribbble.com/${clean}`;
+    case 'portfolio':
+    case 'website':
+    default:
+      return normalizeExternalUrl(trimmed);
+  }
+}
+
+export function normalizeGithubHandle(rawValue) {
+  let trimmed = String(rawValue || '').trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed) || trimmed.includes('github.com')) {
+    try {
+      const urlStr = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      const parsed = new URL(urlStr);
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts.length > 0) trimmed = parts[0];
+    } catch {
+      // keep raw trimmed value
+    }
+  }
+  trimmed = trimmed.replace(/^@+/, '');
+  return /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(trimmed) ? trimmed : null;
+}
+
+export function getPlanBadgeMeta(subscriptionTier) {
+  const tier = String(subscriptionTier || 'free').trim().toLowerCase();
+  if (tier === 'premium' || tier === 'enterprise') {
+    return { tier, label: 'Premium', pill: 'PREMIUM', isPaid: true };
+  }
+  if (tier === 'pro') {
+    return { tier, label: 'Pro', pill: 'PRO', isPaid: true };
+  }
+  return { tier: 'free', label: 'Explorer (Free)', pill: 'FREE', isPaid: false };
+}
 

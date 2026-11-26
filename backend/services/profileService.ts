@@ -131,11 +131,11 @@ export const buildProfileResponse = (reqOrUser: any, profile: RawProfile) => {
   }
 
   const socialLinks = {
+    ...parsedSocialLinks,
     twitter: profile?.twitter || parsedSocialLinks.twitter || '',
     linkedin: profile?.linkedin || parsedSocialLinks.linkedin || '',
     portfolio: profile?.portfolio || parsedSocialLinks.portfolio || '',
     dribbble: profile?.dribbble || parsedSocialLinks.dribbble || '',
-    ...parsedSocialLinks,
   };
 
   const flatProfile: Record<string, any> = {
@@ -155,7 +155,7 @@ export const buildProfileResponse = (reqOrUser: any, profile: RawProfile) => {
     skills: profile?.skills || '',
     education: profile?.education || '',
     qualification: profile?.qualification || profile?.education || '',
-    experience: experienceSummary || (experienceYears !== null ? String(experienceYears) : experienceLevel),
+    experience: experienceSummary || (experienceYears !== null ? String(experienceYears) : ''),
     experienceSummary,
     experienceYears,
     company: profile?.company || '',
@@ -348,7 +348,12 @@ export const getPublicPortfolioBySlug = async (rawSlug: string, currentUserId?: 
   // 3. By slugified full_name
   if (!profile) {
     const nameFromSlug = slug.replace(/[-_]+/g, ' ').trim();
-    const byName = await (supabaseAdmin as any).from('profiles').select('*').ilike('full_name', nameFromSlug).maybeSingle();
+    const byName = await (supabaseAdmin as any)
+      .from('profiles')
+      .select('*')
+      .ilike('full_name', nameFromSlug)
+      .limit(1)
+      .maybeSingle();
     if (!byName.error && byName.data) {
       profile = byName.data;
     }

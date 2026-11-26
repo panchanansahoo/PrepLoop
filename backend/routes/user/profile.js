@@ -99,6 +99,9 @@ router.post("/profile/avatar", authenticateToken, uploadEndpointsLimiter, upload
     return res.json(response);
   } catch (error) {
     console.error("Avatar upload error:", error);
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
     return res.status(500).json({ error: "Failed to upload avatar" });
   }
 });
