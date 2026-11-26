@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Button } from "../../components/Button";
-import { dsaApi } from "../../api/dsaApi"; // Assuming SQL is handled by DSA api for now, matching web structure
+import { sqlApi } from "../../api/sqlApi";
 
 export default function SQLEditorScreen({ route, navigation }) {
     const { problemId, problemTitle } = route.params || {};
@@ -27,6 +27,7 @@ export default function SQLEditorScreen({ route, navigation }) {
     const [code, setCode] = useState("-- Write your SQL query here\nSELECT * FROM table_name;");
     const [submitting, setSubmitting] = useState(false);
     const [testResult, setTestResult] = useState(null);
+    const [loadError, setLoadError] = useState("");
     const [htmlContent, setHtmlContent] = useState("");
     const [activeTab, setActiveTab] = useState("description"); // 'description', 'schema', 'editor', 'result'
     
@@ -40,7 +41,7 @@ export default function SQLEditorScreen({ route, navigation }) {
                 await asset.downloadAsync();
                 setHtmlContent(asset.localUri || asset.uri);
             } catch (err) {
-                console.error("Failed to load editor HTML:", err);
+                setLoadError("Could not open the query editor.");
             }
         };
         loadAsset();
@@ -48,28 +49,35 @@ export default function SQLEditorScreen({ route, navigation }) {
 
     // Fetch problem details
     useEffect(() => {
+        let active = true;
         const fetchProblem = async () => {
-            if (!problemId) return;
+            if (!problemId) {
+                setLoadError("SQL problem not found.");
+                setLoading(false);
+                return;
+            }
             
             try {
                 setLoading(true);
-                // Mock or real API call for SQL problem details
-                const data = await dsaApi.getProblemDetails(problemId);
-                setProblem(data);
-                
-                if (data.codeTemplates?.sql) {
-                    setCode(data.codeTemplates.sql);
+                setLoadError("");
+                setTestResult(null);
+                const data = await sqlApi.getProblem(problemId);
+                if (!active) return;
+                if (!data || !data.title) {
+                    throw new Error("SQL problem not found");
                 }
-                
-                navigation.setOptions({ title: data.title || "SQL Editor" });
-            } catch (err) {
-                Alert.alert("Error", "Failed to load problem details");
+                setProblem(data);
+                setCode(`-- ${data.title}\nSELECT `);
+                navigation.setOptions({ title: data.title || problemTitle || "SQL Editor" });
+            } catch {
+                if (active) setLoadError("Could not load this SQL problem.");
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
         
         fetchProblem();
+        return () => { active = false; };
     }, [problemId]);
     
     const syncEditorState = useCallback(() => {
@@ -113,13 +121,11 @@ export default function SQLEditorScreen({ route, navigation }) {
         setTestResult(null);
         
         try {
-            const result = await dsaApi.submitSolution(problemId, {
-                code,
-                language: "sql",
-            });
+            const result = await sqlApi.runQuery(code, problem?.schemaId);
             setTestResult(result);
         } catch (err) {
             setTestResult({
+                success: false,
                 status: "error",
                 message: err.message || "Failed to execute query",
             });
@@ -127,6 +133,13 @@ export default function SQLEditorScreen({ route, navigation }) {
             setSubmitting(false);
         }
     };
+
+    if (loadError) {
+        return <View style={styles.centerContainer}>
+            <Text style={styles.loadingText}>{loadError}</Text>
+            <Button title="Back to SQL problems" onPress={() => navigation.goBack()} />
+        </View>;
+    }
 
     if (loading || !htmlContent) {
         return (
@@ -137,25 +150,7 @@ export default function SQLEditorScreen({ route, navigation }) {
         );
     }
 
-    // Mock schema data if not present in API response
-    const schema = problem?.schema || [
-        {
-            tableName: "Employees",
-            columns: [
-                { name: "id", type: "INT", isPrimaryKey: true },
-                { name: "name", type: "VARCHAR", isPrimaryKey: false },
-                { name: "salary", type: "INT", isPrimaryKey: false },
-                { name: "departmentId", type: "INT", isPrimaryKey: false },
-            ]
-        },
-        {
-            tableName: "Departments",
-            columns: [
-                { name: "id", type: "INT", isPrimaryKey: true },
-                { name: "name", type: "VARCHAR", isPrimaryKey: false },
-            ]
-        }
-    ];
+    const schema = problem.schema || [];
 
     return (
         <KeyboardAvoidingView 
@@ -201,14 +196,29 @@ export default function SQLEditorScreen({ route, navigation }) {
                         <Text style={styles.problemTitle}>{problem.title}</Text>
                         <Text style={styles.descriptionText}>{problem.description}</Text>
                         
-                        <Text style={styles.sectionHeader}>Examples</Text>
-                        {problem.examples?.map((ex, i) => (
-                            <View key={i} style={styles.exampleBox}>
-                                <Text style={styles.exampleText}><Text style={styles.boldText}>Input:</Text> {ex.input}</Text>
-                                <Text style={styles.exampleText}><Text style={styles.boldText}>Output:</Text> {ex.output}</Text>
-                                {ex.explanation && <Text style={styles.exampleText}><Text style={styles.boldText}>Explanation:</Text> {ex.explanation}</Text>}
-                            </View>
-                        ))}
+                        {Array.isArray(problem.examples) && problem.examples.length > 0 && (
+                            <>
+                                <Text style={styles.sectionHeader}>Examples</Text>
+                                {problem.examples.map((ex, i) => (
+                                    <View key={i} style={styles.exampleBox}>
+                                        <Text style={styles.exampleText}><Text style={styles.boldText}>Input:</Text> {ex.input}</Text>
+                                        <Text style={styles.exampleText}><Text style={styles.boldText}>Output:</Text> {ex.output}</Text>
+                                        {ex.explanation && <Text style={styles.exampleText}><Text style={styles.boldText}>Explanation:</Text> {ex.explanation}</Text>}
+                                    </View>
+                                ))}
+                            </>
+                        )}
+
+                        {Array.isArray(problem.hints) && problem.hints.length > 0 && (
+                            <>
+                                <Text style={styles.sectionHeader}>Hints</Text>
+                                {problem.hints.map((hint, i) => (
+                                    <View key={i} style={styles.exampleBox}>
+                                        <Text style={styles.exampleText}>{hint}</Text>
+                                    </View>
+                                ))}
+                            </>
+                        )}
                     </ScrollView>
                 )}
 
@@ -218,7 +228,9 @@ export default function SQLEditorScreen({ route, navigation }) {
                         <Text style={styles.schemaHeader}>Database Schema</Text>
                         <Text style={styles.schemaSubtext}>Tables available for your query:</Text>
                         
-                        {schema.map((table, i) => (
+                        {schema.length === 0 ? (
+                            <Text style={styles.emptyText}>No schema tables available.</Text>
+                        ) : schema.map((table, i) => (
                             <View key={i} style={styles.tableBox}>
                                 <View style={styles.tableNameRow}>
                                     <Text style={styles.tableIcon}>🗄️</Text>
@@ -282,21 +294,35 @@ export default function SQLEditorScreen({ route, navigation }) {
                             <View>
                                 <View style={[
                                     styles.statusBox, 
-                                    testResult.status === "accepted" ? styles.statusAccepted : styles.statusFailed
+                                    testResult.success === true ? styles.statusAccepted : styles.statusFailed
                                 ]}>
                                     <Text style={[
                                         styles.statusText,
-                                        testResult.status === "accepted" ? styles.statusTextAccepted : styles.statusTextFailed
+                                        testResult.success === true ? styles.statusTextAccepted : styles.statusTextFailed
                                     ]}>
-                                        {testResult.status === "accepted" ? "Accepted!" : "Failed"}
+                                        {testResult.success === true ? "Query completed" : "Query failed"}
                                     </Text>
                                 </View>
                                 
-                                <Text style={styles.resultDetail}>Runtime: {testResult.runtime || "0"} ms</Text>
+                                <Text style={styles.resultDetail}>Runtime: {testResult.executionTime ?? "—"} ms</Text>
                                 
-                                {testResult.message && (
+                                {testResult.success === true && testResult.columns?.length > 0 && (
+                                    <Text style={styles.resultDetail}>{testResult.columns.join(" | ")}</Text>
+                                )}
+                                {testResult.success === true && Array.isArray(testResult.rows) && testResult.rows.length === 0 && (
+                                    <Text style={styles.resultDetail}>(0 rows returned)</Text>
+                                )}
+                                {testResult.success === true && testResult.rows?.slice(0, 100).map((row, index) => (
+                                    <Text key={index} style={styles.resultDetail}>
+                                        {(Array.isArray(row) ? row : Object.values(row)).map(value => value ?? "NULL").join(" | ")}
+                                    </Text>
+                                ))}
+                                {testResult.success === true && testResult.output && !Array.isArray(testResult.rows) && (
+                                    <Text style={styles.resultDetail}>{testResult.output}</Text>
+                                )}
+                                {(testResult.error || testResult.message) && (
                                     <View style={styles.errorBox}>
-                                        <Text style={styles.errorText}>{testResult.message}</Text>
+                                        <Text style={styles.errorText}>{testResult.error || testResult.message}</Text>
                                     </View>
                                 )}
                             </View>
@@ -311,16 +337,11 @@ export default function SQLEditorScreen({ route, navigation }) {
                     title={activeTab === "editor" ? "Run Query" : "Write Query"}
                     variant="outline"
                     onPress={() => activeTab === "editor" ? handleSubmit() : setActiveTab("editor")}
-                    style={{ flex: 1, marginRight: spacing.sm }}
+                    style={{ flex: 1 }}
+                    loading={submitting}
                     disabled={submitting}
                 />
-                <Button 
-                    title="Submit Solution"
-                    variant="primary"
-                    onPress={handleSubmit}
-                    loading={submitting}
-                    style={{ flex: 1, marginLeft: spacing.sm }}
-                />
+
             </View>
         </KeyboardAvoidingView>
     );

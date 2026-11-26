@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -24,8 +24,10 @@ export default function AptitudePracticeScreen({ route, navigation }) {
     const [isAnswered, setIsAnswered] = useState(false);
     const [score, setScore] = useState(0);
     const [loading, setLoading] = useState(true);
+    const answeredRef = useRef(false);
 
     useEffect(() => {
+        answeredRef.current = false;
         const loadTimeout = setTimeout(() => {
             let catId = category;
             if (catId === "logical") catId = "reasoning"; // Map 'logical' to 'reasoning'
@@ -61,32 +63,26 @@ export default function AptitudePracticeScreen({ route, navigation }) {
     }, [category]);
 
     const handleOptionSelect = (option) => {
-        if (isAnswered) return;
+        if (answeredRef.current || isAnswered) return;
+        answeredRef.current = true;
 
         setSelectedAnswer(option);
         setIsAnswered(true);
 
-        if (option === questions[currentIndex].correctAnswer) {
-            setScore((prev) => prev + 1);
+        if (option === questions[currentIndex]?.correctAnswer) {
+            setScore((prev) => Math.min(questions.length, prev + 1));
         }
     };
 
     const handleNext = () => {
         if (currentIndex < questions.length - 1) {
+            answeredRef.current = false;
             setCurrentIndex((prev) => prev + 1);
             setSelectedAnswer(null);
             setIsAnswered(false);
         } else {
-            // `score` state may not yet reflect the last answer (setState is async).
-            // Compute the final score synchronously: accumulated score from previous
-            // questions plus 1 if the current (last) question was answered correctly.
-            const lastQuestionCorrect =
-                selectedAnswer === questions[currentIndex]?.correctAnswer
-                    ? 1
-                    : 0;
-            const finalScore = score + lastQuestionCorrect;
             navigation.replace("AptitudeResults", {
-                score: finalScore,
+                score: Math.min(score, questions.length),
                 total: questions.length,
                 category,
                 title,

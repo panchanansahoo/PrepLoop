@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, BadgeCheck, Briefcase, Github, Globe, Loader2, Mail, MapPin, Star, ExternalLink, Code, Sparkles, GitFork, Calendar, GraduationCap, Award, Phone, Twitter, Linkedin } from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
@@ -151,6 +151,8 @@ function ProjectCard({ project, index }) {
 
 export default function PublicPortfolioPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const generatedSite = searchParams.get('site') === '1';
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -165,17 +167,16 @@ export default function PublicPortfolioPage() {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // 1. Try user portfolio public endpoint first
-        let res = await authFetch(
-          buildApiUrl(`/user/portfolio/public/${encodeURIComponent(slug)}`, { rawBaseUrl: API_URL, apiPrefix: '/api' }),
+        const path = encodeURIComponent(slug);
+        const request = (endpoint) => authFetch(
+          buildApiUrl(endpoint, { rawBaseUrl: API_URL, apiPrefix: '/api' }),
           { headers }
         );
-        if (res.status === 404) {
-          // 2. Fallback to portfolio service public endpoint
-          res = await authFetch(
-            buildApiUrl(`/portfolio/public/${encodeURIComponent(slug)}`, { rawBaseUrl: API_URL, apiPrefix: '/api' }),
-            { headers }
-          );
+        let res = generatedSite
+          ? await request(`/portfolio/public/${path}?site=1`)
+          : await request(`/user/portfolio/public/${path}`);
+        if (!generatedSite && res.status === 404) {
+          res = await request(`/portfolio/public/${path}`);
         }
         if (res.status === 404) { if (!cancelled) setError('not-found'); return; }
         if (res.status === 403) { if (!cancelled) setError('private'); return; }
@@ -191,7 +192,17 @@ export default function PublicPortfolioPage() {
     }
     fetchPortfolio();
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, generatedSite]);
+
+  const visibility = portfolio?.portfolioMeta?.visibility;
+  useEffect(() => {
+    if (visibility !== 'unlisted' && visibility !== 'private') return;
+    const robots = document.createElement('meta');
+    robots.name = 'robots';
+    robots.content = 'noindex';
+    document.head.append(robots);
+    return () => robots.remove();
+  }, [visibility]);
 
   const pageTitle = useMemo(() => {
     if (!portfolio?.basics?.name) return 'PrepLoop';
@@ -270,8 +281,23 @@ export default function PublicPortfolioPage() {
     ? projects.filter((p) => p?.featured)
     : projects.slice(0, 6);
 
+  const { template, branding } = portfolio.portfolioMeta;
+  const layout = ['minimal', 'dark', 'creative', 'fresher'].includes(template) ? template : '';
+  const hexColor = (value) => /^#[0-9a-f]{6}$/i.test(value || '') ? value : undefined;
+  const allowedFonts = new Set([
+    "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    "'Poppins', sans-serif",
+    "'Merriweather', serif",
+    "'Fira Sans', sans-serif",
+  ]);
+  const customStyle = layout ? {
+    '--pp-brand-primary': hexColor(branding?.primaryColor),
+    '--pp-brand-accent': hexColor(branding?.accentColor),
+    fontFamily: allowedFonts.has(branding?.fontFamily) ? branding.fontFamily : undefined,
+  } : undefined;
+
   return (
-    <div className={`pp-page pp-theme-${profileTheme}`}>
+    <div className={`pp-page pp-theme-${profileTheme}`} data-template={layout || undefined} style={customStyle}>
       <div className="pp-aurora" />
       <div className="pp-aurora pp-aurora-2" />
 
@@ -299,7 +325,7 @@ export default function PublicPortfolioPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 18 }}>👁️</span>
               <span style={{ fontSize: 13 }}>
-                <strong>Preview Mode:</strong> Your profile is currently set to Private. Visitors won&apos;t be able to see it until you toggle Profile Visibility to Public in your settings.
+                <strong>Private preview</strong> · Only you can see this portfolio.
               </span>
             </div>
             <Link to="/profile" style={{
@@ -413,7 +439,7 @@ export default function PublicPortfolioPage() {
 
           {/* Experience */}
           {experience.length > 0 && (
-            <section className="pp-card">
+            <section className="pp-card pp-experience-card">
               <h2 className="pp-section-title"><Briefcase size={18} /> Experience</h2>
               <div className="pp-exp-timeline">
                 {experience.slice(0, 6).map((item, i) => (
@@ -437,7 +463,7 @@ export default function PublicPortfolioPage() {
 
           {/* Projects */}
           {featuredProjects.length > 0 && (
-            <section className="pp-card pp-card-wide">
+            <section className="pp-card pp-card-wide pp-projects-card">
               <h2 className="pp-section-title"><Star size={18} /> Featured Projects</h2>
               <div className="pp-project-grid">
                 {featuredProjects.map((project, i) => (

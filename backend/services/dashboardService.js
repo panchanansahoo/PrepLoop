@@ -397,6 +397,7 @@ export async function getComprehensiveUserStats(userId) {
   const dailyChallenge = {
     name: 'Personalized DSA Challenge',
     type: 'From Your DB Progress',
+    date: todayStr,
     dsa: dailyDsa,
     sql: dailySql,
   };

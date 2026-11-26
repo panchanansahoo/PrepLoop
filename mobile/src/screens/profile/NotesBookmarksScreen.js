@@ -244,16 +244,25 @@ export default function NotesBookmarksScreen({ navigation }) {
                         title={`No ${activeTab === "bookmarks" ? "Bookmarks" : "Notes"} Found`}
                         message={`You haven't saved any ${activeTab} matching this filter.`}
                         actionLabel="Explore Problems"
-                        onAction={() => navigation.navigate("DSAPatterns")}
+                        onAction={() => navigation.navigate("DSA", { screen: "DSAPatterns" })}
                     />
                 ) : (
-                    filteredItems.map((item, index) => (
+                    filteredItems.map((item, index) => {
+                        const targetProblemId = item.question_id || item.questionId;
+                        const isDsaBookmark =
+                            String(item.question_type || "").toLowerCase() === "dsa" &&
+                            Boolean(targetProblemId);
+                        const hasValidDate =
+                            item.created_at && !Number.isNaN(Date.parse(item.created_at));
+                        return (
                         <View key={item.id || index} style={styles.card}>
                             <TouchableOpacity
                                 style={styles.cardContent}
+                                disabled={!isDsaBookmark}
                                 onPress={() =>
-                                    navigation.navigate("DSAProblemDetail", {
-                                        id: item.question_id || item.questionId,
+                                    navigation.navigate("DSA", {
+                                        screen: "DSAProblemDetail",
+                                        params: { problemId: targetProblemId },
                                     })
                                 }
                             >
@@ -261,11 +270,13 @@ export default function NotesBookmarksScreen({ navigation }) {
                                     <Text style={styles.cardType}>
                                         {item.question_type || "Problem"}
                                     </Text>
-                                    <Text style={styles.date}>
-                                        {new Date(
-                                            item.created_at,
-                                        ).toLocaleDateString()}
-                                    </Text>
+                                    {hasValidDate && (
+                                        <Text style={styles.date}>
+                                            {new Date(
+                                                item.created_at,
+                                            ).toLocaleDateString()}
+                                        </Text>
+                                    )}
                                 </View>
                                 <Text style={styles.cardTitle}>
                                     {item.question_title || "Untitled Problem"}
@@ -323,7 +334,8 @@ export default function NotesBookmarksScreen({ navigation }) {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ))
+                        );
+                    })
                 )}
             </ScrollView>
 

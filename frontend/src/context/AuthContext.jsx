@@ -421,6 +421,25 @@ export function AuthProvider({ children }) {
     return () => axios.interceptors.response.eject(interceptor);
   }, []); // safe — uses ref, no stale closure
 
+  const refreshSubscription = useCallback(async () => {
+    const response = await authFetch('/api/user/profile');
+    if (!response.ok) throw new Error('Could not refresh subscription');
+    const { user: saved } = await response.json();
+    const subscriptionTier = saved?.subscriptionTier ?? saved?.subscription_tier;
+    if (typeof subscriptionTier === 'string') {
+      setUser(current => {
+        if (current?.id !== saved.id) return current;
+        const updated = { ...current, subscriptionTier, subscription_tier: subscriptionTier };
+        try {
+          localStorage.setItem('user', JSON.stringify(stripAuthToken(updated)));
+        } catch {
+          // Ignore storage quota/availability issues
+        }
+        return updated;
+      });
+    }
+  }, []);
+
   const value = useMemo(() => ({
     user,
     loading,
@@ -428,6 +447,7 @@ export function AuthProvider({ children }) {
     signup,
     logout,
     refreshSession,
+    refreshSubscription,
     getAuthHeaders,
     loginWithGoogle,
     loginWithGithub,
@@ -440,6 +460,7 @@ export function AuthProvider({ children }) {
     signup,
     logout,
     refreshSession,
+    refreshSubscription,
     getAuthHeaders,
     loginWithGoogle,
     loginWithGithub,

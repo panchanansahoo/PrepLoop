@@ -164,7 +164,7 @@ export default function Pricing() {
                   {plan.price === '₹0'
                     ? '₹0'
                     : isAnnual
-                      ? `₹${Math.round(parseInt(plan.price.replace('₹', '')) * 0.8)}`
+                      ? `₹${(Number(plan.price.replace('₹', '')) * 0.8).toFixed(2)}`
                       : plan.price
                   }
                 </span>

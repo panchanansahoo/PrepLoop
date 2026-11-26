@@ -18,12 +18,71 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Button } from "../../components/Button";
 import { dsaApi } from "../../api/dsaApi";
 
+function parseJsonIfString(value, fallback) {
+    if (typeof value !== "string") return value ?? fallback;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return fallback;
+    }
+}
+
+export function normalizeProblemPayload(data) {
+    const resolved = data?.problem ? data.problem : data;
+    if (!resolved || typeof resolved !== "object") {
+        return null;
+    }
+    const rawTemplates = parseJsonIfString(resolved.codeTemplates ?? resolved.starter_code, {});
+    const codeTemplates = rawTemplates && typeof rawTemplates === "object" && !Array.isArray(rawTemplates)
+        ? rawTemplates
+        : {};
+    const rawExamples = parseJsonIfString(resolved.examples, []);
+    const examples = Array.isArray(rawExamples) ? rawExamples : [];
+    return {
+        ...resolved,
+        codeTemplates,
+        examples,
+    };
+}
+
+export function evaluateSubmissionResult(testResult) {
+    if (!testResult || typeof testResult !== "object") {
+        return { isAccepted: false, testsPassed: undefined, totalTests: undefined, message: "" };
+    }
+    const rawPassed = testResult.testsPassed ?? testResult.passed ?? testResult.submission?.test_cases_passed;
+    const rawTotal = testResult.totalTests ?? testResult.total ?? testResult.submission?.total_test_cases;
+    const testsPassed = rawPassed !== undefined && rawPassed !== null && Number.isFinite(Number(rawPassed))
+        ? Number(rawPassed)
+        : undefined;
+    const totalTests = rawTotal !== undefined && rawTotal !== null && Number.isFinite(Number(rawTotal))
+        ? Number(rawTotal)
+        : undefined;
+    const explicitStatus = testResult.status ?? testResult.submission?.status;
+
+    let isAccepted;
+    if (explicitStatus === "error" || explicitStatus === "wrong_answer" || testResult.success === false) {
+        isAccepted = false;
+    } else if (totalTests !== undefined && totalTests > 0) {
+        isAccepted = testsPassed !== undefined && testsPassed >= totalTests;
+    } else {
+        isAccepted = explicitStatus === "accepted" || testResult.success === true;
+    }
+
+    return {
+        isAccepted,
+        testsPassed,
+        totalTests,
+        message: testResult.error || testResult.message || "",
+    };
+}
+
 export default function CodeEditorScreen({ route, navigation }) {
     const { problemId, problemTitle } = route.params || {};
     const insets = useSafeAreaInsets();
     
     const [problem, setProblem] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [language, setLanguage] = useState("javascript");
     const [code, setCode] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -47,6 +106,7 @@ export default function CodeEditorScreen({ route, navigation }) {
                 setHtmlContent(asset.localUri || asset.uri);
             } catch (err) {
                 console.error("Failed to load editor HTML:", err);
+                setLoadError("Could not open the code editor.");
             }
         };
         loadAsset();
@@ -54,44 +114,62 @@ export default function CodeEditorScreen({ route, navigation }) {
 
     // Fetch problem details
     useEffect(() => {
+        let active = true;
         const fetchProblem = async () => {
-            if (!problemId) return;
+            if (!problemId) {
+                setLoadError("Problem not found.");
+                setLoading(false);
+                return;
+            }
             
             try {
                 setLoading(true);
+                setLoadError("");
+                setTestResult(null);
                 const data = await dsaApi.getProblemDetails(problemId);
-                setProblem(data);
+                if (!active) return;
+                const normalized = normalizeProblemPayload(data);
+                if (!normalized) {
+                    throw new Error("Problem details unavailable");
+                }
+                setProblem(normalized);
                 
                 // Set default code template
-                if (data.codeTemplates && data.codeTemplates[language]) {
-                    setCode(data.codeTemplates[language]);
-                }
+                setCode(normalized.codeTemplates[language] || "");
                 
-                navigation.setOptions({ title: data.title || "Code Editor" });
+                navigation.setOptions({ title: normalized.title || problemTitle || "Code Editor" });
             } catch (err) {
+                if (!active) return;
+                setProblem(null);
+                setLoadError("Failed to load problem details.");
                 Alert.alert("Error", "Failed to load problem details");
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
         
         fetchProblem();
+        return () => { active = false; };
     }, [problemId]);
     
-    // Send code to WebView when it initializes or language changes
-    const syncEditorState = useCallback(() => {
+    // Send code and language to WebView explicitly
+    const postEditorState = useCallback((targetLanguage, targetCode) => {
         if (!webViewRef.current) return;
         
         webViewRef.current.postMessage(JSON.stringify({
             type: "SET_LANGUAGE",
-            payload: { language }
+            payload: { language: targetLanguage }
         }));
         
         webViewRef.current.postMessage(JSON.stringify({
             type: "SET_CODE",
-            payload: { code }
+            payload: { code: targetCode }
         }));
-    }, [language, code]);
+    }, []);
+
+    const syncEditorState = useCallback(() => {
+        postEditorState(language, code);
+    }, [postEditorState, language, code]);
     
     // Handle messages from WebView
     const onMessage = (event) => {
@@ -122,7 +200,7 @@ export default function CodeEditorScreen({ route, navigation }) {
         setTestResult(null);
         
         try {
-            const result = await dsaApi.submitSolution(problemId, {
+            const result = await dsaApi.submitSolution(problem?.id || problemId, {
                 code,
                 language,
             });
@@ -137,6 +215,15 @@ export default function CodeEditorScreen({ route, navigation }) {
         }
     };
 
+    if (loadError) {
+        return (
+            <View style={styles.centerContainer}>
+                <Text style={styles.loadingText}>{loadError}</Text>
+                <Button title="Go Back" onPress={() => navigation.goBack()} style={{ marginTop: spacing.md }} />
+            </View>
+        );
+    }
+
     if (loading || !htmlContent) {
         return (
             <View style={styles.centerContainer}>
@@ -145,6 +232,8 @@ export default function CodeEditorScreen({ route, navigation }) {
             </View>
         );
     }
+
+    const resultSummary = evaluateSubmissionResult(testResult);
 
     return (
         <KeyboardAvoidingView 
@@ -184,14 +273,24 @@ export default function CodeEditorScreen({ route, navigation }) {
                         <Text style={styles.problemTitle}>{problem.title}</Text>
                         <Text style={styles.descriptionText}>{problem.description}</Text>
                         
-                        <Text style={styles.sectionHeader}>Examples</Text>
-                        {problem.examples?.map((ex, i) => (
-                            <View key={i} style={styles.exampleBox}>
-                                <Text style={styles.exampleText}><Text style={styles.boldText}>Input:</Text> {ex.input}</Text>
-                                <Text style={styles.exampleText}><Text style={styles.boldText}>Output:</Text> {ex.output}</Text>
-                                {ex.explanation && <Text style={styles.exampleText}><Text style={styles.boldText}>Explanation:</Text> {ex.explanation}</Text>}
-                            </View>
-                        ))}
+                        {problem.examples?.length > 0 && (
+                            <>
+                                <Text style={styles.sectionHeader}>Examples</Text>
+                                {problem.examples.map((ex, i) => (
+                                    <View key={i} style={styles.exampleBox}>
+                                        <Text style={styles.exampleText}>
+                                            <Text style={styles.boldText}>Input:</Text>{" "}
+                                            {typeof ex.input === "string" ? ex.input : JSON.stringify(ex.input)}
+                                        </Text>
+                                        <Text style={styles.exampleText}>
+                                            <Text style={styles.boldText}>Output:</Text>{" "}
+                                            {typeof ex.output === "string" ? ex.output : JSON.stringify(ex.output)}
+                                        </Text>
+                                        {ex.explanation && <Text style={styles.exampleText}><Text style={styles.boldText}>Explanation:</Text> {ex.explanation}</Text>}
+                                    </View>
+                                ))}
+                            </>
+                        )}
                     </ScrollView>
                 )}
 
@@ -207,12 +306,13 @@ export default function CodeEditorScreen({ route, navigation }) {
                                         key={lang}
                                         style={[styles.langBtn, language === lang && styles.activeLangBtn]}
                                         onPress={() => {
+                                            const templateCode = problem?.codeTemplates?.[lang];
+                                            const nextCode = typeof templateCode === "string" ? templateCode : code;
                                             setLanguage(lang);
-                                            // Reset code to template if available
-                                            if (problem?.codeTemplates?.[lang]) {
-                                                setCode(problem.codeTemplates[lang]);
-                                                syncEditorState();
+                                            if (typeof templateCode === "string") {
+                                                setCode(templateCode);
                                             }
+                                            postEditorState(lang, nextCode);
                                         }}
                                     >
                                         <Text style={[styles.langBtnText, language === lang && styles.activeLangBtnText]}>
@@ -259,22 +359,27 @@ export default function CodeEditorScreen({ route, navigation }) {
                             <View>
                                 <View style={[
                                     styles.statusBox, 
-                                    testResult.status === "accepted" ? styles.statusAccepted : styles.statusFailed
+                                    resultSummary.isAccepted ? styles.statusAccepted : styles.statusFailed
                                 ]}>
                                     <Text style={[
                                         styles.statusText,
-                                        testResult.status === "accepted" ? styles.statusTextAccepted : styles.statusTextFailed
+                                        resultSummary.isAccepted ? styles.statusTextAccepted : styles.statusTextFailed
                                     ]}>
-                                        {testResult.status === "accepted" ? "Accepted!" : "Failed"}
+                                        {resultSummary.isAccepted ? "Accepted!" : "Failed"}
                                     </Text>
                                 </View>
                                 
-                                <Text style={styles.resultDetail}>Runtime: {testResult.runtime || "0"} ms</Text>
-                                <Text style={styles.resultDetail}>Memory: {testResult.memory || "0"} MB</Text>
+                                {Number.isFinite(resultSummary.totalTests) && (
+                                    <Text style={styles.resultDetail}>
+                                        {resultSummary.testsPassed ?? 0}/{resultSummary.totalTests} tests passed
+                                    </Text>
+                                )}
                                 
-                                {testResult.message && (
-                                    <View style={styles.errorBox}>
-                                        <Text style={styles.errorText}>{testResult.message}</Text>
+                                {!!resultSummary.message && (
+                                    <View style={resultSummary.isAccepted ? styles.successBox : styles.errorBox}>
+                                        <Text style={resultSummary.isAccepted ? styles.successText : styles.errorText}>
+                                            {resultSummary.message}
+                                        </Text>
                                     </View>
                                 )}
                             </View>
@@ -501,6 +606,19 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: "#fca5a5",
+        fontFamily: "SpaceMono-Regular",
+        fontSize: typography.fontSizeSM,
+    },
+    successBox: {
+        marginTop: spacing.md,
+        padding: spacing.md,
+        backgroundColor: "rgba(16, 185, 129, 0.1)",
+        borderRadius: borderRadius.md,
+        borderLeftWidth: 4,
+        borderLeftColor: "#10b981",
+    },
+    successText: {
+        color: "#6ee7b7",
         fontFamily: "SpaceMono-Regular",
         fontSize: typography.fontSizeSM,
     },

@@ -293,6 +293,18 @@ const CURATED_JOBS = [
   },
 ];
 
+function normalizeEmploymentType(value) {
+  const type = String(value || '').trim().toLowerCase().replace(/[\s_]+/g, '-');
+  const aliases = {
+    fulltime: 'full-time',
+    parttime: 'part-time',
+    contractor: 'contract',
+    intern: 'internship',
+    internships: 'internship',
+  };
+  return Object.hasOwn(aliases, type) ? aliases[type] : type;
+}
+
 async function fetchExternalJobs(query = 'fresher software developer India', page = 1) {
   // Ensure query includes India context
   const indianQuery = query.toLowerCase().includes('india') ? query : `${query} India`;
@@ -356,7 +368,8 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
             title: job.job_title,
             company: job.employer_name,
             category: detectCategory(job),
-            type: job.job_employment_type?.toLowerCase() || 'full-time',
+            type: normalizeEmploymentType(job.job_employment_type) || 'full-time',
+            is_remote: job.job_is_remote === true,
             location: job.job_city
               ? `${job.job_city}, ${job.job_state || ''} ${job.job_country || ''}`.trim()
               : job.job_country || 'Remote',
@@ -401,7 +414,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
           title: job.title,
           company: job.company?.display_name || 'Unknown',
           category: detectCategory({ job_title: job.title, job_description: job.description || '' }),
-          type: job.contract_time || 'full-time',
+          type: normalizeEmploymentType(job.contract_time) || 'full-time',
           location: job.location?.display_name || 'India',
           salary_range: job.salary_min && job.salary_max
             ? `₹${Math.round(job.salary_min).toLocaleString('en-IN')} – ₹${Math.round(job.salary_max).toLocaleString('en-IN')}`
@@ -995,100 +1008,98 @@ router.get('/', optionalAuth, async (req, res) => {
     // Set rate limit headers
     res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
 
-    const {
-      category,
-      company,
-      type,
-      search,
-      page = 1,
-      limit = 50,
-      source,
-    } = req.query;
-
+    const { category, company, type, search, page = 1, limit = 50, source, location } = req.query;
     const parsedPage = Math.max(1, parseInt(page, 10) || 1);
     const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     const offset = (parsedPage - 1) * parsedLimit;
-    let adminJobs = [];
-    let externalJobs = [];
+    const includeInactive = req.user?.role === 'admin' && req.query.include_inactive === 'true';
+    if (includeInactive) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+    const safeFilter = (value) => typeof value === 'string' ? value.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100) : '';
+    const rawCategory = safeFilter(category).toLowerCase();
+    const categoryFilter = rawCategory === 'all' ? '' : rawCategory;
+    const rawType = normalizeEmploymentType(safeFilter(type));
+    const typeFilter = rawType === 'all' ? '' : rawType;
+    const companyFilter = safeFilter(company);
+    const rawLocation = safeFilter(location);
+    const locationFilter = rawLocation.toLowerCase() === 'all' ? '' : rawLocation;
+    const searchTerms = safeFilter(search).split(/\s+/).filter(Boolean);
 
-    // ── Fetch admin-posted jobs from Supabase (degrade gracefully if DB fails) ──
-    try {
-      let query = supabaseAdmin
-        .from('job_listings')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-      // Only show active jobs unless admin requests all
-      if (req.query.include_inactive !== 'true') {
-        query = query.eq('is_active', true);
+    const buildAdminQuery = (head = false) => {
+      let query = supabaseAdmin.from('job_listings')
+        .select('*', { count: 'exact', head })
+        .order('created_at', { ascending: false }).order('id', { ascending: false });
+      if (!includeInactive) query = query.eq('is_active', true);
+      if (categoryFilter) query = query.eq('category', categoryFilter);
+      if (typeFilter === 'remote') query = query.or('location.ilike.%remote%,type.eq.remote');
+      else if (typeFilter) query = query.ilike('type', typeFilter);
+      if (companyFilter) query = query.ilike('company', `%${companyFilter}%`);
+      if (locationFilter) query = query.ilike('location', `%${locationFilter}%`);
+      for (const term of searchTerms) {
+        query = query.or(`title.ilike.%${term}%,company.ilike.%${term}%,description.ilike.%${term}%,location.ilike.%${term}%`);
       }
+      return query;
+    };
 
-      if (category && category !== 'all') query = query.eq('category', category);
-      if (company) query = query.ilike('company', `%${company}%`);
-      if (type) query = query.eq('type', type);
-      if (search && typeof search === 'string') {
-        const safeSearch = search.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100);
-        if (safeSearch) {
-          query = query.or(`title.ilike.%${safeSearch}%,company.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+    const queryAdminJobs = async () => {
+      if (source === 'external') return { data: [], count: 0 };
+      try {
+        const result = await buildAdminQuery().range(offset, offset + parsedLimit - 1);
+        if (result.error?.code === 'PGRST103') {
+          const metadata = await buildAdminQuery(true);
+          if (metadata.error) throw metadata.error;
+          return { data: [], count: metadata.count };
         }
+        if (result.error) throw result.error;
+        return result;
+      } catch (error) {
+        logger.warn('Database job listings unavailable', { error: error.message });
+        return { data: [], count: 0 };
       }
+    };
 
-      const { data, error } = await query.range(offset, offset + parsedLimit - 1);
-
-      if (error) {
-        logger.error('Supabase job fetch error', { error: error.message, code: error.code });
-      } else {
-        adminJobs = (data || []).map(j => ({ ...j, source: 'admin' }));
-      }
-    } catch (dbErr) {
-      logger.warn('Database job fetch exception, falling back to external/curated jobs', {
-        error: dbErr.message,
-      });
-    }
-
-    // ── Fetch external API jobs (only page 1 or when specifically requested) ──
-    const searchQuery = search || (category && category !== 'all' ? category : null) || 'fresher software developer India';
-    if (source !== 'admin' && parsedPage <= 2) {
-      externalJobs = await fetchExternalJobs(searchQuery, parsedPage);
-    }
-
-    // Combine and send
-    const allJobs = source === 'external'
-      ? externalJobs
-      : source === 'admin'
-        ? adminJobs
-        : [...adminJobs, ...externalJobs];
-
-    // External providers may return broad fallback results when a query has
-    // no exact matches. Never show those unrelated jobs for a keyword search.
-    const searchTerms = String(search || '')
-      .toLowerCase()
-      .split(/\s+/)
-      .map(term => term.replace(/[^a-z0-9+#.-]/g, ''))
-      .filter(term => term.length >= 2);
-    const filteredJobs = searchTerms.length > 0
-      ? allJobs.filter(job => {
-        const searchableText = [
-          job.title,
-          job.company,
-          job.description,
-          job.location,
-          job.skills,
-        ].filter(Boolean).join(' ').toLowerCase();
-        return searchTerms.some(term => searchableText.includes(term));
-      })
-      : allJobs;
-
-    // Respect the limit parameter for the combined results
-    const combinedJobs = filteredJobs.slice(0, parsedLimit);
+    const searchQuery = [safeFilter(search), categoryFilter, typeFilter, companyFilter, locationFilter]
+      .filter(Boolean).join(' ') || 'fresher software developer India';
+    const [admin, externalPages] = await Promise.all([
+      queryAdminJobs(),
+      source === 'admin' ? [] : Promise.all([fetchExternalJobs(searchQuery, 1), fetchExternalJobs(searchQuery, 2)]),
+    ]);
+    const seen = new Set();
+    const includes = (value, filter) => String(value || '').toLowerCase().includes(filter.toLowerCase());
+    const external = externalPages.flat().filter(job => {
+      if (!includeInactive && job.is_active === false) return false;
+      const key = `${job.title?.toLowerCase()}:${job.company?.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      const jobCategory = String(job.category || '').trim().toLowerCase();
+      const jobType = normalizeEmploymentType(job.type);
+      if (categoryFilter && jobCategory !== categoryFilter) return false;
+      if (typeFilter === 'remote' && !job.is_remote && !includes(job.location, 'remote') && jobType !== 'remote') return false;
+      if (typeFilter && typeFilter !== 'remote' && jobType !== typeFilter) return false;
+      if (companyFilter && !includes(job.company, companyFilter)) return false;
+      if (locationFilter && !includes(job.location, locationFilter)) return false;
+      if (!searchTerms.every(term => includes([job.title, job.company, job.description, job.location].filter(Boolean).join(' '), term))) return false;
+      seen.add(key);
+      return true;
+    });
+    const adminJobs = (admin.data || [])
+      .filter(job => includeInactive || job.is_active !== false)
+      .slice(0, parsedLimit)
+      .map(job => ({ ...job, source: 'admin' }));
+    const adminCount = typeof admin.count === 'number' ? admin.count : adminJobs.length;
+    const externalOffset = Math.max(0, offset - adminCount);
+    const externalLimit = Math.max(0, parsedLimit - adminJobs.length);
+    const combinedJobs = [...adminJobs, ...external.slice(externalOffset, externalOffset + externalLimit)];
+    const total = adminCount + external.length;
+    const externalCacheQuery = searchQuery.toLowerCase().includes('india') ? searchQuery : `${searchQuery} India`;
 
     res.json({
       jobs: combinedJobs,
-      total: filteredJobs.length,
+      total,
       page: parsedPage,
-      totalPages: Math.ceil(filteredJobs.length / parsedLimit) || 1,
+      totalPages: Math.ceil(total / parsedLimit) || 1,
       hasExternalApi: !!RAPIDAPI_KEY,
-      cached: !!getCachedJobs(`jobs_${searchQuery}_${parsedPage}`),
+      cached: !!getCachedJobs(`jobs_${externalCacheQuery}_1`),
       rateLimit: {
         remaining: rateLimit.remaining,
         limit: MAX_REQUESTS_PER_WINDOW
@@ -1202,17 +1213,27 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const { id } = req.params;
     
     // Prevent parseInt(NaN) errors for external job string IDs
-    if (isNaN(parseInt(id, 10))) {
+    if (!/^\d+$/.test(String(id))) {
       return res.status(404).json({ error: 'Job listing not found or is external' });
     }
 
-    const { data, error } = await supabaseAdmin
+    const isAdmin = req.user?.role === 'admin';
+    let query = supabaseAdmin
       .from('job_listings')
       .select('*')
-      .eq('id', parseInt(id, 10))
-      .single();
+      .eq('id', parseInt(id, 10));
+    if (!isAdmin) {
+      query = query.eq('is_active', true);
+    }
 
-    if (error) throw error;
+    const { data, error } = await query.single();
+
+    if (error || !data || (!isAdmin && data.is_active === false)) {
+      return res.status(404).json({ error: 'Job listing not found' });
+    }
+    if (data.is_active === false) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
     res.json(data);
   } catch (_error) {
     res.status(404).json({ error: 'Job listing not found' });

@@ -4,7 +4,6 @@ import {
     TouchableOpacity, StatusBar, Alert, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../context/AuthContext";
 import { userApi } from "../../api/userApi";
 import { Button } from "../../components/Button";
 import { Card } from "../../components/Card";
@@ -12,6 +11,21 @@ import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 const EXPERIENCE_LEVELS = ["beginner", "intermediate", "advanced"];
+
+function resolveLinkedinValue(profile) {
+    if (!profile || typeof profile !== "object") return "";
+    if (profile.socialLinks?.linkedin === null || profile.social_links?.linkedin === null) {
+        return "";
+    }
+    return (
+        profile.socialLinks?.linkedin ||
+        profile.social_links?.linkedin ||
+        profile.linkedin ||
+        profile.linkedin_url ||
+        profile.linkedinUrl ||
+        ""
+    );
+}
 
 function FieldGroup({ label, children }) {
     return (
@@ -23,9 +37,9 @@ function FieldGroup({ label, children }) {
 }
 
 export default function EditProfileScreen({ navigation }) {
-    const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
+    const [loadedProfile, setLoadedProfile] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
@@ -45,27 +59,30 @@ export default function EditProfileScreen({ navigation }) {
     }, []);
 
     async function loadProfile() {
+        setLoading(true);
+        setError("");
         try {
             const p = await userApi.getProfile();
+            setLoadedProfile(p);
             setFullName(p.full_name || p.fullName || "");
             setBio(p.bio || "");
             setDesignation(p.designation || p.currentRole || "");
             setCompany(p.company || "");
-            setSkills(p.skills || "");
-            setEducation(p.education || p.qualification || "");
+            setSkills(Array.isArray(p.skills) ? p.skills.join(", ") : (p.skills || ""));
+            setEducation(Array.isArray(p.education) ? p.education.join(", ") : (p.education || p.qualification || ""));
             setExperienceLevel(p.experience_level || p.experienceLevel || "beginner");
             setGithubUsername(p.github_username || p.githubUsername || "");
-            setLinkedinUrl(p.linkedin_url || p.linkedinUrl || "");
+            setLinkedinUrl(resolveLinkedinValue(p));
         } catch {
-            // Fall back to user context data
-            setFullName(user?.fullName || user?.full_name || "");
-            setExperienceLevel(user?.experienceLevel || "beginner");
+            setLoadedProfile(null);
+            setError("Could not load your profile. Try again before editing.");
         } finally {
             setLoading(false);
         }
     }
 
     async function handleSave() {
+        if (!loadedProfile || saving) return;
         if (!fullName.trim()) {
             setError("Full name is required.");
             return;
@@ -73,6 +90,15 @@ export default function EditProfileScreen({ navigation }) {
         setSaving(true);
         setError("");
         try {
+            const initialLinkedin = resolveLinkedinValue(loadedProfile);
+            const trimmedLinkedin = linkedinUrl.trim();
+            const existingSocialLinks =
+                loadedProfile.socialLinks && typeof loadedProfile.socialLinks === "object"
+                    ? loadedProfile.socialLinks
+                    : loadedProfile.social_links && typeof loadedProfile.social_links === "object"
+                        ? loadedProfile.social_links
+                        : {};
+
             await userApi.updateProfile({
                 fullName: fullName.trim(),
                 bio: bio.trim(),
@@ -82,13 +108,15 @@ export default function EditProfileScreen({ navigation }) {
                 education: education.trim(),
                 experienceLevel,
                 githubUsername: githubUsername.trim(),
-                linkedinUrl: linkedinUrl.trim(),
+                ...(trimmedLinkedin !== initialLinkedin && {
+                    socialLinks: { ...existingSocialLinks, linkedin: trimmedLinkedin },
+                }),
             });
             Alert.alert("Saved", "Your profile has been updated.", [
                 { text: "OK", onPress: () => navigation.goBack() },
             ]);
         } catch (err) {
-            setError(err?.response?.data?.message || "Failed to save changes.");
+            setError(err?.response?.data?.error || err?.response?.data?.message || "Failed to save changes.");
         } finally {
             setSaving(false);
         }
@@ -119,6 +147,9 @@ export default function EditProfileScreen({ navigation }) {
                         </View>
                     )}
 
+                    {!loadedProfile ? (
+                        <Button title="Try again" onPress={loadProfile} />
+                    ) : <>
                     {/* Basic Info */}
                     <Card elevated style={s.section}>
                         <Text style={s.sectionTitle}>Basic Information</Text>
@@ -202,6 +233,7 @@ export default function EditProfileScreen({ navigation }) {
                         <Button title="Save Changes" onPress={handleSave}
                             loading={saving} style={s.btnHalf} />
                     </View>
+                    </>}
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>

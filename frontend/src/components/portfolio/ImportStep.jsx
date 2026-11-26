@@ -68,6 +68,12 @@ export default function ImportStep({ form, setForm, loading, onImport, error }) 
         Upload your resume PDF, add your GitHub username, and paste your LinkedIn details.
       </p>
 
+      <label className="pi-saved-profile">
+        <input type="checkbox" checked={form.useSavedProfile}
+          onChange={(event) => setForm(prev => ({ ...prev, useSavedProfile: event.target.checked }))} />
+        Use my saved PrepLoop profile
+      </label>
+
       {/* ── Resume PDF Upload ── */}
       <label className="portfolio-label">Resume (PDF)</label>
       <div

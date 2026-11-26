@@ -12,7 +12,7 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function AptitudeResultsScreen({ route, navigation }) {
-    const { score = 0, total = 0, title = "Aptitude Test" } = route.params || {};
+    const { score = 0, total = 0, category, title = "Aptitude Test" } = route.params || {};
     
     const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     
@@ -74,7 +74,7 @@ export default function AptitudeResultsScreen({ route, navigation }) {
                 <View style={styles.actionContainer}>
                     <TouchableOpacity
                         style={styles.primaryButton}
-                        onPress={() => navigation.replace("AptitudePractice", { title })}
+                        onPress={() => navigation.replace("AptitudePractice", { category, title })}
                     >
                         <Text style={styles.primaryButtonText}>Retake Test</Text>
                     </TouchableOpacity>

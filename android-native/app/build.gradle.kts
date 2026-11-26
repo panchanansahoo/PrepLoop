@@ -19,8 +19,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // API base URL — matches backend
-        buildConfigField("String", "API_BASE_URL", "\"https://preploop-backend.azurewebsites.net\"")
+        // API base URL â€” matches backend
+        buildConfigField("String", "API_BASE_URL", "\"https://preploop.me\"")
         buildConfigField("String", "SUPABASE_URL", "\"\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"\"")
     }

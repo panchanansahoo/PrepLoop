@@ -16,14 +16,16 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 export default function DailyChallengesScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(false);
     const [challenge, setChallenge] = useState(null);
 
     const loadData = async () => {
+        setError(false);
         try {
-            // Note: getDailyChallenge might return null based on the API implementation.
             const data = await dsaApi.getDailyChallenge();
             setChallenge(data);
         } catch (error) {
+            setError(true);
             console.error("Failed to load daily challenge:", error);
         } finally {
             setLoading(false);
@@ -52,7 +54,7 @@ export default function DailyChallengesScreen({ navigation }) {
         );
     }
 
-    if (!challenge) {
+    if (error || !challenge) {
         return (
             <View style={styles.container}>
                 <ScreenHeader
@@ -61,10 +63,10 @@ export default function DailyChallengesScreen({ navigation }) {
                 />
                 <EmptyState
                     icon="🎯"
-                    title="No Challenge Today"
-                    message="Check back tomorrow for a new daily challenge!"
-                    actionLabel="Go to DSA Patterns"
-                    onAction={() => navigation.navigate("DSAPatterns")}
+                    title={error ? "Could not load today’s challenge" : "No Challenge Today"}
+                    message={error ? "Try again to load your daily problem." : "Check back tomorrow for a new daily challenge!"}
+                    actionLabel={error ? "Try again" : "Go to DSA Patterns"}
+                    onAction={error ? onRefresh : () => navigation.navigate("DSAPatterns")}
                 />
             </View>
         );

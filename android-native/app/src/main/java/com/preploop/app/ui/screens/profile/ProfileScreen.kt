@@ -19,14 +19,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.preploop.app.text
+import org.json.JSONObject
 import com.preploop.app.ui.theme.*
 
 @Composable
 fun ProfileScreen(
+    account: JSONObject,
+    onNavigateToAnalytics: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onNavigateToResume: () -> Unit,
     onNavigateToWallet: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onLogout: () -> Unit,
 ) {
+    val name = account.text("fullName").ifBlank { account.text("full_name") }
+    val email = account.text("email")
+    val tier = account.text("subscriptionTier").ifBlank { "free" }
+    val initials = name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1).uppercase() }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -52,18 +62,18 @@ fun ProfileScreen(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("PE", style = PrepLoopTypography.headlineMedium, color = TextPrimary)
+                    Text(initials.ifBlank { "P" }, style = PrepLoopTypography.headlineMedium, color = TextPrimary)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Prep Engineer", style = PrepLoopTypography.titleLarge, color = TextPrimary)
-                Text("engineer@preploop.me", style = PrepLoopTypography.bodyMedium, color = TextMuted)
+                Text(name.ifBlank { email }, style = PrepLoopTypography.titleLarge, color = TextPrimary)
+                Text(email, style = PrepLoopTypography.bodyMedium, color = TextMuted)
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Tier badge
                 Text(
-                    text = "⭐ Free Tier",
+                    text = tier.replaceFirstChar { it.uppercaseChar() } + " plan",
                     style = PrepLoopTypography.labelSmall,
                     color = Warning,
                     modifier = Modifier
@@ -74,29 +84,15 @@ fun ProfileScreen(
             }
         }
 
-        // Stats row
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatBlock("42", "Problems", Modifier.weight(1f))
-                StatBlock("7", "Interviews", Modifier.weight(1f))
-                StatBlock("85%", "Avg Score", Modifier.weight(1f))
-            }
-        }
-
         // Menu items
         item { Spacer(modifier = Modifier.height(24.dp)) }
 
         item {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                ProfileMenuItem(Icons.Filled.Analytics, "Analytics", onClick = {})
+                ProfileMenuItem(Icons.Filled.Analytics, "Analytics", onClick = onNavigateToAnalytics)
                 ProfileMenuItem(Icons.Filled.AccountBalanceWallet, "Coin Wallet", onClick = onNavigateToWallet)
-                ProfileMenuItem(Icons.Filled.History, "History", onClick = {})
-                ProfileMenuItem(Icons.Filled.Description, "Resume Analyzer", onClick = {})
+                ProfileMenuItem(Icons.Filled.History, "History", onClick = onNavigateToHistory)
+                ProfileMenuItem(Icons.Filled.Description, "Resume Analyzer", onClick = onNavigateToResume)
                 ProfileMenuItem(Icons.Filled.Settings, "Settings", onClick = onNavigateToSettings)
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -111,22 +107,6 @@ fun ProfileScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun StatBlock(value: String, label: String, modifier: Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(BgSurface)
-            .border(1.dp, Border, RoundedCornerShape(14.dp))
-            .padding(16.dp),
-    ) {
-        Text(value, style = PrepLoopTypography.titleLarge, color = TextPrimary)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(label, style = PrepLoopTypography.labelSmall, color = TextMuted)
     }
 }
 

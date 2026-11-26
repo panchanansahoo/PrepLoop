@@ -43,7 +43,7 @@ export const dsaApi = {
      * Returns { problem, exploration, userProgress }
      */
     async getProblemById(id) {
-        const res = await apiClient.get(`/api/dsa/problems/${id}`);
+        const res = await apiClient.get(`/api/dsa/problems/${encodeURIComponent(id)}`);
         return res.data;
     },
 
@@ -51,17 +51,24 @@ export const dsaApi = {
      * Alias for getProblemById used by CodeEditor and SQLEditor screens.
      */
     async getProblemDetails(id) {
-        return this.getProblemById(id);
+        const { problem } = await this.getProblemById(id);
+        if (!problem) throw new Error("Problem details unavailable");
+        return {
+            ...problem,
+            codeTemplates: problem.starter_code || problem.codeTemplates || {},
+        };
     },
 
-    /**
-     * Get the daily challenge.
-     * No dedicated endpoint — silently returns null (dashboard handles gracefully).
-     */
+    /** Load the personalized DSA challenge shown on the dashboard. */
     async getDailyChallenge() {
-        // /api/user/daily-challenge returns { seed, dayOfYear, date } — not a problem object.
-        // No mobile-usable daily challenge endpoint exists; return null gracefully.
-        return null;
+        const { data } = await apiClient.get("/api/user/dashboard");
+        if (data?.degraded) throw new Error("Daily challenge temporarily unavailable");
+        const challenge = data?.dailyChallenge;
+        const first = challenge?.dsa?.find((item) => item?.internalId || item?.id);
+        const targetId = first?.internalId || first?.id;
+        if (!targetId) return null;
+        const problem = await this.getProblemDetails(targetId);
+        return { ...problem, date: challenge.date, streak: data.streak };
     },
 
     /**

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { renderPortfolioHtml } from './portfolioRendererService.js';
+import { renderPortfolioHtml, normalizePortfolioAppearance } from './portfolioRendererService.js';
 
-export const createPortfolioSite = async ({ userId, profileId, slug, template = 'minimal', theme = {} }) => {
+export const createPortfolioSite = async ({ userId, profileId, slug, template = 'minimal', theme = {}, visibility = 'public' }) => {
   const { data: profileRow, error: profileError } = await supabaseAdmin
     .from('normalized_profiles')
     .select('*')
@@ -21,6 +21,10 @@ export const createPortfolioSite = async ({ userId, profileId, slug, template = 
     projects: profileRow.projects || [],
   };
 
+  if (!['private', 'public', 'unlisted'].includes(visibility)) {
+    throw new Error('Invalid portfolio visibility');
+  }
+  ({ template, theme } = normalizePortfolioAppearance(template, theme));
   const html = renderPortfolioHtml({ profile, template, theme });
 
   const { data: site, error: insertError } = await supabaseAdmin
@@ -32,9 +36,9 @@ export const createPortfolioSite = async ({ userId, profileId, slug, template = 
       template,
       theme,
       html_content: html,
-      published: true,
-      published_at: new Date().toISOString(),
-      visibility: 'public',
+      published: visibility !== 'private',
+      published_at: visibility === 'private' ? null : new Date().toISOString(),
+      visibility,
     })
     .select('*')
     .single();

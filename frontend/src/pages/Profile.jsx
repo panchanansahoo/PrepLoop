@@ -405,25 +405,30 @@ export default function Profile() {
     setSaving(false);
   };
 
-  const handleCopyLink = async () => {
-    if (!profile.is_public) {
-      try {
-        const visibilityResponse = await authFetch('/api/user/profile', {
-          method: 'PUT',
-          body: JSON.stringify({ is_public: true })
-        });
-        if (!visibilityResponse.ok) {
-          throw new Error(await readApiErrorMessage(visibilityResponse, 'Could not make your profile public.'));
-        }
-        setProfile(prev => ({ ...prev, is_public: true }));
-      } catch (e) {
-        console.error('Failed to make profile public:', e);
-        setErrorMessage(e.message || 'Could not make your profile public.');
-        setStatus('error');
-        return;
-      }
-    }
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
 
+  const toggleProfileVisibility = async () => {
+    setVisibilitySaving(true);
+    try {
+      const isPublic = !profile.is_public;
+      const response = await authFetch('/api/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ is_public: isPublic }),
+      });
+      if (!response.ok) throw new Error(await readApiErrorMessage(response, 'Could not update profile visibility.'));
+      setProfile(prev => ({ ...prev, is_public: isPublic }));
+      setSuccessMessage(isPublic ? 'Your profile is public.' : 'Your profile is private.');
+      setStatus('saved');
+    } catch (error) {
+      setErrorMessage(error.message);
+      setStatus('error');
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!profile.is_public) return;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(profileLink);
@@ -435,8 +440,11 @@ export default function Profile() {
         ta.style.opacity = '0';
         document.body.appendChild(ta);
         ta.select();
-        if (!document.execCommand('copy')) throw new Error('Copy command was rejected');
-        document.body.removeChild(ta);
+        try {
+          if (!document.execCommand('copy')) throw new Error('Copy command was rejected');
+        } finally {
+          ta.remove();
+        }
       }
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
@@ -481,12 +489,11 @@ export default function Profile() {
       setProfile((prev) => ({
         ...prev,
         ...normalized,
-        custom_url: slug,
-        is_public: true
+        custom_url: slug
       }));
       setClaimEditing(false);
       setClaimStatus('saved');
-      setSuccessMessage(`Custom URL claimed! Your public profile is live at ${publicAppUrl}/u/${slug}`);
+      setSuccessMessage(`Profile URL saved at ${publicAppUrl}/u/${slug}`);
       setStatus('saved');
     } catch (err) {
       console.error('Claim error', err);
@@ -629,17 +636,15 @@ export default function Profile() {
           method: 'PUT',
           body: JSON.stringify({ socialLinks: updatedSocial }),
         });
-        if (saveRes.ok) {
-          const savedData = await saveRes.json();
-          const normalized = normalizeProfileData(savedData);
-          setProfile((prev) => ({ ...prev, ...normalized }));
-        } else {
-          setProfile((prev) => ({ ...prev, socialLinks: updatedSocial }));
+        if (!saveRes.ok) {
+          throw new Error(await readApiErrorMessage(saveRes, 'Could not save the LinkedIn address.'));
         }
+        const normalized = normalizeProfileData(await saveRes.json());
+        setProfile(prev => ({ ...prev, ...normalized }));
         setShowLinkedinPaste(true);
         setLinkedinFallbackNotice(
           data.message ||
-            'LinkedIn ID saved! Paste your LinkedIn profile text or upload your LinkedIn PDF below to auto-fill all portfolio sections.'
+          'Paste your LinkedIn profile text or upload your LinkedIn PDF to fill in available portfolio details.'
         );
       }
     } catch (err) {
@@ -887,11 +892,12 @@ export default function Profile() {
   const interviewsDone = dashboardData?.stats?.mockInterviews || 0;
   const aiMatches = dashboardData?.stats?.problemsSolved || 0;
   const coverLetters = dashboardData?.stats?.resumesAnalyzed || 0;
-  const activeSlug = profile.custom_url || displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'user';
+  const suggestedSlug = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'user';
+  const activeSlug = profile.custom_url || profile.id || user?.id || '';
   const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, '');
   const publicAppHost = publicAppUrl.replace(/^https?:\/\//i, '');
-  const profileLink = `${publicAppUrl}/u/${activeSlug}`;
-  const localProfilePath = `/u/${activeSlug}`;
+  const profileLink = activeSlug ? `${publicAppUrl}/u/${activeSlug}` : '';
+  const localProfilePath = activeSlug ? `/u/${activeSlug}` : '#';
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
   const _educationDisplay = profile.education || 'Not set';
   const skillChips = splitSkillChips(profile.skills, resumeSnapshot);
@@ -902,11 +908,11 @@ export default function Profile() {
   const portfolioProjects = Array.isArray(profile.projects) && profile.projects.length > 0
     ? profile.projects.slice(0, 6)
     : projects.map((proj, idx) => ({
-        id: `resume-proj-${idx}`,
-        name: `Featured Project ${idx + 1}`,
-        description: proj,
-        stack: [],
-      }));
+      id: `resume-proj-${idx}`,
+      name: `Featured Project ${idx + 1}`,
+      description: proj,
+      stack: [],
+    }));
   const githubHref = profile.githubUsername
     ? `https://github.com/${encodeURIComponent(profile.githubUsername)}`
     : '';
@@ -1043,7 +1049,7 @@ export default function Profile() {
               <div className="du-meta-left">
                 <Link2 size={16} />
                 <div>
-                  <p className="du-meta-title">Public Profile Link</p>
+                  <p className="du-meta-title">{profile.is_public ? 'Public Profile Link' : 'Private Profile Preview'}</p>
                   <a
                     href={localProfilePath}
                     target="_blank"
@@ -1058,16 +1064,19 @@ export default function Profile() {
               </div>
               {!claimEditing ? (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className="du-copy-btn" onClick={handleCopyLink} type="button">
+                  <button className="du-copy-btn" onClick={handleCopyLink} disabled={!profile.is_public || !activeSlug || visibilitySaving} type="button">
                     {linkCopied ? <Check size={12} /> : <Copy size={12} />}
                     {linkCopied ? 'Copied' : 'Copy Public Link'}
+                  </button>
+                  <button className="du-claim-btn" onClick={toggleProfileVisibility} disabled={visibilitySaving || editing} type="button">
+                    {profile.is_public ? 'Make profile private' : 'Make profile public'}
                   </button>
                   <button
                     className="du-claim-btn"
                     type="button"
                     onClick={() => {
                       setClaimEditing(true);
-                      setClaimValue(profile.custom_url || activeSlug);
+                      setClaimValue(profile.custom_url || suggestedSlug);
                     }}
                   >
                     {profile.custom_url ? 'Edit Custom URL' : 'Claim Custom URL'}
@@ -1503,6 +1512,7 @@ export default function Profile() {
                         onClick={() => navigate('/portfolio-creator', {
                           state: {
                             form: {
+                              useSavedProfile: true,
                               githubUsername: profile.githubUsername || '',
                               linkedinUrl: linkedinHref || '',
                             },

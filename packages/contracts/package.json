@@ -22,6 +22,7 @@
       "types": "./dist/submission.schema.d.ts",
       "default": "./dist/submission.schema.js"
     },
+    "./sql-problems": "./src/sqlProblemsDatabase.js",
     "./jobs": {
       "types": "./dist/jobs.schema.d.ts",
       "default": "./dist/jobs.schema.js"

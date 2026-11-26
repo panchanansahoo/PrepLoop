@@ -22,6 +22,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const JOB_TYPES = ["All", "Full-time", "Remote", "Internship", "Contract"];
 
 function JobCard({ job, onApply }) {
+    const applyUrl =
+        [job.apply_link, job.applyUrl, job.url]
+            .find((v) => typeof v === "string" && /^https?:\/\//i.test(v.trim()))
+            ?.trim() || "";
+    const salaryText = job.salary || job.salary_range || job.salaryRange;
+    const postedDate = job.postedAt || job.created_at;
     return (
         <Card elevated style={styles.jobCard}>
             <View style={styles.jobHeader}>
@@ -54,10 +60,10 @@ function JobCard({ job, onApply }) {
                         <Text style={styles.detailText}>⏰ {job.type}</Text>
                     </View>
                 )}
-                {(job.salary || job.salaryRange) && (
+                {salaryText && (
                     <View style={styles.detailChip}>
                         <Text style={styles.detailText}>
-                            💰 {job.salary || job.salaryRange}
+                            💰 {salaryText}
                         </Text>
                     </View>
                 )}
@@ -68,17 +74,17 @@ function JobCard({ job, onApply }) {
                 </Text>
             )}
             <View style={styles.jobActions}>
-                {(job.url || job.applyUrl) && (
+                {Boolean(applyUrl) && (
                     <TouchableOpacity
                         style={styles.applyBtn}
-                        onPress={() => onApply(job.url || job.applyUrl)}
+                        onPress={() => onApply(applyUrl)}
                     >
                         <Text style={styles.applyBtnText}>Apply Now →</Text>
                     </TouchableOpacity>
                 )}
-                {job.postedAt && (
+                {postedDate && !Number.isNaN(Date.parse(postedDate)) && (
                     <Text style={styles.postedAt}>
-                        {new Date(job.postedAt).toLocaleDateString("en-US", {
+                        {new Date(postedDate).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                         })}
@@ -123,8 +129,13 @@ export default function JobsScreen() {
     useEffect(() => {
         let result = jobs;
         if (typeFilter !== "All") {
+            const tf = typeFilter.toLowerCase();
             result = result.filter((j) =>
-                j.type?.toLowerCase().includes(typeFilter.toLowerCase()),
+                tf === "remote"
+                    ? Boolean(j.is_remote) ||
+                      j.type?.toLowerCase().includes("remote") ||
+                      j.location?.toLowerCase().includes("remote")
+                    : j.type?.toLowerCase().includes(tf),
             );
         }
         if (search.trim()) {
@@ -141,10 +152,9 @@ export default function JobsScreen() {
     }, [jobs, search, typeFilter]);
 
     async function handleApply(url) {
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-            Linking.openURL(url);
-        } else {
+        try {
+            await Linking.openURL(url);
+        } catch {
             Alert.alert(
                 "Cannot Open URL",
                 "This job link cannot be opened on your device.",

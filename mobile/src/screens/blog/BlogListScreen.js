@@ -2,20 +2,42 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { ErrorMessage } from "../../components/ErrorMessage";
 import { blogApi } from "../../api/blogApi";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
+
+function formatReadTime(readTime) {
+    if (typeof readTime === "number" && Number.isFinite(readTime) && readTime > 0) {
+        return `${readTime} min read`;
+    }
+    if (typeof readTime === "string" && readTime.trim()) {
+        return /min/i.test(readTime) ? readTime.trim() : `${readTime.trim()} min read`;
+    }
+    return "5 min read";
+}
+
+function formatPostDate(post) {
+    const raw = post?.published_at || post?.created_at;
+    if (!raw || Number.isNaN(Date.parse(raw))) return null;
+    return new Date(raw).toLocaleDateString();
+}
 
 export default function BlogListScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState("");
     const [posts, setPosts] = useState([]);
 
     const loadData = async () => {
         try {
+            setError("");
             const data = await blogApi.getPosts();
-            setPosts(data || []);
-        } catch (error) {
-            console.error("Failed to load blog posts:", error);
+            const list = Array.isArray(data) ? data : data?.posts || data?.data || [];
+            setPosts(list);
+        } catch (err) {
+            console.error("Failed to load blog posts:", err);
+            setPosts([]);
+            setError("Could not load articles. Please try again.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -53,28 +75,33 @@ export default function BlogListScreen({ navigation }) {
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             >
-                {posts.length === 0 ? (
+                {error ? (
+                    <ErrorMessage message={error} onRetry={loadData} />
+                ) : posts.length === 0 ? (
                     <Text style={styles.emptyText}>No articles published yet.</Text>
                 ) : (
-                    posts.map((post, index) => (
-                        <TouchableOpacity 
-                            key={post.id || index}
-                            style={styles.card}
-                            onPress={() => navigation.navigate("BlogPost", { slug: post.slug, title: post.title })}
-                        >
-                            <View style={styles.cardContent}>
-                                <Text style={styles.cardTag}>{post.category || "General"}</Text>
-                                <Text style={styles.cardTitle}>{post.title}</Text>
-                                <Text style={styles.cardExcerpt} numberOfLines={2}>
-                                    {post.excerpt || "Read more about this topic..."}
-                                </Text>
-                                <View style={styles.cardFooter}>
-                                    <Text style={styles.date}>{new Date(post.published_at || Date.now()).toLocaleDateString()}</Text>
-                                    <Text style={styles.readTime}>{post.read_time || "5 min read"}</Text>
+                    posts.map((post, index) => {
+                        const formattedDate = formatPostDate(post);
+                        return (
+                            <TouchableOpacity 
+                                key={post.id || index}
+                                style={styles.card}
+                                onPress={() => navigation.navigate("BlogPost", { slug: post.slug, title: post.title, source: post.source })}
+                            >
+                                <View style={styles.cardContent}>
+                                    <Text style={styles.cardTag}>{post.category || "General"}</Text>
+                                    <Text style={styles.cardTitle}>{post.title}</Text>
+                                    <Text style={styles.cardExcerpt} numberOfLines={2}>
+                                        {post.excerpt || "Read more about this topic..."}
+                                    </Text>
+                                    <View style={styles.cardFooter}>
+                                        {formattedDate ? <Text style={styles.date}>{formattedDate}</Text> : <View />}
+                                        <Text style={styles.readTime}>{formatReadTime(post.read_time)}</Text>
+                                    </View>
                                 </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))
+                            </TouchableOpacity>
+                        );
+                    })
                 )}
             </ScrollView>
         </View>

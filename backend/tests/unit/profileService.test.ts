@@ -7,11 +7,14 @@ import {
   normalizeUserSettingsPreferences,
   difficultyToExperienceLevel,
   experienceLevelToDifficulty,
+  getPublicPortfolioBySlug,
+  claimUserCustomUrl,
   getUserSettings,
   updateUserSettings,
   deleteUserAccount,
   PROFILE_COMPLETION_COIN_REWARD,
 } from '../../services/profileService.ts';
+import { claimCustomUrl } from '../../utils/profileUtils.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 
 describe('Profile Service & Response Formatter', () => {
@@ -86,6 +89,15 @@ describe('Profile Service & Response Formatter', () => {
     expect(response.user.coins).toBe(150);
     expect(response.user.socialLinks.linkedin).toBe('https://linkedin.com/in/alex');
     expect(response.user.profile).toBeDefined();
+  });
+
+  it('prefers a saved LinkedIn link and honors explicit removal of a legacy link', () => {
+    const context = { id: 'usr_1', email: 'member@example.com' };
+    const row = { id: 'usr_1', linkedin: 'https://linkedin.com/in/old' };
+    expect(buildProfileResponse(context, { ...row, social_links: { linkedin: 'https://linkedin.com/in/new' } }).user.socialLinks.linkedin)
+      .toBe('https://linkedin.com/in/new');
+    expect(buildProfileResponse(context, { ...row, social_links: { linkedin: null } }).user.socialLinks.linkedin)
+      .toBe('');
   });
 
   it('detects Supabase RLS recursion policy blockage error codes', () => {
@@ -262,6 +274,139 @@ describe('Settings Preferences & Account Actions', () => {
     const delRes = await deleteUserAccount('usr_1');
     expect(delRes.success).toBe(true);
     expect(deleteUserMock).toHaveBeenCalledWith('usr_1');
+  });
+});
+
+describe('Public Profile Links & Custom URL Privacy', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function mockProfilesQueries({ byCustomUrl = null, byId = null, byName = [] } = {}) {
+    vi.spyOn(supabaseAdmin, 'from').mockImplementation(() => ({
+      select: () => ({
+        eq: (column: string, _value: any) => ({
+          maybeSingle: async () => ({
+            data: column === 'custom_url' ? byCustomUrl : column === 'id' ? byId : null,
+            error: null,
+          }),
+        }),
+        ilike: () => ({
+          limit: async () => ({
+            data: byName,
+            error: null,
+          }),
+        }),
+      }),
+    }) as any);
+  }
+
+  it('resolves public profile by UUID even with punctuation or non-Latin display names', async () => {
+    const uuid = '11111111-2222-4333-8444-555555555555';
+    mockProfilesQueries({
+      byId: {
+        id: uuid,
+        full_name: "José O'Connor · 田中太郎",
+        is_public: true,
+        profile_theme: 'midnight',
+      },
+    });
+
+    const result = await getPublicPortfolioBySlug(uuid);
+    expect('basics' in result).toBe(true);
+    if ('basics' in result) {
+      expect(result.basics.name).toBe("José O'Connor · 田中太郎");
+      expect(result.portfolioMeta.slug).toBe(uuid);
+      expect(result.portfolioMeta.theme).toBe('midnight');
+    }
+  });
+
+  it('returns notFound when display-name fallback matches multiple duplicate profiles', async () => {
+    mockProfilesQueries({
+      byName: [
+        { id: 'u1', full_name: 'John Doe', is_public: true },
+        { id: 'u2', full_name: 'John Doe', is_public: true },
+      ],
+    });
+
+    const result = await getPublicPortfolioBySlug('john-doe');
+    expect(result).toEqual({ notFound: true });
+  });
+
+  it('does not leak private profiles via display-name guessing, while allowing owner UUID preview', async () => {
+    const uuid = '11111111-2222-4333-8444-555555555555';
+    mockProfilesQueries({
+      byName: [{ id: uuid, full_name: 'Private Person', is_public: false }],
+    });
+
+    expect(await getPublicPortfolioBySlug('private-person')).toEqual({ notFound: true });
+
+    mockProfilesQueries({
+      byId: { id: uuid, full_name: 'Private Person', is_public: false },
+    });
+    expect(await getPublicPortfolioBySlug(uuid, 'other-user')).toEqual({ isPrivate: true });
+
+    const ownerPreview = await getPublicPortfolioBySlug(uuid, uuid);
+    expect('portfolioMeta' in ownerPreview).toBe(true);
+    if ('portfolioMeta' in ownerPreview) {
+      expect(ownerPreview.portfolioMeta.isOwner).toBe(true);
+      expect(ownerPreview.portfolioMeta.visibility).toBe('private');
+    }
+  });
+
+  it('claimCustomUrl saves custom_url without forcing is_public to true', async () => {
+    const updatePayloads: any[] = [];
+    const mockClient = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            limit: async () => ({ data: [], error: null }),
+          }),
+        }),
+        update: (payload: any) => {
+          updatePayloads.push(payload);
+          return {
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({
+                  data: { id: 'usr_1', custom_url: 'my-slug', is_public: false },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        },
+      }),
+    };
+
+    const res = await claimCustomUrl(mockClient, 'usr_1', 'my-slug');
+    expect(res.success).toBe(true);
+    expect(updatePayloads[0]).toMatchObject({ custom_url: 'my-slug' });
+    expect(updatePayloads[0]).not.toHaveProperty('is_public');
+  });
+
+  it('claimUserCustomUrl preserves private visibility on returned profile', async () => {
+    vi.spyOn(supabaseAdmin, 'from').mockImplementation(() => ({
+      select: () => ({
+        eq: () => ({
+          limit: async () => ({ data: [], error: null }),
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          select: () => ({
+            maybeSingle: async () => ({
+              data: { id: 'usr_1', custom_url: 'my-slug', is_public: false },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    }) as any);
+
+    const res = await claimUserCustomUrl('usr_1', { id: 'usr_1', email: 'u@example.com' }, 'my-slug');
+    expect(res.user.custom_url).toBe('my-slug');
+    expect(res.user.is_public).toBe(false);
   });
 });
 

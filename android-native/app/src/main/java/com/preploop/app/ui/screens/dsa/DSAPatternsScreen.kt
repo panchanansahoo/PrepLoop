@@ -16,29 +16,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.preploop.app.text
+import org.json.JSONObject
 import com.preploop.app.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DSAPatternsScreen(
-    onProblemClick: (String) -> Unit,
+    patterns: List<JSONObject>,
+    onPatternClick: (String) -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedDifficulty by remember { mutableStateOf<String?>(null) }
     val difficulties = listOf("Easy", "Medium", "Hard")
 
-    // Placeholder data
-    val patterns = remember {
-        listOf(
-            Triple("Two Pointers", "12 problems", "Easy"),
-            Triple("Sliding Window", "10 problems", "Medium"),
-            Triple("Binary Search", "15 problems", "Medium"),
-            Triple("Dynamic Programming", "20 problems", "Hard"),
-            Triple("Graph BFS/DFS", "14 problems", "Hard"),
-            Triple("Stack & Queue", "8 problems", "Easy"),
-            Triple("Tree Traversal", "11 problems", "Medium"),
-            Triple("Backtracking", "9 problems", "Hard"),
-        )
+    val filteredPatterns = patterns.filter {
+        it.text("name").contains(searchQuery.trim(), ignoreCase = true) &&
+            (selectedDifficulty == null || it.text("difficulty").equals(selectedDifficulty, ignoreCase = true))
     }
 
     Column(
@@ -80,7 +74,7 @@ fun DSAPatternsScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Difficulty filter chips
-        LazyRow(
+        if (patterns.any { it.text("difficulty").isNotBlank() }) LazyRow(
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -121,7 +115,11 @@ fun DSAPatternsScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(patterns) { (name, count, difficulty) ->
+            if (filteredPatterns.isEmpty()) item { Text("No matching patterns", color = TextMuted) }
+            items(filteredPatterns) { pattern ->
+                val name = pattern.text("name")
+                val count = "${pattern.optInt("problem_count")} problems"
+                val difficulty = pattern.text("difficulty").replaceFirstChar { it.uppercaseChar() }
                 val diffColor = when (difficulty) {
                     "Easy" -> Success
                     "Medium" -> Warning
@@ -133,7 +131,7 @@ fun DSAPatternsScreen(
                         .clip(RoundedCornerShape(16.dp))
                         .background(BgSurface)
                         .border(1.dp, Border, RoundedCornerShape(16.dp))
-                        .clickable { onProblemClick(name) }
+                        .clickable(enabled = pattern.text("id").isNotBlank()) { onPatternClick(pattern.text("id")) }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -143,7 +141,7 @@ fun DSAPatternsScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(count, style = PrepLoopTypography.bodyMedium, color = TextMuted)
                     }
-                    Text(
+                    if (difficulty.isNotBlank()) Text(
                         text = difficulty,
                         style = PrepLoopTypography.labelSmall,
                         color = diffColor,

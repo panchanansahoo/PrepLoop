@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -13,6 +13,7 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { TagBadge } from "../../components/TagBadge";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
+import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { dsaApi } from "../../api/dsaApi";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,16 +29,43 @@ function Section({ title, children }) {
 }
 
 export default function DSAProblemDetailScreen({ route, navigation }) {
-    const { problem } = route.params || {};
+    const { problem: initialProblem, problemId, id } = route.params || {};
+    const resolvedProblemId = problemId || id;
+    const [fetchedProblem, setFetchedProblem] = useState(null);
+    const [loading, setLoading] = useState(Boolean(!initialProblem && resolvedProblemId));
+    const [retry, setRetry] = useState(0);
+    const problem = initialProblem || fetchedProblem;
     const insets = useSafeAreaInsets();
     const [note, setNote] = useState("");
     const [savingNote, setSavingNote] = useState(false);
     const [noteSaved, setNoteSaved] = useState(false);
 
+    useEffect(() => {
+        setNote("");
+        setNoteSaved(false);
+        if (initialProblem || !resolvedProblemId) {
+            setLoading(false);
+            return;
+        }
+        let active = true;
+        setFetchedProblem(null);
+        setLoading(true);
+        dsaApi.getProblemDetails(resolvedProblemId)
+            .then(result => { if (active) setFetchedProblem(result); })
+            .catch(() => { if (active) setFetchedProblem(null); })
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [initialProblem, resolvedProblemId, retry]);
+
+    if (loading) {
+        return <LoadingSpinner fullScreen message="Loading problem..." />;
+    }
+
     if (!problem) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Problem not found.</Text>
+                <Text style={styles.errorText}>Could not load this problem.</Text>
+                {resolvedProblemId && <Button title="Try again" onPress={() => setRetry(value => value + 1)} />}
                 <Button
                     title="Go Back"
                     onPress={() => navigation.goBack()}
@@ -229,16 +257,18 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
                     </View>
                 </Section>
 
-                {/* Mobile coding note */}
+                {/* Open the workspace for the current problem */}
                 <Card style={styles.codingCard}>
                     <Text style={styles.codingTitle}>
                         💻 Want to code the solution?
                     </Text>
                     <Text style={styles.codingText}>
-                        Open PrepLoop on the web for the full coding environment
-                        with an in-browser code editor, test cases, and AI
-                        hints.
+                        Write and submit a solution in the code editor.
                     </Text>
+                    <Button title="Open code editor" onPress={() => navigation.navigate("CodeEditor", {
+                        problemId: problem.id,
+                        problemTitle: problem.title,
+                    })} />
                 </Card>
             </ScrollView>
         </View>
@@ -253,6 +283,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: spacing.xl,
+        gap: spacing.sm,
     },
     errorText: {
         color: colors.textSecondary,

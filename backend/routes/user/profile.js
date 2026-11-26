@@ -47,6 +47,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
  * Resolves public portfolio views by custom slug, UUID, or full name
  */
 router.get("/portfolio/public/:slug", optionalAuth, async (req, res) => {
+  res.set("Cache-Control", "private, no-store");
   try {
     const rawSlug = String(req.params.slug || '').trim();
     if (!rawSlug) return res.status(400).json({ error: 'slug required' });

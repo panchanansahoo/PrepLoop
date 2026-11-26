@@ -10,17 +10,13 @@ import '../config/env.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.ts';
 import { createLogger } from '../utils/structuredLogger.js';
+import cacheManager from '../utils/cacheManager.js';
 import { invalidateCache } from '../middleware/apiCache.js';
 import { DEFAULT_FEATURE_GATES, getUserTier } from '../services/featureGateService.ts';
 
 const router = express.Router();
 const logger = createLogger('payment');
 
-const isProfilesAccessBlocked = (error) => {
-    const code = String(error?.code || '').toUpperCase();
-    const message = String(error?.message || '').toLowerCase();
-    return code === '42P17' || message.includes('infinite recursion detected in policy');
-};
 const isDev = process.env.NODE_ENV !== 'production';
 
 // ═══════════════════════════════════════════════
@@ -136,6 +132,37 @@ const PLANS = {
     elite: { name: 'Elite', amount: 29900, currency: 'INR' },   // ₹299
 };
 
+export function getPaymentAmount(plan, billingCycle) {
+    const monthly = PLANS[plan]?.amount;
+    if (!monthly) return null;
+    if (billingCycle === 'monthly') return monthly;
+    if (billingCycle === 'annual') return Math.round(monthly * 12 * 0.8);
+    return null;
+}
+
+async function activateCapturedPayment(payment, signature = null) {
+    const createdAtSeconds = Number(payment.created_at);
+    const capturedAt = Number.isFinite(createdAtSeconds)
+        ? new Date(createdAtSeconds * 1000).toISOString()
+        : new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin.rpc('activate_captured_payment', {
+        captured_order: payment.order_id,
+        captured_payment: payment.id,
+        captured_amount: payment.amount,
+        captured_currency: payment.currency,
+        captured_at: capturedAt,
+        checkout_signature: signature,
+    });
+    if (error) throw error;
+    if (data) {
+        await cacheManager.delete(`profile:${data.userId}`).catch(() => {});
+        invalidateCache('/api/user');
+        invalidateCache('/api/payment');
+    }
+    return data;
+}
+
 // ═══════════════════════════════════════════════
 //  SECURITY: Input sanitization helper
 // ═══════════════════════════════════════════════
@@ -169,7 +196,7 @@ router.get('/health', authenticateToken, async (req, res) => {
     try {
         const { error } = await supabaseAdmin
             .from('payments')
-            .select('id')
+            .select('id, billing_cycle, activated_at')
             .limit(1);
 
         if (error) {
@@ -232,17 +259,25 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
             });
         }
 
-        const { plan } = req.body;
+        const { plan, billingCycle } = req.body || {};
         const sanitizedPlan = sanitizeString(plan, 20).toLowerCase();
+        const sanitizedBillingCycle = billingCycle === undefined
+            ? 'monthly'
+            : sanitizeString(billingCycle, 20).toLowerCase();
 
-        if (!sanitizedPlan || !PLANS[sanitizedPlan]) {
+        if (!Object.hasOwn(PLANS, sanitizedPlan)) {
             return res.status(400).json({ error: 'Invalid plan. Must be "pro" or "elite".' });
+        }
+
+        const amount = getPaymentAmount(sanitizedPlan, sanitizedBillingCycle);
+        if (amount === null) {
+            return res.status(400).json({ error: 'Invalid billing cycle. Choose monthly or annual.' });
         }
 
         // SECURITY: Prevent duplicate pending orders (anti-abuse)
         const { data: existingOrders, error: existingOrdersError } = await supabaseAdmin
             .from('payments')
-            .select('id')
+            .select('id, billing_cycle, activated_at')
             .eq('user_id', user.id)
             .eq('status', 'created')
             .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // Last 30 min
@@ -268,12 +303,13 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
 
         // Create Razorpay order
         const order = await razorpay.orders.create({
-            amount: planConfig.amount,
+            amount,
             currency: planConfig.currency,
             receipt: `rcpt_${user.id.substring(0, 8)}_${Date.now()}`,
             notes: {
                 user_id: user.id,
                 plan: sanitizedPlan,
+                billing_cycle: sanitizedBillingCycle,
             },
         });
 
@@ -282,7 +318,8 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
             user_id: user.id,
             razorpay_order_id: order.id,
             plan: sanitizedPlan,
-            amount: planConfig.amount,
+            billing_cycle: sanitizedBillingCycle,
+            amount,
             currency: planConfig.currency,
             status: 'created',
         });
@@ -303,7 +340,7 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
 
         res.json({
             orderId: order.id,
-            amount: planConfig.amount,
+            amount,
             currency: planConfig.currency,
             keyId: razorpayConfig.keyId,
             planName: planConfig.name,
@@ -344,7 +381,7 @@ router.post('/verify', paymentLimiter, authenticateToken, async (req, res) => {
         // SECURITY: Verify the order belongs to this user
         const { data: paymentRecord, error: fetchError } = await supabaseAdmin
             .from('payments')
-            .select('plan, user_id, status')
+            .select('user_id')
             .eq('razorpay_order_id', razorpay_order_id)
             .single();
 
@@ -358,13 +395,9 @@ router.post('/verify', paymentLimiter, authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        // SECURITY: Prevent double-verification of already paid orders
-        if (paymentRecord.status === 'paid') {
-            return res.status(409).json({ error: 'Payment already verified', plan: paymentRecord.plan });
-        }
-
         // SECURITY: HMAC SHA256 signature verification
-        const { keySecret, configured } = getRazorpayConfig();
+        const config = getRazorpayConfig();
+        const { keySecret, configured } = config;
         if (!configured || !keySecret) {
             return res.status(503).json({ error: 'Payment gateway not configured' });
         }
@@ -384,61 +417,29 @@ router.post('/verify', paymentLimiter, authenticateToken, async (req, res) => {
             crypto.timingSafeEqual(sigBuffer, receivedSigBuffer);
 
         if (!signaturesEqual) {
-            // Mark payment as failed
-            await supabaseAdmin
-                .from('payments')
-                .update({ status: 'failed' })
-                .eq('razorpay_order_id', razorpay_order_id);
-
             logger.error('SECURITY: Signature mismatch for order', { orderId: razorpay_order_id });
             return res.status(400).json({ error: 'Payment verification failed' });
         }
 
-        // Update payment record
-        const { error: updatePaymentError } = await supabaseAdmin
-            .from('payments')
-            .update({
-                razorpay_payment_id,
-                razorpay_signature,
-                status: 'paid',
-                paid_at: new Date().toISOString(),
-            })
-            .eq('razorpay_order_id', razorpay_order_id);
-
-        if (updatePaymentError) {
-            logger.error('Update payment error', { error: updatePaymentError.message });
+        const payment = await createRazorpayClient(config).payments.fetch(razorpay_payment_id);
+        if (payment?.order_id !== razorpay_order_id) {
+            return res.status(400).json({ error: 'Payment does not match the order' });
+        }
+        if (payment.status === 'failed') {
+            return res.status(422).json({ paymentFailed: true, error: 'The provider declined this payment.' });
+        }
+        if (payment.status !== 'captured') {
+            return res.status(202).json({ pending: true, message: 'Waiting for the payment provider to confirm capture.' });
         }
 
-        // Upgrade user subscription tier
-        const { error: updateProfileError } = await supabaseAdmin
-            .from('profiles')
-            .update({ subscription_tier: paymentRecord.plan })
-            .eq('id', user.id);
-
-        if (updateProfileError) {
-            logger.error('Update profile error', { error: updateProfileError.message });
-            if (isProfilesAccessBlocked(updateProfileError)) {
-                return res.status(202).json({
-                    success: true,
-                    message: 'Payment verified, but plan activation is pending due to temporary profile access issue.',
-                    plan: paymentRecord.plan,
-                    paymentId: razorpay_payment_id,
-                    degraded: true,
-                });
-            }
-            return res.status(500).json({ error: 'Payment verified but failed to upgrade plan' });
-        }
-
-        invalidateCache('/api/user');
-        invalidateCache('/api/payment');
-        res.json({
-            success: true,
-            message: `Successfully upgraded to ${paymentRecord.plan} plan`,
-            plan: paymentRecord.plan,
-            paymentId: razorpay_payment_id,
-        });
+        const activated = await activateCapturedPayment(payment, razorpay_signature);
+        if (!activated) return res.status(404).json({ error: 'Payment record not found' });
+        return res.json({ success: true, plan: activated.plan, paymentId: activated.paymentId });
     } catch (err) {
         logger.error('Verify payment error', { error: err.message });
+        if (err?.code === '22023') {
+            return res.status(400).json({ error: 'Captured payment does not match the saved order' });
+        }
         res.status(500).json({ error: 'Payment verification failed' });
     }
 });
@@ -493,50 +494,17 @@ router.post('/webhook', async (req, res) => {
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
 
-            // Check if already processed
-            const { data: existing } = await supabaseAdmin
-                .from('payments')
-                .select('status, plan, user_id')
-                .eq('razorpay_order_id', orderId)
-                .single();
-
-            if (existing && existing.status !== 'paid') {
-                // Update payment record
-                await supabaseAdmin
-                    .from('payments')
-                    .update({
-                        razorpay_payment_id: payment.id,
-                        status: 'paid',
-                        paid_at: new Date().toISOString(),
-                    })
-                    .eq('razorpay_order_id', orderId);
-
-                // Upgrade user
-                const { error: updateProfileError } = await supabaseAdmin
-                    .from('profiles')
-                    .update({ subscription_tier: existing.plan })
-                    .eq('id', existing.user_id);
-
-                if (updateProfileError) {
-                    if (isProfilesAccessBlocked(updateProfileError)) {
-                        logger.warn('Webhook: payment captured but profile update blocked', { orderId });
-                    } else {
-                        throw updateProfileError;
-                    }
-                } else {
-                    invalidateCache('/api/user');
-                    invalidateCache('/api/payment');
-                    logger.info('Webhook: Payment captured, user upgraded', { paymentId: payment.id, plan: existing.plan });
-                }
-            }
+            if (orderId) await activateCapturedPayment(payment);
         } else if (eventType === 'payment.failed') {
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
 
-            await supabaseAdmin
+            const { error } = await supabaseAdmin
                 .from('payments')
                 .update({ status: 'failed' })
-                .eq('razorpay_order_id', orderId);
+                .eq('razorpay_order_id', orderId)
+                .neq('status', 'paid');
+            if (error) throw error;
 
             logger.info('Webhook: Payment failed for order', { orderId });
         }
@@ -545,8 +513,10 @@ router.post('/webhook', async (req, res) => {
         res.status(200).json({ status: 'ok' });
     } catch (err) {
         logger.error('Webhook error', { error: err.message });
-        // Still respond 200 to prevent Razorpay from retrying
-        res.status(200).json({ status: 'ok' });
+        if (err?.code === '22023') {
+            return res.status(400).json({ error: 'Captured payment does not match the saved order' });
+        }
+        res.status(503).json({ error: 'Payment event could not be processed' });
     }
 });
 

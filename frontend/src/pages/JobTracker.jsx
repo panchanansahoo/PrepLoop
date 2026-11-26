@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { CreateJobApplicationSchema, UpdateJobApplicationSchema } from '@preploop/contracts/jobs';
 import {
@@ -552,25 +552,46 @@ export default function JobTracker() {
     }
   };
 
+  const pendingStageUpdates = useRef(new Set());
   const handleStatusChange = async (id, nextStatus) => {
-    const prev = applications;
-    setApplications((curr) => curr.map((item) => (item.id === id ? { ...item, status: nextStatus } : item)));
+    const previous = applications.find(item => item.id === id);
+    if (!previous || previous.status === nextStatus || pendingStageUpdates.current.has(id)) return;
+    pendingStageUpdates.current.add(id);
+    const needsAppliedAt = !previous.appliedAt && (
+      nextStatus === 'applied' || (previous.status === 'bookmarked' && nextStatus !== 'bookmarked')
+    );
+    const nextAppliedAt = needsAppliedAt ? new Date().toISOString() : undefined;
+    const rollback = () => setApplications(curr => curr.map(item =>
+      item.id === id && item.status === nextStatus ? previous : item));
+    setApplications((curr) => curr.map((item) => (
+      item.id === id
+        ? { ...item, status: nextStatus, ...(nextAppliedAt ? { appliedAt: nextAppliedAt } : {}) }
+        : item
+    )));
     try {
       const res = await authFetch(buildApiUrl(`/job-applications/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({
+          status: nextStatus,
+          ...(nextAppliedAt ? { appliedAt: nextAppliedAt } : {}),
+        }),
       });
       if (!res.ok) {
-        setApplications(prev);
+        rollback();
         showToast('Failed to update stage', 'error');
       } else {
+        const { application } = await res.json();
+        setApplications(curr => curr.map(item =>
+          item.id === id && item.status === nextStatus ? { ...item, ...application } : item));
         const targetCol = COLUMNS.find((c) => c.id === nextStatus);
         showToast(`Moved to ${targetCol?.label || nextStatus}`);
       }
     } catch {
-      setApplications(prev);
+      rollback();
       showToast('Failed to update stage', 'error');
+    } finally {
+      pendingStageUpdates.current.delete(id);
     }
   };
 
@@ -593,6 +614,7 @@ export default function JobTracker() {
       salaryRange: card.salaryRange || '',
       jobUrl: card.jobUrl || '',
       notes: card.notes || '',
+      appliedAt: card.appliedAt || null,
     });
     setEditError('');
   };
@@ -622,7 +644,10 @@ export default function JobTracker() {
       const res = await authFetch(buildApiUrl(`/job-applications/${editingApp.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify({
+          ...parsed.data,
+          ...(!editingApp.appliedAt && parsed.data.status === 'applied' && { appliedAt: new Date().toISOString() }),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

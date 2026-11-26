@@ -13,6 +13,8 @@ import {
   getAllCompanies,
   getStatistics,
 } from '../data/allProblems.js';
+import { SQL_PROBLEMS, getSQLProblemById } from '@preploop/contracts/sql-problems';
+import { getSchemaById } from '../data/sqlSchemas.js';
 import { executeCode, buildTestWrapper, parseTestResults } from '../utils/executeCode.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { generateMissingTestCases } from '../services/aiService.js';
@@ -637,6 +639,21 @@ const resolveProblemRecord = async (problemIdentifier) => {
   return null;
 };
 
+const buildRunTestPayload = ({ testResults, passed, total, executionTime }) => ({
+  success: true,
+  status: passed === total ? 'accepted' : 'wrong_answer',
+  testResults,
+  passed,
+  total,
+  testsPassed: passed,
+  totalTests: total,
+  executionTime: executionTime ?? null,
+  message:
+    passed === total
+      ? 'All test cases passed!'
+      : `${passed}/${total} test cases passed`,
+});
+
 router.post('/submit', authenticateToken, async (req, res) => {
   const { problemId, code, language } = req.body;
 
@@ -864,6 +881,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
 
     res.json({
       success: status === 'accepted',
+      status,
       submission,
       progress,
       testResults,
@@ -1011,47 +1029,33 @@ router.post('/run', authenticateToken, async (req, res) => {
                 };
               });
               const passed = judgedResults.filter((r) => r.passed).length;
-              return res.json({
-                success: true,
+              return res.json(buildRunTestPayload({
                 testResults: judgedResults,
                 passed,
                 total: judgedResults.length,
                 executionTime: result.executionTime ?? null,
-                message:
-                  passed === judgedResults.length
-                    ? 'All test cases passed!'
-                    : `${passed}/${judgedResults.length} test cases passed`,
-              });
+              }));
             }
           }
 
           // Wrapper path failed or returned unstructured output: fallback to stdin evaluation.
           const evaluated = await evaluateWithStdinCases(code, language, testCases, judgeProfile);
-          return res.json({
-            success: true,
+          return res.json(buildRunTestPayload({
             testResults: evaluated.testResults,
             passed: evaluated.testsPassed,
             total: testCases.length,
             executionTime: result.executionTime,
-            message:
-              evaluated.testsPassed === testCases.length
-                ? 'All test cases passed!'
-                : `${evaluated.testsPassed}/${testCases.length} test cases passed`,
-          });
+          }));
         }
 
         // Non-wrapper languages: evaluate via stdin per test case.
         const evaluated = await evaluateWithStdinCases(code, language, testCases, judgeProfile);
-        return res.json({
-          success: true,
+        return res.json(buildRunTestPayload({
           testResults: evaluated.testResults,
           passed: evaluated.testsPassed,
           total: testCases.length,
-          message:
-            evaluated.testsPassed === testCases.length
-              ? 'All test cases passed!'
-              : `${evaluated.testsPassed}/${testCases.length} test cases passed`,
-        });
+          executionTime: null,
+        }));
       }
     }
 
@@ -1059,12 +1063,49 @@ router.post('/run', authenticateToken, async (req, res) => {
     const result = await executeCode(code, language);
     res.json({
       ...result,
+      status: result.success ? 'accepted' : 'error',
       fallbackMode: true
     });
   } catch (error) {
     console.error('Code execution error:', error);
     res.status(500).json({ error: 'Failed to execute code' });
   }
+});
+
+router.get('/sql/problems', optionalAuth, (_req, res) => {
+  const problems = SQL_PROBLEMS.map(({ id, title, difficulty, companies, category }) => ({
+    id,
+    title,
+    difficulty,
+    companies,
+    category,
+  }));
+  res.json({ problems });
+});
+
+router.get('/sql/problems/:id', optionalAuth, (req, res) => {
+  const problem = getSQLProblemById(req.params.id);
+  if (!problem) return res.status(404).json({ error: 'SQL problem not found' });
+  const { id, title, description, difficulty, category, topics, hints, examples, schemaId } = problem;
+  const tables = getSchemaById(schemaId)?.tables || [];
+  const schema = tables.map(table => ({
+    tableName: table.name,
+    columns: table.columns.map(({ name, type, primaryKey }) => ({ name, type, isPrimaryKey: primaryKey })),
+  }));
+  return res.json({
+    problem: {
+      id,
+      title,
+      description,
+      difficulty,
+      category,
+      topics: topics || [],
+      hints: hints || [],
+      examples: examples || [],
+      schemaId,
+      schema,
+    },
+  });
 });
 
 router.post('/execute', authenticateToken, codeExecutionLimiter, async (req, res) => {

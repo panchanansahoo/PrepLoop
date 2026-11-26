@@ -29,7 +29,7 @@ fun FeatureCard(
     icon: ImageVector,
     accentColor: Color,
     tag: String? = null,
-    onClick: () -> Unit = {},
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bgColor = accentColor.copy(alpha = 0.08f)

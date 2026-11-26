@@ -72,8 +72,8 @@ export function apiCacheMiddleware(options = {}) {
       const originalJson = res.json.bind(res);
       res.json = (body) => {
         try {
-          // Only cache successful responses (2xx) to prevent caching error pages
-          if (res.statusCode >= 200 && res.statusCode < 300) {
+          const cacheControl = String(res.getHeader?.('Cache-Control') || '');
+          if (res.statusCode >= 200 && res.statusCode < 300 && !/\b(?:private|no-store|no-cache)\b/i.test(cacheControl)) {
             // Store in L1 memory cache
             cache.set(key, { body, status: res.statusCode });
             cacheTimestamps.set(key, Date.now());

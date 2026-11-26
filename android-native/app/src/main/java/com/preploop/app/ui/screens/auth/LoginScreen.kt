@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,15 +41,34 @@ import com.preploop.app.ui.theme.*
  */
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
+    onLogin: suspend (String, String) -> Unit,
     onNavigateToSignup: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit = {},
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+
+    fun submit() {
+        if (isLoading || email.isBlank() || password.isBlank()) return
+        isLoading = true
+        error = null
+        scope.launch {
+            try {
+                onLogin(email, password)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = failure.message ?: "Could not sign in."
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -107,37 +128,6 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Google sign-in button
-                OutlinedButton(
-                    onClick = { /* TODO: Google One Tap */ },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = TextPrimary,
-                    ),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true),
-                ) {
-                    Text("Continue with Google", style = PrepLoopTypography.bodyLarge)
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Divider
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Border)
-                    Text(
-                        text = "  OR  ",
-                        style = PrepLoopTypography.labelSmall,
-                        color = TextMuted,
-                    )
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = Border)
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
                 // Error message
                 if (error != null) {
                     Text(
@@ -158,7 +148,10 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        error = null
+                    },
                     placeholder = { Text("you@example.com", color = TextMuted) },
                     leadingIcon = { Icon(Icons.Filled.Email, null, tint = TextMuted) },
                     singleLine = true,
@@ -189,7 +182,10 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        error = null
+                    },
                     placeholder = { Text("••••••••", color = TextMuted) },
                     leadingIcon = { Icon(Icons.Filled.Lock, null, tint = TextMuted) },
                     trailingIcon = {
@@ -208,7 +204,10 @@ fun LoginScreen(
                         imeAction = ImeAction.Done,
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus() }
+                        onDone = {
+                            focusManager.clearFocus()
+                            submit()
+                        }
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Accent,
@@ -223,16 +222,23 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    Text(
+                        text = "Forgot password?",
+                        color = Accent,
+                        style = PrepLoopTypography.bodyMedium,
+                        modifier = Modifier.clickable(onClick = onNavigateToForgotPassword),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Sign in button
                 GradientButton(
                     text = if (isLoading) "Signing in..." else "Sign In",
-                    onClick = {
-                        // TODO: Call AuthRepository.login(email, password)
-                        isLoading = true
-                        onLoginSuccess()
-                    },
+                    onClick = { submit() },
                     enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
                     icon = Icons.Outlined.ArrowForward,
                 )

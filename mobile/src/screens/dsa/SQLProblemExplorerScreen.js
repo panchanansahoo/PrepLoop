@@ -1,22 +1,35 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, TextInput } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, TextInput, ActivityIndicator } from "react-native";
+import { sqlApi } from "../../api/sqlApi";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 
-const MOCK_SQL_PROBLEMS = [
-    { id: 1, title: "Find Duplicate Emails", difficulty: "Easy", company: "Uber", acceptance: "68%" },
-    { id: 2, title: "Department Highest Salary", difficulty: "Medium", company: "Amazon", acceptance: "55%" },
-    { id: 3, title: "Trips and Users", difficulty: "Hard", company: "Uber", acceptance: "36%" },
-    { id: 4, title: "Employees Earning More Than Their Managers", difficulty: "Easy", company: "Google", acceptance: "72%" },
-];
-
 export default function SQLProblemExplorerScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState("");
 
-    const filteredProblems = MOCK_SQL_PROBLEMS.filter(p => 
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        p.company.toLowerCase().includes(searchQuery.toLowerCase())
+    const [problems, setProblems] = useState([]);
+    const [status, setStatus] = useState("loading");
+    const [attempt, setAttempt] = useState(0);
+
+    useEffect(() => {
+        let active = true;
+        setStatus("loading");
+        setProblems([]);
+        sqlApi.getProblems()
+            .then(result => {
+                if (!active) return;
+                setProblems(Array.isArray(result) ? result : []);
+                setStatus("ready");
+            })
+            .catch(() => { if (active) setStatus("error"); });
+        return () => { active = false; };
+    }, [attempt]);
+
+    const query = searchQuery.trim().toLowerCase();
+    const filteredProblems = problems.filter(problem =>
+        [problem?.title, ...(Array.isArray(problem?.companies) ? problem.companies : [])]
+            .some(value => String(value || "").toLowerCase().includes(query))
     );
 
     const getDifficultyColor = (diff) => {
@@ -53,32 +66,36 @@ export default function SQLProblemExplorerScreen({ navigation }) {
                             style={styles.problemCard}
                             activeOpacity={0.7}
                             onPress={() => {
-                                // Normally navigates to an SQL editor or problem details.
-                                // In mobile, we just show details. We can re-use SQLEditorScreen
                                 navigation.navigate("SQLEditor", { problemId: prob.id, problemTitle: prob.title });
                             }}
                         >
                             <View style={styles.cardHeader}>
-                                <Text style={styles.problemTitle}>{prob.id}. {prob.title}</Text>
+                                <Text style={styles.problemTitle}>{prob.title}</Text>
                             </View>
                             
                             <View style={styles.cardFooter}>
                                 <Text style={[styles.difficultyText, { color: getDifficultyColor(prob.difficulty) }]}>
                                     {prob.difficulty}
                                 </Text>
-                                <View style={styles.badge}>
-                                    <Ionicons name="business" size={12} color={colors.textSecondary} />
-                                    <Text style={styles.badgeText}>{prob.company}</Text>
-                                </View>
-                                <View style={styles.badge}>
-                                    <Ionicons name="checkmark-circle-outline" size={12} color={colors.textSecondary} />
-                                    <Text style={styles.badgeText}>{prob.acceptance}</Text>
-                                </View>
+                                {!!prob.companies?.length && (
+                                    <Text style={styles.badgeText}>{prob.companies.slice(0, 3).join(", ")}</Text>
+                                )}
                             </View>
                         </TouchableOpacity>
                     ))}
                     
-                    {filteredProblems.length === 0 && (
+                    {status === "loading" && (
+                        <View style={styles.emptyState}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                            <Text style={styles.emptyText}>Loading SQL problems…</Text>
+                        </View>
+                    )}
+                    {status === "error" && (
+                        <TouchableOpacity onPress={() => setAttempt(value => value + 1)}>
+                            <Text style={styles.emptyText}>Could not load problems. Tap to retry.</Text>
+                        </TouchableOpacity>
+                    )}
+                    {status === "ready" && filteredProblems.length === 0 && (
                         <View style={styles.emptyState}>
                             <Ionicons name="search-outline" size={48} color={colors.textMuted} />
                             <Text style={styles.emptyText}>No SQL problems found matching "{searchQuery}"</Text>

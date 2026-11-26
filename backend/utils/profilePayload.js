@@ -110,7 +110,7 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   const yearsOfExperience = body.yearsOfExperience;
   const specialization = body.specialization;
   const profileTheme = body.profileTheme ?? body.profile_theme;
-  const socialLinks = body.socialLinks;
+  const socialLinks = body.socialLinks ?? body.social_links;
 
   // Validate and sanitize inputs
   if (phone !== undefined) {
@@ -152,8 +152,12 @@ const normalizeProfileUpdatePayload = (body = {}) => {
     // Ensure social_links is a valid JSON object
     try {
       const parsed = typeof socialLinks === 'string' ? JSON.parse(socialLinks) : socialLinks;
-      if (typeof parsed === 'object' && parsed !== null) {
-        updates.social_links = parsed;
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        updates.social_links = { ...parsed };
+        if (parsed.linkedin !== undefined) {
+          const trimmedLinkedin = parsed.linkedin === null ? '' : String(parsed.linkedin).trim().substring(0, 200);
+          updates.social_links.linkedin = trimmedLinkedin === '' ? null : trimmedLinkedin;
+        }
       }
     } catch (_e) {
       // ignore URL parse errors and fall back to raw trimmed value
@@ -161,10 +165,11 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   }
 
   // Individual social links
-  if (body.twitter !== undefined || body.linkedin !== undefined || body.portfolio !== undefined || body.dribbble !== undefined) {
+  const linkedinInput = body.linkedin ?? body.linkedinUrl ?? body.linkedin_url;
+  if (body.twitter !== undefined || linkedinInput !== undefined || body.portfolio !== undefined || body.dribbble !== undefined) {
     updates.social_links = updates.social_links || {};
     if (body.twitter !== undefined) updates.social_links.twitter = String(body.twitter || '').trim().substring(0, 50);
-    if (body.linkedin !== undefined) updates.social_links.linkedin = String(body.linkedin || '').trim().substring(0, 50);
+    if (linkedinInput !== undefined) updates.social_links.linkedin = String(linkedinInput || '').trim().substring(0, 200) || null;
     if (body.portfolio !== undefined) updates.social_links.portfolio = String(body.portfolio || '').trim().substring(0, 200);
     if (body.dribbble !== undefined) updates.social_links.dribbble = String(body.dribbble || '').trim().substring(0, 50);
   }

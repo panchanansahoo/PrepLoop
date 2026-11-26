@@ -1,24 +1,45 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import {User, ArrowLeft, Share2, Bookmark} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import DOMPurify from 'dompurify';
+import { articleBookmarkKey, isArticleBookmarked } from '../utils/articleBookmarks';
 import NotionViewer from '../components/editor/NotionViewer';
 import { API_URL } from '../config/api.js';
 
 
 export default function BlogPost() {
     const { slug } = useParams();
+    const [searchParams] = useSearchParams();
+    const editorial = searchParams.get('source') === 'editorial';
     const [blog, setBlog] = useState(null);
+    const [saved, setSaved] = useState(false);
+    const [actionMessage, setActionMessage] = useState('');
+    const bookmarkSource = editorial || blog?.source === 'editorial' ? 'editorial' : undefined;
+    const bookmarkKey = articleBookmarkKey(slug, bookmarkSource);
     const [loading, setLoading] = useState(true);
     const { theme } = useTheme();
     const isLight = theme === 'light';
-    const sanitizedHtml = useMemo(() => {
-        if (!blog?.content || !blog.content.trim()) return '';
-        return DOMPurify.sanitize(blog.content, {
-            USE_PROFILES: { html: true },
-        });
+    const articleContent = useMemo(() => {
+        const content = blog?.content;
+        if (Array.isArray(content)) return JSON.stringify(content);
+        if (typeof content !== 'string') return '';
+        if (content.startsWith('"')) {
+            try {
+                const decoded = JSON.parse(content);
+                if (typeof decoded === 'string') return decoded;
+            } catch {
+                // Plain text can start with a quotation mark.
+            }
+        }
+        return content;
     }, [blog?.content]);
+    const sanitizedHtml = useMemo(() => {
+        return DOMPurify.sanitize(articleContent, {
+            USE_PROFILES: { html: true },
+            ADD_ATTR: ['target'],
+        });
+    }, [articleContent]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -26,19 +47,19 @@ export default function BlogPost() {
         const fetchBlog = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`${API_URL}/api/blog/${slug}`, {
+                const response = await fetch(`${API_URL}/api/blog/${encodeURIComponent(slug)}${editorial ? '?source=editorial' : ''}`, {
                     signal: controller.signal
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    setBlog(data);
+                    if (!controller.signal.aborted) setBlog(data);
                 } else {
-                    setBlog(null);
+                    if (!controller.signal.aborted) setBlog(null);
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('Error fetching blog:', error);
-                    setBlog(null);
+                    if (!controller.signal.aborted) setBlog(null);
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -52,7 +73,45 @@ export default function BlogPost() {
         return () => {
             controller.abort();
         };
-    }, [slug]);
+    }, [slug, editorial]);
+
+    useEffect(() => {
+        setSaved(isArticleBookmarked(slug, bookmarkSource));
+        setActionMessage('');
+    }, [slug, bookmarkSource]);
+
+    const shareArticle = async () => {
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: blog.title, url: window.location.href });
+                setActionMessage('Article shared.');
+                return;
+            }
+        } catch (error) {
+            if (error?.name === 'AbortError') return;
+        }
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(window.location.href);
+                setActionMessage('Article link copied.');
+                return;
+            }
+            setActionMessage('Could not share this article.');
+        } catch {
+            setActionMessage('Could not share this article.');
+        }
+    };
+
+    const toggleSaved = () => {
+        try {
+            if (saved) localStorage.removeItem(bookmarkKey);
+            else localStorage.setItem(bookmarkKey, '1');
+            setSaved(!saved);
+            setActionMessage(saved ? 'Article removed from saved articles.' : 'Article saved on this browser.');
+        } catch {
+            setActionMessage('Could not update saved articles.');
+        }
+    };
 
     if (loading) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
     if (!blog) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Blog not found.</div>;
@@ -79,7 +138,7 @@ export default function BlogPost() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         {/* Author Avatar */}
                         {blog.author?.avatar_url ? (
-                            <img src={blog.author.avatar_url} style={{ width: 40, height: 40, borderRadius: '50%' }} />
+                            <img src={blog.author.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%' }} />
                         ) : (
                             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--zinc-800)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <User size={20} />
@@ -88,7 +147,7 @@ export default function BlogPost() {
                         <div>
                             <div style={{ fontWeight: 500, color: isLight ? '#1a1a2e' : 'white' }}>{blog.author?.full_name || 'Anonymous'}</div>
                             <div style={{ fontSize: '13px', color: 'var(--zinc-500)', display: 'flex', gap: '12px' }}>
-                                <span>{new Date(blog.created_at).toLocaleDateString()}</span>
+                                {(blog.published_at || blog.created_at) && <span>{new Date(blog.published_at || blog.created_at).toLocaleDateString()}</span>}
                                 <span>•</span>
                                 <span>{blog.read_time || 5} min read</span>
                             </div>
@@ -96,10 +155,12 @@ export default function BlogPost() {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <button className="icon-btn" title="Share"><Share2 size={20} /></button>
-                        <button className="icon-btn" title="Save"><Bookmark size={20} /></button>
+                        <button type="button" className="icon-btn" aria-label="Share article" title="Share" onClick={shareArticle}><Share2 size={20} /></button>
+                        <button type="button" className="icon-btn" aria-label="Save article" aria-pressed={saved} title={saved ? "Remove saved article" : "Save"} onClick={toggleSaved}><Bookmark size={20} fill={saved ? "currentColor" : "none"} /></button>
                     </div>
                 </div>
+
+                {actionMessage && <p role="status">{actionMessage}</p>}
 
                 {blog.cover_image && (
                     <img
@@ -110,9 +171,9 @@ export default function BlogPost() {
                 )}
 
                 {/* Content Area - Render JSON Blocks or Legacy HTML */}
-                {blog.content && blog.content.trim().startsWith('[') ? (
+                {articleContent.trim().startsWith('[') ? (
                     <div className="notion-renderer">
-                        <NotionViewer content={blog.content} />
+                        <NotionViewer content={articleContent} />
                     </div>
                 ) : (
                     <div
@@ -190,6 +251,35 @@ export default function BlogPost() {
                         color: #818cf8;
                         text-decoration: underline;
                         text-underline-offset: 4px;
+                    }
+
+                    .blog-content figure {
+                        margin: 2em 0;
+                    }
+
+                    .blog-content figcaption {
+                        font-size: 0.9em;
+                        color: ${isLight ? '#666' : '#a1a1aa'};
+                        text-align: center;
+                        margin-top: -1em;
+                    }
+
+                    .blog-content table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 2em 0;
+                        font-size: 0.95em;
+                    }
+
+                    .blog-content th, .blog-content td {
+                        border: 1px solid ${isLight ? '#ddd' : '#27272a'};
+                        padding: 0.65em 0.9em;
+                        text-align: left;
+                    }
+
+                    .blog-content th {
+                        background: ${isLight ? '#f4f4f5' : '#18181b'};
+                        font-weight: 600;
                     }
                 `}</style>
             </article>

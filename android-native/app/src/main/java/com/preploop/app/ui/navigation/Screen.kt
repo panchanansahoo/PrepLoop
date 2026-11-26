@@ -1,5 +1,7 @@
 package com.preploop.app.ui.navigation
 
+import android.net.Uri
+
 /**
  * Type-safe route definitions for the entire app.
  * Mirrors the web's react-router structure, adapted for mobile navigation.
@@ -19,18 +21,19 @@ sealed class Screen(val route: String) {
 
     // Nested screens — DSA
     data object ProblemDetail : Screen("problem/{problemId}") {
-        fun createRoute(problemId: String) = "problem/$problemId"
+        fun createRoute(problemId: String) = "problem/${Uri.encode(problemId)}"
     }
     data object PatternDetail : Screen("pattern/{patternId}") {
-        fun createRoute(patternId: String) = "pattern/$patternId"
+        fun createRoute(patternId: String) = "pattern/${Uri.encode(patternId)}"
     }
     data object LearningPath : Screen("learning_path")
+    data object SqlMastery : Screen("sql_mastery")
 
     // Nested screens — Interview
     data object AIInterview : Screen("ai_interview")
     data object InterviewHistory : Screen("interview_history")
     data object InterviewResults : Screen("interview_results/{sessionId}") {
-        fun createRoute(sessionId: String) = "interview_results/$sessionId"
+        fun createRoute(sessionId: String) = "interview_results/${Uri.encode(sessionId)}"
     }
 
     // Nested screens — Profile

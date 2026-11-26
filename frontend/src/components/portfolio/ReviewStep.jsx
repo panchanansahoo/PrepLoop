@@ -1,5 +1,13 @@
 export default function ReviewStep({ profile, setProfile, onBack, onNext, saving, error }) {
   const basics = profile?.basicInfo || {};
+  const skills = [
+    ...(profile?.skills?.languages || []),
+    ...(profile?.skills?.frameworks || []),
+    ...(profile?.skills?.tools || []),
+    ...(profile?.skills?.domains || []),
+  ].filter(Boolean);
+  const experience = Array.isArray(profile?.experience) ? profile.experience : [];
+  const education = Array.isArray(profile?.education) ? profile.education : [];
 
   const updateBasics = (key, value) => {
     setProfile((prev) => ({
@@ -44,6 +52,53 @@ export default function ReviewStep({ profile, setProfile, onBack, onNext, saving
         onChange={(event) => updateBasics('summary', event.target.value)}
         rows={6}
       />
+
+      {skills.length > 0 && (
+        <>
+          <h3 className="portfolio-section-title">Skills</h3>
+          <ul className="portfolio-list" aria-label="Skills">
+            {skills.map((skill) => (
+              <li key={skill}><span>{skill}</span></li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {experience.length > 0 && (
+        <>
+          <h3 className="portfolio-section-title">Experience</h3>
+          <ul className="portfolio-list" aria-label="Experience">
+            {experience.map((item, idx) => {
+              const role = typeof item === 'string' ? item : (item?.role || item?.title || `Role ${idx + 1}`);
+              const company = typeof item === 'object' && item?.company ? item.company : '';
+              return (
+                <li key={`${role}-${company}-${idx}`}>
+                  <strong>{role}</strong>
+                  {company ? <span>{company}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      {education.length > 0 && (
+        <>
+          <h3 className="portfolio-section-title">Education</h3>
+          <ul className="portfolio-list" aria-label="Education">
+            {education.map((item, idx) => {
+              const institute = typeof item === 'string' ? item : (item?.institute || item?.school || '');
+              const degree = typeof item === 'object' && item?.degree ? item.degree : '';
+              return (
+                <li key={`${institute}-${degree}-${idx}`}>
+                  <strong>{institute || degree || `Education ${idx + 1}`}</strong>
+                  {institute && degree ? <span>{degree}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
 
       <h3 className="portfolio-section-title">Featured projects (auto-selected)</h3>
       <ul className="portfolio-list">

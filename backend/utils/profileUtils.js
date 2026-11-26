@@ -1,3 +1,8 @@
+// Legacy empty strings fall back to the older column. Null records an explicit removal.
+export function resolveProfileLinkedin(socialLinks, legacyLinkedin) {
+  return socialLinks?.linkedin === null ? '' : socialLinks?.linkedin || legacyLinkedin || '';
+}
+
 export function validateCustomUrl(slug) {
   const value = String(slug || '').trim().toLowerCase();
   if (!value) return { valid: false, reason: 'empty' };
@@ -43,7 +48,7 @@ export async function claimCustomUrl(supabaseAdmin, userId, requested) {
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('profiles')
-    .update({ custom_url: value, is_public: true, updated_at: new Date().toISOString() })
+    .update({ custom_url: value, updated_at: new Date().toISOString() })
     .eq('id', userId)
     .select()
     .maybeSingle();
@@ -54,7 +59,7 @@ export async function claimCustomUrl(supabaseAdmin, userId, requested) {
   if (!profileRow) {
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from('profiles')
-      .upsert({ id: userId, custom_url: value, is_public: true, updated_at: new Date().toISOString() })
+      .upsert({ id: userId, custom_url: value, updated_at: new Date().toISOString() })
       .select()
       .maybeSingle();
     if (insertError) throw insertError;

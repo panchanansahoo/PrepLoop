@@ -2,20 +2,25 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from "react-native";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { ErrorMessage } from "../../components/ErrorMessage";
 import { analyticsApi } from "../../api/analyticsApi";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 export default function ImprovementPlanScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState("");
     const [plan, setPlan] = useState(null);
 
     const loadData = async () => {
         try {
+            setError("");
             const data = await analyticsApi.getImprovementPlan();
             setPlan(data);
-        } catch (error) {
-            console.error("Failed to load improvement plan:", error);
+        } catch (err) {
+            console.error("Failed to load improvement plan:", err);
+            setPlan(null);
+            setError("Could not load your improvement plan. Please try again.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -40,7 +45,16 @@ export default function ImprovementPlanScreen({ navigation }) {
         );
     }
 
-    if (!plan || (!plan.weaknesses && !plan.actionItems)) {
+    if (error) {
+        return (
+            <View style={styles.container}>
+                <ScreenHeader title="AI Improvement Plan" onBack={() => navigation.goBack()} />
+                <ErrorMessage message={error} onRetry={loadData} />
+            </View>
+        );
+    }
+
+    if (!plan) {
         return (
             <View style={styles.container}>
                 <ScreenHeader title="AI Improvement Plan" onBack={() => navigation.goBack()} />
@@ -52,6 +66,9 @@ export default function ImprovementPlanScreen({ navigation }) {
             </View>
         );
     }
+
+    const weaknesses = plan.topWeaknesses || plan.weaknesses || [];
+    const tasks = plan.dailyPlan || plan.actionItems || [];
 
     return (
         <View style={styles.container}>
@@ -67,30 +84,36 @@ export default function ImprovementPlanScreen({ navigation }) {
                     </Text>
                 </View>
 
-                {plan.weaknesses && plan.weaknesses.length > 0 && (
+                {weaknesses.length > 0 && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Areas to Improve</Text>
-                        {plan.weaknesses.map((item, index) => (
+                        {weaknesses.map((item, index) => (
                             <View key={index} style={styles.bulletItem}>
                                 <Text style={styles.bulletIcon}>⚠️</Text>
-                                <Text style={styles.bulletText}>{item}</Text>
+                                <Text style={styles.bulletText}>{item.area || item}</Text>
                             </View>
                         ))}
                     </View>
                 )}
 
-                {plan.actionItems && plan.actionItems.length > 0 && (
+                {tasks.length > 0 && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Action Items</Text>
-                        {plan.actionItems.map((item, index) => (
+                        {tasks.map((item, index) => (
                             <View key={index} style={styles.actionCard}>
                                 <View style={styles.actionHeader}>
                                     <View style={styles.actionNum}>
-                                        <Text style={styles.actionNumText}>{index + 1}</Text>
+                                        <Text style={styles.actionNumText}>{item.day || index + 1}</Text>
                                     </View>
-                                    <Text style={styles.actionTitle}>{item.title || "Practice"}</Text>
+                                    <Text style={styles.actionTitle}>
+                                        {String(item.focusArea || item.title || "Practice").replace(/_/g, " ")}
+                                    </Text>
                                 </View>
-                                <Text style={styles.actionDesc}>{item.description || item}</Text>
+                                <Text style={styles.actionDesc}>
+                                    {Array.isArray(item.tasks) && item.tasks.length > 0
+                                        ? item.tasks.join("\n")
+                                        : item.goal || item.description || (typeof item === "string" ? item : "")}
+                                </Text>
                             </View>
                         ))}
                     </View>

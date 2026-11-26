@@ -22,6 +22,11 @@ export const analyticsApi = {
     /** GET /api/improvement-plan/latest — user's latest improvement plan */
     async getImprovementPlan() {
         const res = await apiClient.get("/api/improvement-plan/latest");
-        return res.data?.plan || res.data;
+        const row =
+            res.data?.data !== undefined
+                ? res.data.data
+                : (res.data?.plan ?? res.data);
+        if (!row) return null;
+        return row?.plan_data || row;
     },
 };

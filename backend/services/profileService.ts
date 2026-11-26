@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import cacheManager from '../utils/cacheManager.js';
-import { buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
+import { buildAvatarPath, claimCustomUrl, resolveProfileLinkedin } from '../utils/profileUtils.js';
 import { normalizeProfileUpdatePayload } from '../utils/profilePayload.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { isAdminEmail, invalidateUserRole } from '../middleware/auth.ts';
@@ -141,7 +141,7 @@ export const buildProfileResponse = (reqOrUser: any, profile: RawProfile) => {
   const socialLinks = {
     ...parsedSocialLinks,
     twitter: profile?.twitter || parsedSocialLinks.twitter || '',
-    linkedin: profile?.linkedin || parsedSocialLinks.linkedin || '',
+    linkedin: resolveProfileLinkedin(parsedSocialLinks, profile?.linkedin),
     portfolio: profile?.portfolio || parsedSocialLinks.portfolio || '',
     dribbble: profile?.dribbble || parsedSocialLinks.dribbble || '',
   };
@@ -345,7 +345,7 @@ export const getPublicPortfolioBySlug = async (rawSlug: string, currentUserId?: 
   let profile = initialProfile;
 
   // 2. By UUID
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug);
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
   if (!profile && isUUID) {
     const byId = await (supabaseAdmin as any).from('profiles').select('*').eq('id', slug).maybeSingle();
     if (!byId.error && byId.data) {
@@ -353,17 +353,19 @@ export const getPublicPortfolioBySlug = async (rawSlug: string, currentUserId?: 
     }
   }
 
-  // 3. By slugified full_name
-  if (!profile) {
+  // 3. By slugified full_name (only when unique and visible to caller)
+  if (!profile && /^[a-z0-9][a-z0-9_-]*$/.test(slug)) {
     const nameFromSlug = slug.replace(/[-_]+/g, ' ').trim();
     const byName = await (supabaseAdmin as any)
       .from('profiles')
       .select('*')
       .ilike('full_name', nameFromSlug)
-      .limit(1)
-      .maybeSingle();
-    if (!byName.error && byName.data) {
-      profile = byName.data;
+      .limit(2);
+    if (!byName.error && byName.data?.length === 1) {
+      const candidate = byName.data[0];
+      if (candidate.is_public || (currentUserId && candidate.id === currentUserId)) {
+        profile = candidate;
+      }
     }
   }
 
@@ -427,7 +429,7 @@ export const getPublicPortfolioBySlug = async (rawSlug: string, currentUserId?: 
     },
     socials: {
       github: profile.github_username || '',
-      linkedin: profile.linkedin || parsedSocialLinks.linkedin || '',
+      linkedin: resolveProfileLinkedin(parsedSocialLinks, profile.linkedin),
       twitter: profile.twitter || parsedSocialLinks.twitter || '',
       portfolio: profile.portfolio || parsedSocialLinks.portfolio || '',
     },

@@ -326,4 +326,77 @@ describe('JobTracker Page Component', () => {
       expect(screen.getByText(/Added Google/i)).toBeInTheDocument();
     });
   });
+
+  it('sets appliedAt when moving a bookmarked job without appliedAt to Applied', async () => {
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <JobTracker />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Linear')).toBeInTheDocument();
+    });
+
+    const moveRightBtn = screen.getByLabelText('Move Linear to next stage');
+    fireEvent.click(moveRightBtn);
+
+    await waitFor(() => {
+      expect(authFetchModule.authFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/job-applications/app-5'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.any(String),
+        })
+      );
+    });
+
+    const patchCall = authFetchModule.authFetch.mock.calls.find(
+      ([url, opts]) => String(url).includes('/job-applications/app-5') && opts?.method === 'PATCH'
+    );
+    const payload = JSON.parse(patchCall[1].body);
+    expect(payload.status).toBe('applied');
+    expect(typeof payload.appliedAt).toBe('string');
+    expect(Number.isNaN(Date.parse(payload.appliedAt))).toBe(false);
+  });
+
+  it('preserves existing appliedAt when editing an applied job in the edit modal', async () => {
+    const existingAppliedAt = '2026-09-15T10:00:00.000Z';
+    authFetchModule.authFetch.mockImplementationOnce(async () => ({
+      ok: true,
+      json: async () => ({
+        applications: [
+          {
+            ...mockApplications[0],
+            appliedAt: existingAppliedAt,
+          },
+        ],
+      }),
+    }));
+
+    render(
+      <MemoryRouter future={ROUTER_FUTURE}>
+        <JobTracker />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Stripe')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('Edit Stripe Staff Infrastructure Engineer'));
+    const notesInput = screen.getByDisplayValue('Referred by senior engineer');
+    fireEvent.change(notesInput, { target: { value: 'Referred by staff engineer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      const patchCall = authFetchModule.authFetch.mock.calls.find(
+        ([url, opts]) => String(url).includes('/job-applications/app-1') && opts?.method === 'PATCH'
+      );
+      expect(patchCall).toBeDefined();
+      const payload = JSON.parse(patchCall[1].body);
+      expect(payload.status).toBe('applied');
+      expect(payload.appliedAt).toBeUndefined();
+    });
+  });
 });

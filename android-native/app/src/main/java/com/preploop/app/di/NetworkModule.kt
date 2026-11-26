@@ -30,25 +30,37 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(tokenManager: TokenManager): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG)
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             else
                 HttpLoggingInterceptor.Level.NONE
         }
 
         return OkHttpClient.Builder()
-            .addInterceptor(logging)
             .addInterceptor { chain ->
-                // TODO: Inject JWT token from TokenManager
-                val request = chain.request().newBuilder()
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("Accept", "application/json")
-                    // .addHeader("Authorization", "Bearer $token")
-                    .build()
-                chain.proceed(request)
+                val original = chain.request()
+                val path = original.url.encodedPath
+                val isPublicAuth = path.endsWith("/api/auth/login") ||
+                    path.endsWith("/api/auth/signup") ||
+                    path.endsWith("/api/auth/register") ||
+                    path.endsWith("/api/auth/refresh") ||
+                    path.endsWith("/api/auth/forgot-password")
+
+                val builder = original.newBuilder()
+                if (original.header("Accept") == null) {
+                    builder.header("Accept", "application/json")
+                }
+                val token = tokenManager.accessToken
+                if (!isPublicAuth && original.header("Authorization") == null && !token.isNullOrBlank()) {
+                    builder.header("Authorization", "Bearer $token")
+                }
+                chain.proceed(builder.build())
             }
+            .addInterceptor(logging)
+            .followRedirects(false)
+            .followSslRedirects(false)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

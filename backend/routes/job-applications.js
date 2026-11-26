@@ -104,7 +104,29 @@ router.patch('/:id', authenticateToken, validateBody(UpdateJobApplicationSchema)
     if (req.body.jobUrl !== undefined) updates.job_url = req.body.jobUrl;
     if (req.body.location !== undefined) updates.location = req.body.location;
     if (req.body.salaryRange !== undefined) updates.salary_range = req.body.salaryRange;
-    if (req.body.appliedAt !== undefined) updates.applied_at = req.body.appliedAt;
+    if (req.body.appliedAt !== undefined) {
+      updates.applied_at = req.body.appliedAt;
+    } else if (req.body.status !== undefined && req.body.status !== 'bookmarked') {
+      const { data: existing, error: lookupError } = await supabaseAdmin
+        .from('job_applications')
+        .select('id, applied_at')
+        .eq('id', id)
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+
+      if (lookupError) {
+        if (isMissingTableError(lookupError)) {
+          return res.status(503).json({ error: 'Job applications table not yet migrated' });
+        }
+        throw lookupError;
+      }
+      if (!existing) {
+        return res.status(404).json({ error: 'Job application not found' });
+      }
+      if (!existing.applied_at) {
+        updates.applied_at = new Date().toISOString();
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('job_applications')

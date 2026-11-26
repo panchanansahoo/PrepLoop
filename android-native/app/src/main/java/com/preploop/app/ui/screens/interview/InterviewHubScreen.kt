@@ -2,6 +2,8 @@ package com.preploop.app.ui.screens.interview
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Composable
@@ -15,12 +17,14 @@ import com.preploop.app.ui.theme.*
 fun InterviewHubScreen(
     onStartInterview: () -> Unit,
     onViewHistory: () -> Unit,
+    onOpenWebInterview: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BgPrimary)
             .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(bottom = 80.dp),
     ) {
         SectionHeader(
@@ -35,7 +39,7 @@ fun InterviewHubScreen(
         ) {
             FeatureCard(
                 title = "AI Mock Interview",
-                description = "Voice-based interview with AI follow-ups and real-time feedback",
+                description = "Practice with typed answers and get an AI score",
                 icon = Icons.Filled.Mic,
                 accentColor = FeatureCyan,
                 tag = "AI Powered",
@@ -47,18 +51,21 @@ fun InterviewHubScreen(
                 icon = Icons.Filled.Business,
                 accentColor = FeatureViolet,
                 tag = "50+ Companies",
+                onClick = { onOpenWebInterview("company-prep") },
             )
             FeatureCard(
                 title = "Debugging Interview",
                 description = "Find and fix bugs under pressure — timed debugging sessions",
                 icon = Icons.Filled.BugReport,
                 accentColor = FeatureYellow,
+                onClick = { onOpenWebInterview("debugging-interview") },
             )
             FeatureCard(
                 title = "Code Review",
                 description = "Review code snippets and identify improvements",
                 icon = Icons.Filled.RateReview,
                 accentColor = FeatureGreen,
+                onClick = { onOpenWebInterview("code-review-interview") },
             )
         }
     }

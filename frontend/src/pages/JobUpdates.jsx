@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ToastContext from '../context/ToastContext';
@@ -68,6 +68,7 @@ export default function JobUpdates() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [retryJobs, setRetryJobs] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [_hasExternalApi, setHasExternalApi] = useState(false);
   const [savedJobs, setSavedJobs] = useState(() => {
@@ -125,7 +126,9 @@ export default function JobUpdates() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchJobs = useCallback(async () => {
+  const aiSearchControllerRef = useRef(null);
+
+  const fetchJobs = useCallback(async (signal) => {
     setLoading(true);
     setError(null);
     try {
@@ -137,33 +140,53 @@ export default function JobUpdates() {
 
       const _headers = buildAuthHeaders(user);
 
-      const response = await authFetch(`${API_URL}/api/jobs?${params}`);
+      const response = await authFetch(`${API_URL}/api/jobs?${params}`, { signal });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || errData.message || `Failed to fetch jobs (HTTP ${response.status})`);
       }
 
       const data = await response.json();
+      if (signal?.aborted) return;
       setJobs(data.jobs || []);
       setTotalPages(data.totalPages || 1);
       setHasExternalApi(data.hasExternalApi || false);
     } catch (err) {
+      if (signal?.aborted || err?.name === 'AbortError') return;
       setError(err.message);
       setJobs([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [activeCategory, debouncedSearch, page]);
 
   useEffect(() => {
-    if (!isAiMode && !isCareerOpsMode) fetchJobs();
-  }, [fetchJobs, isAiMode, isCareerOpsMode]);
+    if (isAiMode || isCareerOpsMode) {
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    void fetchJobs(controller.signal);
+    return () => controller.abort();
+  }, [fetchJobs, isAiMode, isCareerOpsMode, retryJobs]);
+  useEffect(() => {
+    if (!isAiMode || isCareerOpsMode) {
+      aiSearchControllerRef.current?.abort();
+      aiSearchControllerRef.current = null;
+      setAiLoading(false);
+    }
+    return () => aiSearchControllerRef.current?.abort();
+  }, [isAiMode, isCareerOpsMode]);
   useEffect(() => { setPage(1); }, [activeCategory, debouncedSearch]);
 
   // AI Search handler
   const handleAiSearch = async (query) => {
     const searchText = query || aiQuery;
     if (!searchText.trim()) return;
+
+    aiSearchControllerRef.current?.abort();
+    const controller = new AbortController();
+    aiSearchControllerRef.current = controller;
 
     setAiLoading(true);
     setAiError(null);
@@ -176,6 +199,7 @@ export default function JobUpdates() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchText }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -184,14 +208,18 @@ export default function JobUpdates() {
       }
 
       const data = await response.json();
+      if (controller.signal.aborted) return;
       setJobs(data.jobs || []);
       setAiParams(data.parsedParams || null);
       setAiSuggestions(data.suggestions || []);
     } catch (err) {
+      if (controller.signal.aborted || err?.name === 'AbortError') return;
       setAiError(err.message);
       setJobs([]);
     } finally {
-      setAiLoading(false);
+      if (aiSearchControllerRef.current === controller) {
+        setAiLoading(false);
+      }
     }
   };
 
@@ -946,7 +974,7 @@ export default function JobUpdates() {
             <div className="job-error">
               <AlertCircle size={32} />
               <p>{error || aiError}</p>
-              <button className="btn-retry" onClick={isAiMode ? () => handleAiSearch() : fetchJobs}>Try Again</button>
+              <button className="btn-retry" onClick={isAiMode ? () => handleAiSearch() : () => setRetryJobs(value => value + 1)}>Try Again</button>
             </div>
           ) : jobs.length === 0 ? (
             <div className="job-empty">

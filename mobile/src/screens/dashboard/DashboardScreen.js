@@ -298,7 +298,7 @@ export default function DashboardScreen({ navigation }) {
                             setCoinBalance(fresh?.balance ?? fresh?.coins ?? 0),
                     ),
                     cache.fetchWithCache(
-                        CACHE_KEYS.DAILY_CHALLENGE,
+                        `${CACHE_KEYS.DAILY_CHALLENGE}:${user?.id || "guest"}:${new Date().toISOString().slice(0, 10)}`,
                         () => dsaApi.getDailyChallenge(),
                         CACHE_TTL.LONG,
                         (fresh) => setDailyChallenge(fresh),

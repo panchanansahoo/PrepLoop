@@ -2,6 +2,7 @@ import express from 'express';
 import { createRequire } from 'module';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
+import sanitizeHtml from 'sanitize-html';
 import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
 import { sanitizeHTML, sanitizeString } from '../middleware/sanitization.js';
@@ -27,7 +28,7 @@ const router = express.Router();
 const isBlogPostsTableMissing = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
-  return code === '42P01' || (message.includes('relation') && message.includes('blog_posts'));
+  return ['42P01', 'PGRST205'].includes(code) || (message.includes('relation') && message.includes('blog_posts'));
 };
 
 const parsePositiveInt = (value, fallback) => {
@@ -196,8 +197,9 @@ router.patch('/admin/posts/:id/publish', authenticateToken, requireAdmin, async 
     const { data, error } = await supabaseAdmin
       .from('blog_posts')
       .update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', id).select().single();
+      .eq('id', id).select().maybeSingle();
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Blog post not found' });
     res.json({ message: 'Blog post published successfully', post: data });
   } catch (error) {
     console.error('Failed to publish blog post:', error);
@@ -211,8 +213,9 @@ router.patch('/admin/posts/:id/archive', authenticateToken, requireAdmin, async 
     const { data, error } = await supabaseAdmin
       .from('blog_posts')
       .update({ status: 'archived', updated_at: new Date().toISOString() })
-      .eq('id', id).select().single();
+      .eq('id', id).select().maybeSingle();
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Blog post not found' });
     res.json({ message: 'Blog post archived successfully', post: data });
   } catch (error) {
     console.error('Failed to archive blog post:', error);
@@ -223,6 +226,7 @@ router.patch('/admin/posts/:id/archive', authenticateToken, requireAdmin, async 
 // ─── PUBLIC BLOG POSTS ──────────────────────────────────────────────
 
 router.get('/public/posts', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const page = parsePositiveInt(req.query.page, 1);
     const limit = parsePositiveInt(req.query.limit, 10);
@@ -254,6 +258,7 @@ router.get('/public/posts', async (req, res) => {
 });
 
 router.get('/public/posts/:slug', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const { slug } = req.params;
     const { data, error } = await supabaseAdmin
@@ -324,24 +329,171 @@ router.post('/parse-eml', authenticateToken, requireAdmin, uploadEndpointsLimite
 
 // ─── LEGACY BLOG ROUTES (blogs table) ──────────────────────────────
 
+const stripHtmlForExcerpt = (rawContent, maxLen = 190) => {
+  if (!rawContent) return '';
+  let text = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
+  // Strip outer JSON quotes if stored double-encoded
+  if (text.startsWith('"') && text.endsWith('"')) {
+    try {
+      text = JSON.parse(text);
+    } catch {
+      // ignore
+    }
+  }
+  // If BlockNote JSON blocks, extract text nodes
+  if (typeof text === 'string' && text.trim().startsWith('[')) {
+    try {
+      const blocks = JSON.parse(text);
+      if (Array.isArray(blocks)) {
+        const flattenInline = (items) => items.map((c) => {
+          if (typeof c === 'string') return c;
+          if (c?.type === 'link' && Array.isArray(c.content)) return flattenInline(c.content);
+          return c?.text || '';
+        }).join('');
+        text = blocks
+          .map((b) => (Array.isArray(b.content) ? flattenInline(b.content) : (typeof b.content === 'string' ? b.content : '')))
+          .join(' ');
+      }
+    } catch {
+      // fall back to regex strip
+    }
+  }
+  const plain = String(text)
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= maxLen) return plain;
+  return plain.slice(0, maxLen).replace(/\s+\S*$/, '') + '...';
+};
+
+const resolveLegacyBlogAuthor = (row) => {
+  if (row?.author) return row.author;
+  const contentStr = typeof row?.content === 'string' ? row.content : '';
+  if ((row?.author_id === null || row?.author_id === undefined) && contentStr.includes('addyosmani.com/blog/')) {
+    return { id: null, full_name: 'Addy Osmani', avatar_url: null };
+  }
+  return null;
+};
+
+const normalizeEditorialPost = (row) => ({
+  ...row,
+  source: 'editorial',
+  category: row.category || 'General',
+  cover_image: row.featured_image_url,
+  views: row.view_count,
+  author: row.author || { full_name: 'PrepLoop Team', avatar_url: null },
+});
+
+const escapeBlogText = (text) => String(text ?? '').replace(/[&<>"']/g,
+  (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+
+function renderMobileArticle(content) {
+  let html = typeof content === 'string' ? content : '';
+  if (html.startsWith('"')) {
+    try {
+      const decoded = JSON.parse(html);
+      if (typeof decoded === 'string') html = decoded;
+    } catch {
+      // Plain text can start with a quotation mark.
+    }
+  }
+  if (html.trim().startsWith('[') || Array.isArray(content)) {
+    try {
+      const blocks = Array.isArray(content) ? content : JSON.parse(html);
+      const renderBlocks = (items) => items.map((block) => {
+        if (block.type === 'divider') {
+          return '<hr>';
+        }
+        const inline = Array.isArray(block.content) ? block.content.map((part) => {
+          if (typeof part === 'string') return escapeBlogText(part);
+          if (part?.type === 'link' && Array.isArray(part.content)) {
+            return `<a href="${escapeBlogText(part.href)}">${part.content.map(child => escapeBlogText(typeof child === 'string' ? child : child?.text)).join('')}</a>`;
+          }
+          let text = escapeBlogText(part?.text);
+          for (const [style, tag] of [['bold', 'strong'], ['italic', 'em'], ['underline', 'u'], ['strike', 's'], ['code', 'code']]) {
+            if (part?.styles?.[style]) text = `<${tag}>${text}</${tag}>`;
+          }
+          return text;
+        }).join('') : escapeBlogText(block.content);
+        const tags = { heading: 'h2', codeBlock: 'pre', bulletListItem: 'p', numberedListItem: 'p', checkListItem: 'p', quote: 'blockquote' };
+        const tag = tags[block.type] || 'p';
+        const prefix = block.type === 'bulletListItem'
+          ? '• '
+          : block.type === 'numberedListItem'
+            ? '1. '
+            : block.type === 'checkListItem'
+              ? `${block.props?.checked ? '[x]' : '[ ]'} `
+              : '';
+        const formatted = block.type === 'image'
+          ? (block.props?.url ? `<img src="${escapeBlogText(block.props.url)}" alt="${escapeBlogText(block.props?.caption)}">` : '')
+          : `<${tag}>${prefix}${inline}</${tag}>`;
+        return formatted + (Array.isArray(block.children) ? renderBlocks(block.children) : '');
+      }).join('');
+      if (Array.isArray(blocks)) html = renderBlocks(blocks);
+    } catch {
+      html = escapeBlogText(html);
+    }
+  }
+  return sanitizeHtml(html, {
+    allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
+    allowedAttributes: { a: ['href'], img: ['src', 'alt'] },
+    allowedSchemes: ['https', 'http', 'mailto'],
+    allowProtocolRelative: false,
+  });
+}
+
 router.get('/', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
-    const { category } = req.query;
+    const { category, include_content } = req.query;
+    const normalizedCategory = typeof category === 'string' ? category.trim() : '';
+    const requestedLimit = parsePositiveInt(req.query.limit, 500);
+    const cappedLimit = Math.min(requestedLimit, 1000);
+
     let query = supabaseAdmin
       .from('blogs')
       .select('*, author:author_id(id, full_name, avatar_url)')
       .eq('is_published', true);
 
-    if (category && typeof category === 'string' && category.trim().toLowerCase() !== 'all') {
-      query = query.eq('category', category.trim());
+    if (normalizedCategory && normalizedCategory.toLowerCase() !== 'all') {
+      query = query.eq('category', normalizedCategory);
     }
 
-    const { data, error } = await query
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const [legacy, editorial] = await Promise.all([
+      query.order('created_at', { ascending: false }).limit(cappedLimit),
+      !normalizedCategory || ['all', 'general'].includes(normalizedCategory.toLowerCase())
+        ? supabaseAdmin.from('blog_posts')
+            .select('*')
+            .eq('status', 'published')
+            .order('published_at', { ascending: false })
+            .limit(cappedLimit)
+        : { data: [] },
+    ]);
+    if (legacy.error) throw legacy.error;
+    if (editorial.error && !isBlogPostsTableMissing(editorial.error)) throw editorial.error;
 
-    if (error) throw error;
-    res.json(data || []);
+    const includeContent = include_content === 'true';
+    const rows = [...(legacy.data || []), ...(editorial.data || []).map(normalizeEditorialPost)];
+    rows.sort((a, b) => (Date.parse(b.published_at || b.created_at) || 0) - (Date.parse(a.published_at || a.created_at) || 0));
+    const posts = rows.slice(0, cappedLimit).map((row) => {
+      const excerpt = row.excerpt || stripHtmlForExcerpt(row.content);
+      const author = resolveLegacyBlogAuthor(row);
+      if (includeContent) {
+        return { ...row, author, excerpt };
+      }
+      const { content: _omitted, ...rest } = row;
+      return { ...rest, author, excerpt };
+    });
+
+    res.json(posts);
   } catch (error) {
     console.error('Failed to fetch blogs:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -380,7 +532,8 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         content: safeContent,
         author_id: req.user.id,
         category: safeCategory,
-        cover_image: safeCoverImage
+        cover_image: safeCoverImage,
+        is_published: true
       })
       .select().single();
 
@@ -394,33 +547,52 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 
 // Fix: /:slug wildcard is last to avoid shadowing /admin/*, /public/*, /parse-*
 router.get('/:slug', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const { slug } = req.params;
-    const primary = await supabaseAdmin
-      .from('blogs')
-      .select('*, author:author_id(id, full_name, avatar_url)')
-      .eq('slug', slug).maybeSingle();
-    let data = primary.data;
-
-    // A missing author relationship should not make an otherwise valid post
-    // inaccessible. Retry the post lookup without the relationship if needed.
-    if (primary.error) {
-      const fallback = await supabaseAdmin
+    let data;
+    if (req.query.source !== 'editorial') {
+      const primary = await supabaseAdmin
         .from('blogs')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (fallback.error) throw fallback.error;
-      data = fallback.data;
+        .select('*, author:author_id(id, full_name, avatar_url)')
+        .eq('slug', slug).eq('is_published', true).maybeSingle();
+      data = primary.data;
+
+      if (primary.error) {
+        const fallback = await supabaseAdmin
+          .from('blogs')
+          .select('*')
+          .eq('slug', slug).eq('is_published', true).maybeSingle();
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
+      }
     }
 
-    if (!data) return res.status(404).json({ error: 'Blog not found' });
+    if (!data && req.query.source !== 'legacy') {
+      const editorial = await supabaseAdmin.from('blog_posts')
+        .select('*').eq('slug', slug).eq('status', 'published').maybeSingle();
+      if (editorial.error && !isBlogPostsTableMissing(editorial.error)) throw editorial.error;
+      if (editorial.data) data = normalizeEditorialPost(editorial.data);
+    }
+
+    if (!data || data.is_published === false || (data.status && data.status !== 'published')) {
+      return res.status(404).json({ error: 'Blog not found' });
+    }
+
+    data = { ...data, author: resolveLegacyBlogAuthor(data) };
 
     // Atomic view increment via RPC; ignore errors
     try {
-      await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id });
+      if (data.source === 'editorial') {
+        await supabaseAdmin.rpc('increment_blog_post_view', { post_id: data.id });
+      } else {
+        await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id });
+      }
     } catch {
       // View tracking must not prevent a published post from rendering.
+    }
+    if (req.query.format === 'mobile') {
+      data.rendered_content = renderMobileArticle(data.content);
     }
     res.json(data);
   } catch (_error) {

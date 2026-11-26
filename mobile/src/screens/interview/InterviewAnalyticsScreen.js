@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from "
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { EmptyState } from "../../components/EmptyState";
+import { ErrorMessage } from "../../components/ErrorMessage";
 import { analyticsApi } from "../../api/analyticsApi";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { BarChart } from "react-native-chart-kit";
@@ -12,14 +13,18 @@ const screenWidth = Dimensions.get("window").width;
 export default function InterviewAnalyticsScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState("");
     const [data, setData] = useState(null);
 
     const loadData = async () => {
         try {
+            setError("");
             const overview = await analyticsApi.getOverview();
             setData(overview);
-        } catch (error) {
-            console.error("Failed to load analytics:", error);
+        } catch (err) {
+            console.error("Failed to load analytics:", err);
+            setData(null);
+            setError("Could not load interview analytics. Please try again.");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -44,6 +49,15 @@ export default function InterviewAnalyticsScreen({ navigation }) {
         );
     }
 
+    if (error) {
+        return (
+            <View style={styles.container}>
+                <ScreenHeader title="Analytics" onBack={() => navigation.goBack()} />
+                <ErrorMessage message={error} onRetry={loadData} />
+            </View>
+        );
+    }
+
     if (!data || !data.totalInterviews) {
         return (
             <View style={styles.container}>
@@ -59,7 +73,15 @@ export default function InterviewAnalyticsScreen({ navigation }) {
         );
     }
 
-    const { stats, recentScores } = data;
+    const categories = data.scoresByType || data.byType || {};
+    const recentScores = (data.recentTrend || data.recentScores || [])
+        .map((entry) => (typeof entry === "number" ? entry : entry?.score))
+        .filter(Number.isFinite);
+    const avgScore =
+        data.averageOverallScore ??
+        data.averageScores?.overall ??
+        data.averageScore ??
+        0;
 
     return (
         <View style={styles.container}>
@@ -81,7 +103,7 @@ export default function InterviewAnalyticsScreen({ navigation }) {
                     </View>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Avg Score</Text>
-                        <Text style={styles.statValue}>{data.averageScore || 0}%</Text>
+                        <Text style={styles.statValue}>{avgScore}%</Text>
                     </View>
                 </View>
 
@@ -125,18 +147,31 @@ export default function InterviewAnalyticsScreen({ navigation }) {
                     </View>
                 )}
 
-                {stats && stats.categories && (
+                {Object.keys(categories).length > 0 && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>By Category</Text>
-                        {Object.entries(stats.categories).map(([category, score]) => (
-                            <View key={category} style={styles.categoryRow}>
-                                <Text style={styles.categoryName}>{category}</Text>
-                                <View style={styles.progressBg}>
-                                    <View style={[styles.progressFill, { width: `${score}%` }]} />
+                        {Object.entries(categories).map(([category, val]) => {
+                            const score = Math.max(
+                                0,
+                                Math.min(
+                                    100,
+                                    Number(
+                                        typeof val === "number"
+                                            ? val
+                                            : (val?.average ?? val?.avg ?? 0),
+                                    ) || 0,
+                                ),
+                            );
+                            return (
+                                <View key={category} style={styles.categoryRow}>
+                                    <Text style={styles.categoryName}>{category}</Text>
+                                    <View style={styles.progressBg}>
+                                        <View style={[styles.progressFill, { width: `${score}%` }]} />
+                                    </View>
+                                    <Text style={styles.categoryScore}>{score}%</Text>
                                 </View>
-                                <Text style={styles.categoryScore}>{score}%</Text>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </View>
                 )}
             </ScrollView>

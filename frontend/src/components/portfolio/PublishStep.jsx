@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function PublishStep({
   settings,
   setSettings,
@@ -45,16 +47,19 @@ export default function PublishStep({
 
       {result ? (
         <div className="portfolio-result-card">
-          <h3>Portfolio published</h3>
-          <p><strong>Portfolio URL:</strong> {result.publishedUrl}</p>
-          <p><strong>Short URL:</strong> {result.shortUrl}</p>
+          <h3>{result.published ? 'Portfolio published' : 'Private portfolio saved'}</h3>
+          <p><Link to={`/u/${encodeURIComponent(result.slug)}?site=1`}>
+            {result.published ? 'Open portfolio' : 'Preview private portfolio'}
+          </Link></p>
+          {result.publishedUrl && <p>{result.publishedUrl}</p>}
+          {result.shortUrl && <p>Short link {result.shortUrl}</p>}
         </div>
       ) : null}
 
       <div className="portfolio-actions">
         <button type="button" className="portfolio-secondary-btn" onClick={onBack}>Back</button>
         <button type="button" className="portfolio-primary-btn" onClick={onPublish} disabled={publishing}>
-          {publishing ? 'Publishing...' : 'Publish portfolio'}
+          {publishing ? 'Saving…' : settings.visibility === 'private' ? 'Save private portfolio' : 'Publish portfolio'}
         </button>
       </div>
     </section>

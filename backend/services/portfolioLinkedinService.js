@@ -45,27 +45,179 @@ export const validateLinkedinUrl = (url) => {
   return { valid: true, value: safeUrl };
 };
 
+const EMPLOYMENT_TYPE_LINE_REGEX = /^(?:full-time|part-time|internship|contract|freelance|self-employed|apprenticeship|seasonal)(?:\s*[·•|-]\s*.*)?$/i;
+const TENURE_ONLY_REGEX = /^(?:\d+\s*(?:yrs?|years?|mos?|months?)\s*)+$/i;
+const COMPANY_META_SUFFIX_REGEX = /\s*[·•]\s*(?:full-time|part-time|internship|contract|freelance|self-employed|apprenticeship|seasonal)\s*$/i;
+const DATE_RANGE_REGEX = /(?:\b(?:19|20)\d{2}\b|\b(?:Present|Current)\b).*(?:[-–—]|\bto\b).*(?:\b(?:19|20)\d{2}\b|\b(?:Present|Current)\b)/i;
+
+const cleanCompanyName = (value = '') =>
+  String(value || '').replace(COMPANY_META_SUFFIX_REGEX, '').trim();
+
+const looksLikeLocation = (line = '') => {
+  const trimmed = String(line || '').trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (/[.!?]$/.test(trimmed)) return false;
+  if (/^(?:i\s|i'm\b|i’m\b|currently\b|based\s+in\b|located\s+in\b|working\b|building\b)/i.test(trimmed)) return false;
+  const words = trimmed.split(/\s+/);
+  if (words.length > 6) return false;
+  return trimmed.includes(',') || /·\s*(?:remote|hybrid|on-site)$/i.test(trimmed);
+};
+
+const looksLikeSentenceOrBullet = (line = '') => {
+  const trimmed = String(line || '').trim();
+  if (!trimmed) return false;
+  if (/^[-•*]/.test(trimmed)) return true;
+  if (trimmed.length > 85) return true;
+  const words = trimmed.split(/\s+/);
+  return words.length >= 5 && /[.!?]$/.test(trimmed);
+};
+
+const looksLikePersonName = (line = '') => {
+  const trimmed = String(line || '').trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (/^[-•*]/.test(trimmed)) return false;
+  if (/^(?:i\s|i'm\b|i’m\b|i've\b|i’ve\b|my\b|we\b|passionate\b|experienced\b|about\b|hi[,!\s]|hello[,!\s]|welcome\b|currently\b|looking\b|seeking\b)/i.test(trimmed)) {
+    return false;
+  }
+  const words = trimmed.split(/\s+/);
+  if (words.length > 6) return false;
+  if (/[!?]$/.test(trimmed)) return false;
+  if (/\.$/.test(trimmed) && !/(?:^|\s)(?:[A-Z]|Jr|Sr|Ph\.?D)\.$/.test(trimmed)) {
+    return false;
+  }
+  return true;
+};
+
+const splitDurationDates = (duration = '') => {
+  const clean = String(duration || '').split(/\s*[·•(]\s*/)[0].trim();
+  const match = clean.match(/^(.+?)\s*(?:[-–—]|\bto\b)\s*(.+)$/i);
+  if (!match) return {};
+  const startDate = match[1].trim();
+  const endDate = match[2].trim();
+  return {
+    ...(startDate ? { startDate } : {}),
+    ...(endDate ? { endDate } : {}),
+  };
+};
+
+function parseExperience(lines) {
+  const roles = [];
+  const paragraphs = lines.join('\n').split(/\n{2,}/);
+  const parsedParagraphs = paragraphs.map((paragraph) =>
+    paragraph
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !/\s+logo$/i.test(line))
+  ).filter((parts) => parts.length > 0);
+
+  const sectionHasDates = parsedParagraphs.some((parts) => parts.some((line) => DATE_RANGE_REGEX.test(line)));
+  let currentCompany = null;
+  let pendingHeader = null;
+
+  for (const parts of parsedParagraphs) {
+    const dates = parts.flatMap((line, index) => (DATE_RANGE_REGEX.test(line) ? [index] : []));
+
+    if (dates.length === 0) {
+      if (parts.length >= 2 && (EMPLOYMENT_TYPE_LINE_REGEX.test(parts[1]) || TENURE_ONLY_REGEX.test(parts[1]))) {
+        currentCompany = cleanCompanyName(parts[0]) || currentCompany;
+        pendingHeader = null;
+        continue;
+      }
+
+      if (sectionHasDates) {
+        const cleanParts = parts.filter((line) => !EMPLOYMENT_TYPE_LINE_REGEX.test(line) && !TENURE_ONLY_REGEX.test(line));
+        if (cleanParts.length > 0 && cleanParts.length <= 2 && cleanParts.every((line) => !looksLikeSentenceOrBullet(line))) {
+          pendingHeader = cleanParts;
+        } else {
+          pendingHeader = null;
+        }
+        continue;
+      }
+
+      const cleanParts = parts.filter((line) => !EMPLOYMENT_TYPE_LINE_REGEX.test(line) && !TENURE_ONLY_REGEX.test(line));
+      const [role, rawCompany] = cleanParts;
+      const company = cleanCompanyName(rawCompany);
+      if (role && !looksLikeSentenceOrBullet(role)) {
+        roles.push({ role, ...(company && { company }), source: 'linkedin' });
+      }
+      continue;
+    }
+
+    let previousDate = -1;
+    for (const index of dates) {
+      const rawSlice = parts.slice(previousDate + 1, index);
+
+      // Detect inline company-group header: e.g. ["Acme Corp", "Full-time · 4 yrs", "Senior Engineer"]
+      for (let i = 0; i < rawSlice.length - 1; i += 1) {
+        if (EMPLOYMENT_TYPE_LINE_REGEX.test(rawSlice[i + 1]) || TENURE_ONLY_REGEX.test(rawSlice[i + 1])) {
+          const maybeCompany = cleanCompanyName(rawSlice[i]);
+          if (maybeCompany && !looksLikeSentenceOrBullet(maybeCompany)) {
+            currentCompany = maybeCompany;
+          }
+        }
+      }
+
+      const between = rawSlice.filter(
+        (line) => !EMPLOYMENT_TYPE_LINE_REGEX.test(line) && !TENURE_ONLY_REGEX.test(line)
+      );
+
+      // Discard location/description lines left over from the previous role in the same paragraph
+      if (previousDate >= 0) {
+        while (between.length > 1 && (looksLikeSentenceOrBullet(between[0]) || looksLikeLocation(between[0]))) {
+          between.shift();
+        }
+      }
+
+      const header = between.length > 0
+        ? between.slice(-2)
+        : (previousDate === -1 && pendingHeader ? pendingHeader.slice(-2) : []);
+      pendingHeader = null;
+
+      const [role, rawCompany] = header;
+      const company = cleanCompanyName(rawCompany) || currentCompany || '';
+      if (role && !looksLikeSentenceOrBullet(role)) {
+        roles.push({
+          role,
+          ...(company && { company }),
+          duration: parts[index],
+          source: 'linkedin',
+        });
+      }
+      previousDate = index;
+    }
+  }
+  return roles.slice(0, 10);
+}
+
 // Parse pasted LinkedIn "About" export text into structured profile data
 export const parseLinkedinExportText = (text = '') => {
   const safe = String(text || '').trim();
   if (!safe) return null;
 
   const lines = safe.split(/\r?\n/).map(line => line.trim())
-    .filter(line => line && !/^Page \d+ of \d+$/i.test(line));
-  const heading = /^(contact(?: info)?|top skills|skills|summary|about|experience|education|languages|certifications|honors(?: & awards)?|publications|projects|recommendations|activity)$/i;
+    .filter(line => !/^Page \d+ of \d+$/i.test(line));
+  const heading = /^(contact(?: info)?|top skills|skills|summary|about(?: me)?|experience|education|languages|certifications|honors(?: & awards)?|publications|projects|recommendations|activity)$/i;
   const sections = { intro: [] };
   let section = 'intro';
   for (const line of lines) {
     if (heading.test(line)) {
-      section = line.toLowerCase();
+      const normalized = line.toLowerCase();
+      section = normalized === 'about me' ? 'about' : normalized;
       sections[section] ||= [];
     } else {
       sections[section].push(line);
     }
   }
-  const intro = sections.intro.filter(line => !/@|https?:|linkedin\.com/i.test(line));
+  const intro = sections.intro.filter(line => line && !/@|https?:|linkedin\.com/i.test(line));
   const linkedin = safe.match(/\b(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[\w%-]+/i)?.[0];
-  const skills = sections.skills || sections['top skills'] || [];
+  const skills = (sections.skills || sections['top skills'] || []).filter(Boolean);
+  const location = intro.slice(2).find(looksLikeLocation);
+  const hasProfileHeader =
+    intro.length >= 2
+    && looksLikePersonName(intro[0])
+    && intro[1].length <= 160
+    && Boolean(linkedin || location)
+    && Object.keys(sections).length > 1;
 
   const contact = sections.contact || sections['contact info'] || [];
   const phone = contact.map(line => line.replace(/\s*\((?:mobile|home|work)\)$/i, '').trim())
@@ -73,18 +225,20 @@ export const parseLinkedinExportText = (text = '') => {
   const website = contact.map(line => line.split(/\s/)[0])
     .find(line => /^https?:\/\//i.test(line) && !/linkedin\.com/i.test(line));
 
+  const aboutSummary = (sections.about || sections.summary || []).filter(Boolean).join(' ').trim();
+
   return {
     phone: phone || null,
     website: website || null,
-    fullName: intro[0] || null,
-    headline: intro[1] || null,
-    summary: (sections.about || sections.summary || []).join(' ') || intro.find(line => line.length > 80) || null,
-    location: intro.slice(2).find(line => line.includes(',') && line.length < 100) || null,
+    fullName: hasProfileHeader ? intro[0] : null,
+    headline: hasProfileHeader ? intro[1] : null,
+    summary: aboutSummary || (!hasProfileHeader ? intro.join('\n') : '') || null,
+    location: hasProfileHeader ? location || null : null,
     linkedin: linkedin ? linkedin.replace(/^(?!https?:\/\/)/i, 'https://') : null,
     // LinkedIn's PDF sidebar lists up to three top skills before the main column.
     skills: skills.slice(0, sections.skills ? 20 : 3),
-    experience: (sections.experience || []).slice(0, 30).map(role => ({ role, source: 'linkedin' })),
-    education: (sections.education || []).slice(0, 10).map(institute => ({ institute, source: 'linkedin' })),
+    experience: parseExperience(sections.experience || []),
+    education: (sections.education || []).filter(Boolean).slice(0, 10).map(institute => ({ institute, source: 'linkedin' })),
   };
 };
 
@@ -97,6 +251,8 @@ export const normalizeLinkedinPayload = ({
   skills = [],
   fullName,
   location,
+  phone,
+  website,
 } = {}) => {
   return {
     url: String(url || '').trim() || null,
@@ -105,9 +261,20 @@ export const normalizeLinkedinPayload = ({
       headline: headline ? String(headline).trim() : null,
       summary: summary ? String(summary).trim() : null,
       location: location ? String(location).trim() : null,
+      ...(phone ? { phone: String(phone).trim() } : {}),
+      ...(website ? { website: String(website).trim() } : {}),
     },
     experience: Array.isArray(experience)
-      ? experience.map((item) => ({ ...item, source: 'linkedin' }))
+      ? experience.map((item) => {
+          const parsedDates = (!item?.startDate && !item?.start && item?.duration)
+            ? splitDurationDates(item.duration)
+            : {};
+          return {
+            ...item,
+            ...parsedDates,
+            source: 'linkedin',
+          };
+        })
       : [],
     education: Array.isArray(education)
       ? education.map((item) => ({ ...item, source: 'linkedin' }))

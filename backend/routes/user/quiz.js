@@ -1,4 +1,5 @@
 import express from 'express';
+import { createHash } from 'node:crypto';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../../middleware/auth.ts';
 
@@ -221,16 +222,24 @@ router.post('/quiz/attempt', authenticateToken, async (req, res) => {
     }
 
     const safeScore = Math.min(score, totalQuestions);
-
-    const { error } = await supabaseAdmin
-      .from('quiz_attempts')
-      .insert({
-        user_id: req.user.id,
-        topic,
-        score: safeScore,
-        total_questions: totalQuestions,
-        duration_seconds: durationSeconds,
-      });
+    const row = {
+      user_id: req.user.id,
+      topic,
+      score: safeScore,
+      total_questions: totalQuestions,
+      duration_seconds: durationSeconds,
+    };
+    const table = supabaseAdmin.from('quiz_attempts');
+    const attemptKey = req.body?.attemptKey;
+    let result;
+    if (typeof attemptKey === 'string' && /^[a-z0-9-]{1,80}$/.test(attemptKey)) {
+      const hex = createHash('sha256').update(`${req.user.id}:${attemptKey}`).digest('hex');
+      row.id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+      result = await table.upsert(row, { onConflict: 'id', ignoreDuplicates: true });
+    } else {
+      result = await table.insert(row);
+    }
+    const { error } = result;
 
     if (isMissingRelationError(error)) {
       return res.status(503).json({

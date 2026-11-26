@@ -7,7 +7,12 @@ export const userApi = {
      */
     async getProfile() {
         const res = await apiClient.get("/api/user/profile");
-        return res.data.user || res.data;
+        if (res.data?.degraded) throw new Error("Profile temporarily unavailable");
+        const profile = res.data?.user || res.data;
+        if (!profile || typeof profile !== "object") {
+            throw new Error("Invalid profile response");
+        }
+        return profile;
     },
 
     /**

@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { ScreenHeader } from "../../components/ScreenHeader";
-import { EmptyState } from "../../components/EmptyState";
+import apiClient from "../../api/apiClient";
+import { technicalQuestions } from "../../data/technicalQuestions";
+import { getRandomQuestions } from "../../data/aptitudeData";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 export default function QuizArenaScreen({ navigation }) {
@@ -11,25 +13,58 @@ export default function QuizArenaScreen({ navigation }) {
     const [selectedAnswer, setSelectedAnswer] = useState(null);
     const [isAnswered, setIsAnswered] = useState(false);
 
-    // Mock data for initial implementation
-    const questions = [
-        {
-            id: 1,
-            text: "What is the time complexity of binary search?",
-            options: ["O(1)", "O(log n)", "O(n)", "O(n log n)"],
-            correct: 1, // index of correct option
-            explanation: "Binary search divides the search interval in half at each step, resulting in logarithmic time complexity."
-        },
-        {
-            id: 2,
-            text: "Which data structure uses LIFO (Last In First Out)?",
-            options: ["Queue", "Linked List", "Stack", "Tree"],
-            correct: 2,
-            explanation: "A stack is a linear data structure that follows the Last In First Out (LIFO) principle."
+    const [questions, setQuestions] = useState([]);
+    const [saveStatus, setSaveStatus] = useState("idle");
+    const startedAt = useRef(0);
+    const saving = useRef(false);
+    const duration = useRef(0);
+    const attemptKey = useRef("");
+    const answered = useRef(false);
+
+    const saveAttempt = async () => {
+        if (saving.current || saveStatus === "saved" || questions.length === 0) return;
+        saving.current = true;
+        setSaveStatus("saving");
+        try {
+            await apiClient.post("/api/user/quiz/attempt", {
+                topic: "dsa",
+                attemptKey: attemptKey.current,
+                score,
+                totalQuestions: questions.length,
+                durationSeconds: duration.current,
+            });
+            setSaveStatus("saved");
+        } catch {
+            setSaveStatus("error");
+        } finally {
+            saving.current = false;
         }
-    ];
+    };
 
     const handleStart = () => {
+        const pool = technicalQuestions?.dataStructures?.questions || [];
+        const picked = getRandomQuestions(pool, 10)
+            .map((question) => {
+                const options = Array.isArray(question.options) ? question.options : [];
+                const correctIdx = options.findIndex(
+                    (option) => option.label === question.correctAnswer,
+                );
+                return {
+                    id: question.id,
+                    text: question.question,
+                    options: options.map((option) => option.value),
+                    correct: correctIdx >= 0 ? correctIdx : 0,
+                    explanation: question.explanation,
+                };
+            })
+            .filter((q) => q.text && q.options.length > 0);
+        if (picked.length === 0) return;
+
+        startedAt.current = Date.now();
+        attemptKey.current = `${startedAt.current}-${Math.random().toString(36).slice(2) || "0"}`;
+        answered.current = false;
+        setSaveStatus("idle");
+        setQuestions(picked);
         setQuizStarted(true);
         setCurrentQuestion(0);
         setScore(0);
@@ -38,24 +73,27 @@ export default function QuizArenaScreen({ navigation }) {
     };
 
     const handleAnswer = (index) => {
-        if (isAnswered) return;
+        if (answered.current) return;
+        answered.current = true;
         
         setSelectedAnswer(index);
         setIsAnswered(true);
         
         if (index === questions[currentQuestion].correct) {
-            setScore(score + 10);
+            setScore(previous => previous + 1);
         }
     };
 
     const handleNext = () => {
         if (currentQuestion < questions.length - 1) {
+            answered.current = false;
             setCurrentQuestion(currentQuestion + 1);
             setSelectedAnswer(null);
             setIsAnswered(false);
         } else {
-            // Quiz finished state
-            setCurrentQuestion(questions.length); 
+            duration.current = Math.max(0, Math.round((Date.now() - startedAt.current) / 1000));
+            setCurrentQuestion(questions.length);
+            void saveAttempt();
         }
     };
 
@@ -69,7 +107,7 @@ export default function QuizArenaScreen({ navigation }) {
                         <Text style={styles.heroTitle}>Welcome to the Arena</Text>
                         <Text style={styles.heroDesc}>
                             Test your knowledge with quick-fire multiple choice questions. 
-                            Earn coins and boost your rating.
+                            Save your score to the DSA leaderboard.
                         </Text>
                         <TouchableOpacity style={styles.startButton} onPress={handleStart}>
                             <Text style={styles.startButtonText}>Start Quiz</Text>
@@ -89,9 +127,16 @@ export default function QuizArenaScreen({ navigation }) {
                     <Text style={styles.heroEmoji}>🏆</Text>
                     <Text style={styles.heroTitle}>Quiz Finished!</Text>
                     <Text style={styles.heroDesc}>
-                        You scored {score} points out of {questions.length * 10}.
+                        You answered {score} of {questions.length} questions correctly.
                     </Text>
-                    <TouchableOpacity style={styles.startButton} onPress={handleStart}>
+                    {saveStatus === "saving" && <Text style={styles.heroDesc}>Saving score…</Text>}
+                    {saveStatus === "saved" && <Text style={styles.heroDesc}>Score saved to the leaderboard.</Text>}
+                    {saveStatus === "error" && (
+                        <TouchableOpacity onPress={saveAttempt}>
+                            <Text style={styles.heroDesc}>Could not save your score. Tap to retry.</Text>
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={styles.startButton} onPress={handleStart} disabled={saveStatus === "saving"}>
                         <Text style={styles.startButtonText}>Play Again</Text>
                     </TouchableOpacity>
                 </View>
@@ -148,6 +193,7 @@ export default function QuizArenaScreen({ navigation }) {
                                 key={index} 
                                 style={optionStyle} 
                                 onPress={() => handleAnswer(index)}
+                                disabled={isAnswered}
                                 activeOpacity={0.7}
                             >
                                 <Text style={textStyle}>{option}</Text>

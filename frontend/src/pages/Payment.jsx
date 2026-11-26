@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './Payment.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {Shield, Lock, CheckCircle2, ArrowLeft, Zap, Check, Code2, Sparkles} from 'lucide-react';
@@ -74,12 +74,14 @@ function loadRazorpayScript() {
 export default function Payment() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user, refreshSession } = useAuth();
+    const { user, refreshSubscription } = useAuth();
     const plan = searchParams.get('plan') || 'pro';
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [paymentData, setPaymentData] = useState(null);
+    const verificationInProgress = useRef(false);
+    const [paymentProof, setPaymentProof] = useState(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -91,7 +93,15 @@ export default function Payment() {
         };
     }, []);
 
-    const billingCycle = (searchParams.get('billingCycle') || 'monthly').toLowerCase();
+    useEffect(() => {
+        if (!isSuccess) return undefined;
+        const timer = setTimeout(() => {
+            navigate('/dashboard');
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, [isSuccess, navigate]);
+
+    const billingCycle = (searchParams.get('billingCycle') || 'monthly').trim().toLowerCase();
     const isAnnual = billingCycle === 'annual';
 
     const basePlans = {
@@ -112,11 +122,17 @@ export default function Payment() {
         }
     };
 
-    const targetKey = plan.toLowerCase();
-    const currentBase = basePlans[targetKey] || basePlans.pro;
-    const finalAmount = isAnnual ? Math.round(currentBase.basePrice * 0.8) : currentBase.basePrice;
-    const formattedPrice = `₹${finalAmount}`;
-    const formattedPeriod = isAnnual ? '/ month, billed annually' : '/ month';
+    const requestedPlan = plan.toLowerCase();
+    const targetKey = Object.hasOwn(basePlans, requestedPlan) ? requestedPlan : 'pro';
+    const currentBase = basePlans[targetKey];
+    const amountPaise = isAnnual ? Math.round(currentBase.basePrice * 100 * 12 * 0.8) : currentBase.basePrice * 100;
+    const formattedPrice = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: amountPaise % 100 === 0 ? 0 : 2,
+        maximumFractionDigits: 2,
+    }).format(amountPaise / 100);
+    const formattedPeriod = isAnnual ? '/ year' : '/ month';
 
     const selectedPlan = {
         name: currentBase.name,
@@ -129,7 +145,41 @@ export default function Payment() {
         discountPercent: isAnnual ? 20 : 0,
     };
 
+    const verifyPayment = async (proof) => {
+        if (verificationInProgress.current) return;
+        verificationInProgress.current = true;
+        setError('');
+        setIsProcessing(true);
+        try {
+            const verifyRes = await authFetch(`${API_URL}/api/payment/verify`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    razorpay_order_id: proof.razorpay_order_id,
+                    razorpay_payment_id: proof.razorpay_payment_id,
+                    razorpay_signature: proof.razorpay_signature,
+                }),
+            });
+            const verified = await parseJsonSafely(verifyRes);
+            if (verifyRes.ok && verified?.success && !verified.degraded) {
+                try { await refreshSubscription?.(); } catch (error) { console.error('Subscription refresh failed after payment:', error); }
+                setPaymentData({ paymentId: verified.paymentId, plan: verified.plan });
+                setIsSuccess(true);
+                setPaymentProof(null);
+            } else {
+                if (verified?.paymentFailed) setPaymentProof(null);
+                setError(verified?.message || verified?.error || 'Payment confirmation is pending. Retry verification to check this payment.');
+            }
+        } catch {
+            setError('Could not check payment status. Retry verification to check this payment.');
+        } finally {
+            verificationInProgress.current = false;
+            setIsProcessing(false);
+        }
+    };
+
     const handlePayment = async () => {
+        if (isProcessing) return;
+        if (paymentProof) return verifyPayment(paymentProof);
         setError('');
         setIsProcessing(true);
 
@@ -175,7 +225,7 @@ export default function Payment() {
             const orderRes = await authFetch(`${API_URL}/api/payment/create-order`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase(),
+                    plan: targetKey === 'premium' ? 'elite' : targetKey,
                     billingCycle: isAnnual ? 'annual' : 'monthly',
                 }),
             });
@@ -200,13 +250,14 @@ export default function Payment() {
                 return;
             }
 
-            if (!orderData?.orderId || !orderData?.keyId) {
+            if (!orderData?.orderId || !orderData?.keyId || orderData.amount !== amountPaise || orderData.currency !== 'INR') {
                 setError('Payment initialization is incomplete. Please try again.');
                 setIsProcessing(false);
                 return;
             }
 
             // 4. Open Razorpay Checkout
+            let paymentReceived = false;
             const options = {
                 key: orderData.keyId,
                 amount: orderData.amount,
@@ -222,59 +273,14 @@ export default function Payment() {
                     color: '#6366f1',
                     backdrop_color: 'rgba(0, 0, 0, 0.7)',
                 },
-                handler: async function (response) {
-                    // 5. Verify payment on backend
-                    try {
-                        const verifyRes = await authFetch(`${API_URL}/api/payment/verify`, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_signature: response.razorpay_signature,
-                            })
-                        });
-
-                        const verifyData = await parseJsonSafely(verifyRes);
-                        if (verifyRes.ok && verifyData.success) {
-                            try { await refreshSession?.(); } catch (e) { console.error('Failed to refresh session post-payment:', e); }
-                            setPaymentData({
-                                paymentId: verifyData.paymentId,
-                                plan: verifyData.plan,
-                            });
-                            setIsSuccess(true);
-                            setIsProcessing(false);
-
-                            // Redirect to dashboard after 3 seconds
-                            setTimeout(() => {
-                                navigate('/dashboard');
-                            }, 3000);
-                        } else {
-                            if (isDev) {
-                                console.error('[PAYMENT_VERIFY_FAILED]', {
-                                    status: verifyRes.status,
-                                    payload: verifyData,
-                                });
-                            }
-                            setError(
-                                getPaymentErrorMessage(
-                                    verifyRes.status,
-                                    verifyData?.errorCode || verifyData?.code,
-                                    verifyData?.error || 'Payment verification failed'
-                                )
-                            );
-                            setIsProcessing(false);
-                        }
-                    } catch (verifyErr) {
-                        if (isDev) {
-                            console.error('[PAYMENT_VERIFY_ERROR]', verifyErr);
-                        }
-                        setError('Payment verification failed. Please contact support.');
-                        setIsProcessing(false);
-                    }
+                handler: (response) => {
+                    paymentReceived = true;
+                    setPaymentProof(response);
+                    void verifyPayment(response);
                 },
                 modal: {
                     ondismiss: function () {
-                        setIsProcessing(false);
+                        if (!paymentReceived) setIsProcessing(false);
                     },
                 },
             };
@@ -301,7 +307,7 @@ export default function Payment() {
                         <CheckCircle2 size={64} className="success-icon text-green-500" />
                     </div>
                     <h1 className="success-title text-gradient">Payment Successful!</h1>
-                    <p className="success-message">Welcome to PrepLoop {selectedPlan.name}. Your account has been upgraded.</p>
+                    <p className="success-message">Your payment was confirmed. Your active plan is {paymentData?.plan === 'free' ? 'Free' : basePlans[paymentData?.plan]?.name || selectedPlan.name}.</p>
                     <div className="success-details glass-panel">
                         <div className="detail-row">
                             <span className="detail-label">Payment ID</span>
@@ -409,7 +415,7 @@ export default function Payment() {
 
                         {error && (
                             <div className="payment-error">
-                                <p>{error}</p>
+                                <p role="alert">{error}</p>
                             </div>
                         )}
 
@@ -425,7 +431,7 @@ export default function Payment() {
                                 ) : (
                                     <>
                                         <Lock size={16} className="mr-2" />
-                                        Pay {selectedPlan.priceInr}
+                                        {paymentProof ? 'Retry payment verification' : `Pay ${selectedPlan.priceInr}`}
                                     </>
                                 )}
                             </Button>

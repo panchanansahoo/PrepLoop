@@ -8,8 +8,10 @@ export const blogApi = {
     },
 
     /** GET /api/blog/:slug — get a single blog post by slug */
-    async getPostBySlug(slug) {
-        const res = await apiClient.get(`/api/blog/${slug}`);
+    async getPostBySlug(slug, source) {
+        const params = { format: "mobile" };
+        if (source) params.source = source;
+        const res = await apiClient.get(`/api/blog/${encodeURIComponent(slug)}`, { params });
         return res.data;
     },
 };

@@ -2,6 +2,7 @@ package com.preploop.app.ui.screens.jobs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,28 +19,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalUriHandler
+import com.preploop.app.text
+import org.json.JSONObject
 import com.preploop.app.ui.theme.*
-
-data class JobItem(
-    val title: String,
-    val company: String,
-    val location: String,
-    val type: String,
-    val initials: String,
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JobsScreen() {
+fun JobsScreen(jobs: List<JSONObject>) {
     var searchQuery by remember { mutableStateOf("") }
-    val jobs = remember {
-        listOf(
-            JobItem("SDE-1", "Google", "Bangalore", "Full-time", "GO"),
-            JobItem("Frontend Engineer", "Swiggy", "Remote", "Full-time", "SW"),
-            JobItem("Backend Developer", "Razorpay", "Bangalore", "Full-time", "RP"),
-            JobItem("DevOps Intern", "Flipkart", "Hyderabad", "Internship", "FK"),
-            JobItem("Data Engineer", "Amazon", "Chennai", "Full-time", "AM"),
-        )
+    var error by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val filtered = jobs.filter { job ->
+        listOf("title", "company", "location").any { job.text(it).contains(searchQuery.trim(), ignoreCase = true) }
     }
 
     Column(
@@ -75,18 +67,31 @@ fun JobsScreen() {
         )
 
         Spacer(modifier = Modifier.height(12.dp))
+        if (error) Text("Could not open the job link.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 20.dp))
 
         LazyColumn(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(jobs) { job ->
+            if (filtered.isEmpty()) item { Text("No matching jobs", color = TextMuted) }
+            items(filtered) { job ->
+                val company = job.text("company")
+                val location = job.text("location")
+                val jobType = job.text("type")
+                val applyUrl = listOf("apply_link", "applyUrl", "url", "link")
+                    .firstNotNullOfOrNull { key -> job.text(key).takeIf { it.isNotBlank() } }
+                    .orEmpty()
+                val hasValidUrl = applyUrl.startsWith("https://", true) || applyUrl.startsWith("http://", true)
+                val openApplyUrl = {
+                    error = runCatching { uriHandler.openUri(applyUrl) }.isFailure
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(BgSurface)
                         .border(1.dp, Border, RoundedCornerShape(20.dp))
+                        .clickable(enabled = hasValidUrl, onClick = openApplyUrl)
                         .padding(16.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
@@ -100,44 +105,52 @@ fun JobsScreen() {
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(job.initials, style = PrepLoopTypography.titleMedium, color = Accent)
+                        Text(company.trim().take(2).uppercase().ifBlank { "?" }, style = PrepLoopTypography.titleMedium, color = Accent)
                     }
 
                     Spacer(modifier = Modifier.width(14.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(job.title, style = PrepLoopTypography.titleMedium, color = TextPrimary)
-                        Text(job.company, style = PrepLoopTypography.bodyMedium, color = Accent)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Location chip
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(BgSurfaceVariant)
-                                    .border(1.dp, Border, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                            ) {
-                                Icon(Icons.Filled.LocationOn, null, tint = TextMuted, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(job.location, style = PrepLoopTypography.labelSmall, color = TextSecondary)
+                        Text(job.text("title"), style = PrepLoopTypography.titleMedium, color = TextPrimary)
+                        Text(company, style = PrepLoopTypography.bodyMedium, color = Accent)
+                        if (location.isNotBlank() || jobType.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (location.isNotBlank()) {
+                                    // Location chip
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(BgSurfaceVariant)
+                                            .border(1.dp, Border, RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    ) {
+                                        Icon(Icons.Filled.LocationOn, null, tint = TextMuted, modifier = Modifier.size(12.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(location, style = PrepLoopTypography.labelSmall, color = TextSecondary)
+                                    }
+                                }
+                                if (jobType.isNotBlank()) {
+                                    // Type chip
+                                    Text(
+                                        text = jobType,
+                                        style = PrepLoopTypography.labelSmall,
+                                        color = Primary,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Primary.copy(alpha = 0.1f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    )
+                                }
                             }
-                            // Type chip
-                            Text(
-                                text = job.type,
-                                style = PrepLoopTypography.labelSmall,
-                                color = Primary,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Primary.copy(alpha = 0.1f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
                         }
                     }
 
-                    IconButton(onClick = { /* Open external link */ }) {
-                        Icon(Icons.Outlined.OpenInNew, "Apply", tint = Accent, modifier = Modifier.size(18.dp))
+                    if (hasValidUrl) {
+                        IconButton(onClick = openApplyUrl) {
+                            Icon(Icons.Outlined.OpenInNew, "Apply", tint = Accent, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }

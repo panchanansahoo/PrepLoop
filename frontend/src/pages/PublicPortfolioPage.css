@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&family=Merriweather:wght@400;700&family=Poppins:wght@400;600;700&display=swap");
+
 /* Base */
 .pp-page {
   position: relative;
@@ -690,4 +692,35 @@
   .pp-project-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Generated portfolio templates */
+.pp-page[data-template] .pp-hero-grid {
+  border-top: 4px solid var(--pp-brand-primary, #0c4a6e);
+}
+.pp-page[data-template] .pp-card {
+  border-inline-start: 3px solid var(--pp-brand-accent, #0284c7);
+}
+.pp-page[data-template="minimal"] .pp-aurora {
+  display: none;
+}
+.pp-page[data-template="dark"] {
+  background: #0b1018;
+}
+.pp-page[data-template="dark"] .pp-card,
+.pp-page[data-template="dark"] .pp-hero-grid {
+  border-radius: 6px;
+}
+.pp-page[data-template="creative"] .pp-hero-grid {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--pp-brand-primary, #0c4a6e) 50%, #080f1c), #080f1c 72%);
+  border-radius: 44px 12px;
+}
+.pp-page[data-template="fresher"] .pp-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pp-page[data-template="fresher"] .pp-projects-card {
+  order: -1;
+}
+.pp-page[data-template="fresher"] .pp-experience-card {
+  order: 1;
 }

@@ -15,6 +15,7 @@ import './PortfolioCreator.css';
 const steps = ['Import', 'Review', 'Template', 'Publish'];
 
 const defaultForm = {
+  useSavedProfile: false,
   resumeText: '',
   resumeFileName: '',
   githubUsername: '',
@@ -60,13 +61,19 @@ export default function PortfolioCreator() {
       setCurrentStep(1);
     }
     if (state.form) {
-      setForm((prev) => ({ ...prev, ...state.form }));
+      const normalizedForm = Object.fromEntries(
+        Object.entries(state.form).map(([key, value]) => [
+          key,
+          key === 'useSavedProfile' ? Boolean(value) : (value ?? ''),
+        ])
+      );
+      setForm((prev) => ({ ...prev, ...normalizedForm }));
     }
   }, [location.state]);
 
   const handleImport = async () => {
-    if (!form.resumeText.trim() && !form.githubUsername.trim() && !form.linkedinUrl.trim()) {
-      setError('Please add at least one source: resume text, GitHub username, or LinkedIn URL.');
+    if (!form.useSavedProfile && ![form.resumeText, form.githubUsername, form.linkedinUrl, form.linkedinExportText, form.linkedinHeadline, form.linkedinSummary].some(value => String(value || '').trim())) {
+      setError('Add your saved profile, a resume, GitHub, or LinkedIn details.');
       return;
     }
 
@@ -76,6 +83,7 @@ export default function PortfolioCreator() {
 
     try {
       const payload = {
+        useSavedProfile: form.useSavedProfile,
         resumeText: form.resumeText,
         resumeMeta: { fileName: form.resumeFileName || null },
         githubUsername: form.githubUsername || null,

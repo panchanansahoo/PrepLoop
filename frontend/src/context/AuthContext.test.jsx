@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import apiClient from '../utils/apiClient';
+import { authFetch } from '../utils/authFetch';
 
 vi.mock('../lib/supabase', () => ({ supabase: null }));
 vi.mock('../utils/apiClient', () => ({
@@ -12,7 +13,7 @@ vi.mock('../utils/apiClient', () => ({
 vi.mock('../utils/authFetch', () => ({ authFetch: vi.fn() }));
 
 function Harness() {
-  const { login, signup } = useAuth();
+  const { user, login, signup, refreshSubscription } = useAuth();
   const [result, setResult] = useState('idle');
 
   const run = async (action) => {
@@ -40,6 +41,17 @@ function Harness() {
       >
         signup
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          refreshSubscription()
+            .then(() => setResult('refreshed'))
+            .catch((error) => setResult(`error:${error.message}`))
+        }
+      >
+        refreshSubscription
+      </button>
+      <div data-testid="tier">{user?.subscriptionTier || 'none'}</div>
       <div data-testid="result">{result}</div>
     </>
   );
@@ -146,5 +158,38 @@ describe('AuthContext auth flows', () => {
 
     // Child should be mounted immediately in the DOM without waiting for network
     expect(screen.getByTestId('child-mounted')).toBeInTheDocument();
+  });
+
+  it('refreshes subscriptionTier in state and persists it to localStorage', async () => {
+    localStorage.setItem('token', 'token-sub');
+    localStorage.setItem(
+      'user',
+      JSON.stringify({ id: 'user-sub', email: 'sub@example.com', subscriptionTier: 'free', access_token: 'leak' })
+    );
+    authFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        user: { id: 'user-sub', subscriptionTier: 'pro' },
+      }),
+    });
+
+    render(
+      <AuthProvider>
+        <Harness />
+      </AuthProvider>
+    );
+
+    expect(screen.getByTestId('tier')).toHaveTextContent('free');
+    fireEvent.click(screen.getByRole('button', { name: 'refreshSubscription' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tier')).toHaveTextContent('pro');
+    });
+
+    expect(authFetch).toHaveBeenCalledWith('/api/user/profile');
+    const persisted = JSON.parse(localStorage.getItem('user'));
+    expect(persisted.subscriptionTier).toBe('pro');
+    expect(persisted.subscription_tier).toBe('pro');
+    expect(persisted.access_token).toBeUndefined();
   });
 });
