@@ -10,7 +10,7 @@ export const authApi = {
         const res = await apiClient.post("/api/auth/login", {
             email,
             password,
-        });
+        }, { skipAuthRefresh: true });
         return res.data;
     },
 
@@ -51,7 +51,7 @@ export const authApi = {
      * Returns { token, refreshToken }
      */
     async refreshToken(refreshToken) {
-        const res = await apiClient.post("/api/auth/refresh", { refreshToken });
+        const res = await apiClient.post("/api/auth/refresh", { refreshToken }, { skipAuthRefresh: true });
         return res.data;
     },
 

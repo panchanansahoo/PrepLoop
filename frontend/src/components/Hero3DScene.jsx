@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 
 function isWebGLAvailable() {
     if (typeof window === 'undefined') return false;
@@ -71,9 +71,43 @@ function Hero3DFallback({ isLight }) {
 }
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTheme } from '../context/ThemeContext';
+
+function SceneLabel({ children, position, fontSize, color, opacity, topAligned = false }) {
+    const { texture, width, height } = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const pixelsPerEm = 96;
+        const font = `${pixelsPerEm}px sans-serif`;
+        context.font = font;
+        canvas.width = Math.ceil(context.measureText(children).width) + 12;
+        canvas.height = pixelsPerEm + 24;
+
+        context.font = font;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillStyle = '#fff';
+        context.fillText(children, canvas.width / 2, canvas.height / 2);
+
+        return {
+            texture: new THREE.CanvasTexture(canvas),
+            width: canvas.width * fontSize / pixelsPerEm,
+            height: canvas.height * fontSize / pixelsPerEm,
+        };
+    }, [children, fontSize]);
+
+    useEffect(() => () => texture.dispose(), [texture]);
+
+    return (
+        <group position={position}>
+            <mesh position-y={topAligned ? -height / 2 : 0}>
+                <planeGeometry args={[width, height]} />
+                <meshBasicMaterial map={texture} color={color} opacity={opacity} transparent depthWrite={false} toneMapped={false} />
+            </mesh>
+        </group>
+    );
+}
 
 /* ═══════════════════════════════════════════════ */
 /*   PREPLOOP 3D HERO — INTERVIEW PREP UNIVERSE   */
@@ -284,16 +318,15 @@ function FeatureNode({ node, index }) {
                 </mesh>
 
                 {/* Label */}
-                <Text
+                <SceneLabel
                     position={[0, -0.22, 0]}
                     fontSize={0.1}
                     color={node.color}
-                    anchorX="center"
-                    anchorY="top"
-                    fillOpacity={0.8}
+                    topAligned
+                    opacity={0.8}
                 >
                     {node.label}
-                </Text>
+                </SceneLabel>
             </group>
         </group>
     );
@@ -438,17 +471,15 @@ function FloatingConcepts() {
     return (
         <group ref={ref}>
             {concepts.map((c, i) => (
-                <Text
+                <SceneLabel
                     key={i}
                     position={c.pos}
                     fontSize={c.size}
                     color={c.color}
-                    anchorX="center"
-                    anchorY="middle"
-                    fillOpacity={0.18}
+                    opacity={0.18}
                 >
                     {c.text}
-                </Text>
+                </SceneLabel>
             ))}
         </group>
     );

@@ -116,9 +116,9 @@ describe("useVoiceAI — Whisper fallback submit lock", () => {
     expect(onAnswer).toHaveBeenCalledTimes(1);
     expect(onAnswer).toHaveBeenLastCalledWith("Hello there", expect.anything());
 
-    // Question 2 — capture restarts for the next answer.
+    // Question 2 starts with text restored from the current answer draft.
     await act(async () => {
-      await result.current.start();
+      await result.current.start({ initialTranscript: "Restored draft." });
     });
     await flush();
 
@@ -132,6 +132,7 @@ describe("useVoiceAI — Whisper fallback submit lock", () => {
     await flush();
 
     expect(onAnswer).toHaveBeenCalledTimes(2);
+    expect(onAnswer).toHaveBeenLastCalledWith("Restored draft. Hello there", expect.anything());
 
     unmount();
   });

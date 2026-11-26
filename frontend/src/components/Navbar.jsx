@@ -461,6 +461,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         <div className="topbar-left">
           <button
             className="icon-btn mobile-only"
+            aria-label="Toggle navigation menu"
             onClick={onMobileMenuToggle}
           >
             <Menu size={22} />

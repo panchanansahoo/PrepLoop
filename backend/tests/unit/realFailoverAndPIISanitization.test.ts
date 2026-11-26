@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   quotaGuard,
   parseGroqDurationMs,
@@ -15,6 +15,20 @@ import {
   callFastReply,
   ROUTER_MODELS,
 } from '../../services/llmRouter.js';
+import { deferredJobQueue } from '../../services/deferredJobQueue.js';
+
+function mockGroqScoring() {
+  vi.stubEnv('GROQ_API_KEY', 'test-groq-key');
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    if (!String(input).startsWith('https://api.groq.com/')) {
+      return Response.json([]);
+    }
+    return Response.json({ choices: [{ message: { content: JSON.stringify({
+      dimensions: { correctness: 4, depth: 4, communication: 4 },
+      feedback: 'Clear technical explanation.',
+    }) } }] });
+  });
+}
 
 describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification', { timeout: 60000 }, () => {
   beforeEach(() => {
@@ -174,9 +188,15 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
       quotaGuard.reset();
     });
 
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+      deferredJobQueue.reset();
+    });
+
     it('pins the scoring provider for a session and remains on that scorer for subsequent turns', async () => {
-      quotaGuard.reset();
-      const sessionId = 'session_pinned_test_101';
+      const fetchMock = mockGroqScoring();
+      const sessionId = 'session_pinned_groq_test_101';
 
       // Turn 1: Starts fresh (tries Groq 20b)
       const turn1Result = await callTurnScoring({
@@ -186,11 +206,8 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
         sessionId,
       });
 
-      if (turn1Result.isEstimated) {
-        expect(turn1Result.score).toBeNull();
-      } else {
-        expect(turn1Result.score).toBeGreaterThan(0);
-      }
+      expect(turn1Result.score).toBeGreaterThan(0);
+      expect(turn1Result.evalProvider).toBe('groq');
       const pinnedScorerTurn1 = getSessionScorer(sessionId);
       expect(pinnedScorerTurn1).not.toBeNull();
       expect(pinnedScorerTurn1?.provider).toBe(turn1Result.evalProvider);
@@ -209,6 +226,42 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
 
       const pinnedScorerTurn2 = getSessionScorer(sessionId);
       expect(pinnedScorerTurn2?.provider).toBe(pinnedScorerTurn1?.provider);
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('https://api.groq.com/'))).toHaveLength(2);
+    });
+
+    it('passes submitted code to the scorer after processing a deferred turn', async () => {
+      const fetchMock = mockGroqScoring();
+      for (const provider of ['groq', 'gemini', 'openrouter']) {
+        quotaGuard.markProviderFailing(provider);
+      }
+
+      const code = 'const sum = (a, b) => a + b;';
+      const turn = await callTurnScoring({
+        sessionId: 'session_deferred_groq_test',
+        previousQuestion: 'Write a sum function.',
+        userAnswer: 'I added the two arguments.',
+        code,
+        codeLanguage: 'javascript',
+      });
+      expect(turn.status).toBe('pending_evaluation');
+      expect(deferredJobQueue.getJob(turn.jobId!)?.payload).toMatchObject({ code, codeLanguage: 'javascript' });
+
+      quotaGuard.reset();
+      await deferredJobQueue._processNext();
+
+      const scoringRequest = fetchMock.mock.calls.find(([url]) => String(url).startsWith('https://api.groq.com/'));
+      const prompt = JSON.parse(String(scoringRequest?.[1]?.body)).messages[0].content;
+      expect(prompt).toContain('Submitted Code (javascript)');
+      expect(prompt).toContain(code);
+      expect(deferredJobQueue.getJob(turn.jobId!)?.result).toMatchObject({ evalProvider: 'groq', isEstimated: false });
+
+      const legacyJob = deferredJobQueue.enqueueScoreTurn({
+        sessionId: 'legacy_deferred_groq_test',
+        previousQuestion: 'Explain database indexing.',
+        userAnswer: 'An index accelerates lookups.',
+      });
+      await deferredJobQueue._processNext();
+      expect(deferredJobQueue.getJob(legacyJob.jobId)?.result).toMatchObject({ evalProvider: 'groq', isEstimated: false });
     });
 
     it('cascades down cleanly if the pinned provider fails, and updates the pin without flip-flopping', async () => {

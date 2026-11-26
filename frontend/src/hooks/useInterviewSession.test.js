@@ -330,17 +330,33 @@ describe("useInterviewSession", () => {
     expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
   });
 
-  it("preserves active candidate transcript across restoreSession", () => {
-    const { result } = renderHook(() => useInterviewSession());
-    act(() => {
-      result.current.actions.restoreSession({
-        conversation: [{ role: "interviewer", content: "Tell me about React" }],
-        currentQuestion: "Tell me about React",
-        pendingTranscript: "React uses a virtual DOM",
-        questionIndex: 1,
+  it("reviews the restored draft before seeding the next microphone capture", () => {
+    vi.useFakeTimers();
+    const { result, unmount } = renderHook(() => useInterviewSession());
+    try {
+      act(() => {
+        result.current.actions.restoreSession({
+          conversation: [{ role: "interviewer", content: "Tell me about React" }],
+          currentQuestion: "Tell me about React",
+          pendingTranscript: "React uses a virtual DOM",
+          questionIndex: 1,
+        });
       });
-    });
-    expect(result.current.state.transcript).toBe("React uses a virtual DOM");
+      act(() => vi.advanceTimersByTime(1500));
+      expect(result.current.state.transcript).toBe("React uses a virtual DOM");
+      expect(result.current.state.answerReview).toBe(true);
+      expect(vi.mocked(useVoiceAI).mock.results.every(({ value }) => !value.start.mock.calls.length)).toBe(true);
+
+      act(() => result.current.actions.setTranscript("React reconciles the virtual DOM"));
+      act(() => result.current.actions.continueAnswer());
+      const starts = vi.mocked(useVoiceAI).mock.results.flatMap(({ value }) => value.start.mock.calls);
+      expect(starts).toEqual([[{ initialTranscript: "React reconciles the virtual DOM" }]]);
+      expect(result.current.state.transcript).toBe("React reconciles the virtual DOM");
+      expect(result.current.state.answerReview).toBe(false);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
   it("dispatches session error actions for microphone, typing, and reconnect", () => {
     const { result } = renderHook(() => useInterviewSession());
@@ -599,6 +615,7 @@ describe("useInterviewSession", () => {
       code: "print('hello')",
       language: "python",
       notes: "System design thoughts",
+      pendingTranscript: "I started by measuring tail latency.",
       timestamp: Date.now() - 10000,
       isActive: true,
     };
@@ -615,6 +632,39 @@ describe("useInterviewSession", () => {
     expect(result.current.state.elapsed).toBe(420);
     expect(result.current.state.isSessionRecovered).toBe(true);
     expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+    expect(result.current.state.transcript).toBe("I started by measuring tail latency.");
+    expect(result.current.state.answerReview).toBe(true);
+  });
+
+  it("does not recover a draft from another interview or an unscoped legacy draft", () => {
+    sessionStorage.setItem("preploop_active_transcript", "Unscoped text");
+    sessionStorage.setItem("preploop_active_interview_session", JSON.stringify({
+      questionSetCode: "another-set",
+      questionIndex: 2,
+      pendingTranscript: "Another interview's answer",
+      isActive: true,
+      timestamp: Date.now(),
+    }));
+    const { result } = renderHook(() => useInterviewSession());
+    expect(result.current.state.phase).toBe("lobby");
+    expect(result.current.state.transcript).toBe("");
+  });
+
+  it("restarts stopped capture on reconnect with the current answer draft", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => result.current.actions.restoreSession({
+      conversation: [{ role: "interviewer", content: "Explain cache expiry." }],
+      currentQuestion: "Explain cache expiry.",
+      pendingTranscript: "I set a short expiry.",
+    }));
+    act(() => result.current.actions.continueAnswer());
+    act(() => window.dispatchEvent(new Event("offline")));
+    for (const { value } of vi.mocked(useVoiceAI).mock.results) value.start.mockClear();
+    act(() => window.dispatchEvent(new Event("online")));
+    const starts = vi.mocked(useVoiceAI).mock.results.flatMap(({ value }) => value.start.mock.calls);
+    expect(starts).toEqual([[{ initialTranscript: "I set a short expiry." }]]);
+    expect(result.current.state.currentQuestion).toBe("Explain cache expiry.");
+    expect(result.current.state.transcript).toBe("I set a short expiry.");
   });
 
   it("clears sessionStorage active session recovery when clearSavedSession is invoked", () => {

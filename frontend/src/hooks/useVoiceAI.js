@@ -179,7 +179,7 @@ function playBrowserSpeechFallback(
   text,
   { voice, gender, controller, guardMs, onStartCb, prosody },
 ) {
-  if (!("speechSynthesis" in window)) return Promise.resolve();
+  if (!("speechSynthesis" in window) || controller?.signal.aborted) return Promise.resolve();
 
   // Split text into sentences for more natural pacing with micro-pauses
   const sentences = text
@@ -194,23 +194,21 @@ function playBrowserSpeechFallback(
     let settled = false;
     let currentIdx = 0;
     let startFired = false;
+    const abort = () => {
+      window.speechSynthesis.cancel();
+      settle();
+    };
 
     const settle = () => {
       if (settled) return;
       settled = true;
       if (guardTimer) clearTimeout(guardTimer);
+      controller?.signal.removeEventListener("abort", abort);
       resolve();
     };
 
     if (controller?.signal) {
-      controller.signal.addEventListener(
-        "abort",
-        () => {
-          window.speechSynthesis.cancel();
-          settle();
-        },
-        { once: true },
-      );
+      controller.signal.addEventListener("abort", abort, { once: true });
     }
 
     guardTimer = setTimeout(() => {
@@ -246,7 +244,7 @@ function playBrowserSpeechFallback(
 
       // Fire onStartCb when the first utterance actually starts playing
       utter.onstart = () => {
-        if (!startFired) {
+        if (!settled && !startFired) {
           startFired = true;
           onStartCb?.();
         }
@@ -285,10 +283,13 @@ function playBlobAudio(blob, { onStart, signal } = {}) {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     let settled = false;
+    let timer;
 
     const cleanup = () => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", cleanup);
       try {
         audio.pause();
       } catch {
@@ -304,12 +305,12 @@ function playBlobAudio(blob, { onStart, signal } = {}) {
       signal.addEventListener("abort", cleanup, { once: true });
     }
 
-    const timer = setTimeout(cleanup, TTS_PLAYBACK_GUARD_MS);
+    timer = setTimeout(cleanup, TTS_PLAYBACK_GUARD_MS);
 
     audio
       .play()
       .then(() => {
-        onStart?.();
+        if (!settled) onStart?.();
       })
       .catch(() => {
         clearTimeout(timer);
@@ -416,6 +417,7 @@ export function useVoiceAI({
   const mediaRecorderRef = useRef(null);
   const pendingWhisperBlobRef = useRef(null);
   const processRecorderOnStopRef = useRef(false);
+  const recorderSubmissionMetaRef = useRef({});
 
   const ttsAbortRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -706,13 +708,22 @@ export function useVoiceAI({
     scheduleNext();
   }, [enableBackchannel, playBackchannel]);
 
+  const closeAnswerResumeWindow = useCallback(() => {
+    lastSubmittedAtRef.current = 0;
+    lastSubmittedAnswerRef.current = "";
+  }, []);
+
+  const armAnswerResume = useCallback((answer, meta) => {
+    lastSubmittedAnswerRef.current = meta.submissionType === "user_done" ? "" : answer;
+    lastSubmittedAtRef.current = lastSubmittedAnswerRef.current ? Date.now() : 0;
+  }, []);
+
   const checkResumeWindow = useCallback((interimSpeech = "") => {
     const now = Date.now();
     if (lastSubmittedAtRef.current && (now - lastSubmittedAtRef.current) < 2000) {
       const prevAnswer = lastSubmittedAnswerRef.current;
       console.log("[useVoiceAI] Candidate resumed speech within 2s resume window! Aborting submit & stopping audio.");
-      lastSubmittedAtRef.current = 0;
-      lastSubmittedAnswerRef.current = "";
+      closeAnswerResumeWindow();
       lastSpeechDetectedAtRef.current = now;
 
       // 1. Immediately cancel & stop any AI TTS audio that may have started
@@ -731,34 +742,17 @@ export function useVoiceAI({
         window.speechSynthesis.cancel();
       }
 
-      // 2. Restore candidate speech buffer
-      finalTextRef.current = prevAnswer;
       const restored = (prevAnswer + (interimSpeech ? " " + interimSpeech : "")).trim();
-      setTranscript(restored);
-      setVoiceState("listening");
-      setState("listening");
-      stateRef.current = "listening";
-      isSubmittingRef.current = false;
-
-      // 3. Restart browser speech recognition or whisper recorder if it was stopped
-      if (!activeRef.current) {
-        if (connectionMode === "whisper") {
-          startWhisperFallback();
-        } else {
-          startRef.current?.();
-        }
-      }
-
-      // 4. Notify session hook to cancel follow-up call, stop speakSequence, and hold question counter
-      onResumeSpeech?.(prevAnswer);
+      onResumeSpeech?.(restored);
+      startRef.current?.({ initialTranscript: restored });
       return true;
     }
     return false;
-  }, [onResumeSpeech]);
+  }, [closeAnswerResumeWindow, onResumeSpeech]);
   checkResumeWindowRef.current = checkResumeWindow;
 
   const submitAnswer = useCallback(async (force = false, meta = {}) => {
-    if (isSubmittingRef.current) return;
+    if (isSubmittingRef.current || (isPausedRef.current && !force && !meta.submissionType)) return;
     isSubmittingRef.current = true;
     setVoiceState("submitting");
     clearSilenceTimer();
@@ -770,6 +764,7 @@ export function useVoiceAI({
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       try {
+        recorderSubmissionMetaRef.current = meta;
         processRecorderOnStopRef.current = true;
         setState("processing");
         stateRef.current = "processing";
@@ -825,8 +820,7 @@ export function useVoiceAI({
 
     // Save the answer text BEFORE clearing any refs/state
     const savedAnswer = answer;
-    lastSubmittedAnswerRef.current = savedAnswer;
-    lastSubmittedAtRef.current = Date.now();
+    armAnswerResume(savedAnswer, meta);
 
     setState("processing");
     stateRef.current = "processing";
@@ -859,7 +853,7 @@ export function useVoiceAI({
     setState("idle");
     stateRef.current = "idle";
     setVoiceState("done");
-  }, [onAnswer]);
+  }, [armAnswerResume, onAnswer, connectionMode]);
 
   const scheduleAfterSpeechSilence = useCallback(
     (delayMs) => {
@@ -953,6 +947,18 @@ export function useVoiceAI({
   // Each call to start() increments this; onend handlers only restart if their
   // captured epoch matches the current one.
   const recognitionEpochRef = useRef(0);
+
+  const submitWhisperTranscript = useCallback((transcribed) => {
+    const completeAnswer = [finalTextRef.current, interimRef.current, transcribed].filter(Boolean).join(" ").trim();
+    const meta = { ...recorderSubmissionMetaRef.current, sttSource: "groq-whisper" };
+    pendingWhisperBlobRef.current = null;
+    armAnswerResume(completeAnswer, meta);
+    setFinalTranscript(completeAnswer);
+    setTranscript(completeAnswer);
+    setInterimText("");
+    transcriptListener?.(completeAnswer);
+    onAnswer?.(completeAnswer, meta);
+  }, [armAnswerResume, onAnswer, transcriptListener]);
 
   const startWhisperFallback = useCallback(async () => {
     const sessionEpoch = voiceSessionEpochRef.current;
@@ -1111,12 +1117,7 @@ export function useVoiceAI({
           if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
           const transcribed = (data.transcript || data.text || "").trim();
           if (transcribed && transcribed.length >= MIN_ANSWER_LENGTH) {
-            pendingWhisperBlobRef.current = null;
-            setFinalTranscript(transcribed);
-            setTranscript(transcribed);
-            setInterimText("");
-            transcriptListener?.(transcribed);
-            onAnswer?.(transcribed, {});
+            submitWhisperTranscript(transcribed);
           } else {
             setErrorMessage(
               data.fallback
@@ -1171,9 +1172,9 @@ export function useVoiceAI({
       stateRef.current = "error";
       activeRef.current = false;
     }
-  }, [onAnswer, submitAnswer, transcriptListener]);
+  }, [submitAnswer, submitWhisperTranscript]);
 
-  const start = useCallback(async ({ isBargeIn = false } = {}) => {
+  const start = useCallback(async ({ isBargeIn = false, initialTranscript = "" } = {}) => {
     // Only skip if already actively listening
     if (activeRef.current && stateRef.current === "listening") {
       return;
@@ -1183,17 +1184,18 @@ export function useVoiceAI({
     // one — a stale lock makes every later submitAnswer() a silent no-op.
     isSubmittingRef.current = false;
     pendingWhisperBlobRef.current = null;
+    closeAnswerResumeWindow();
     activeRef.current = true;
     setState("listening");
     stateRef.current = "listening";
 
     setErrorMessage(null);
     setErrorCode(null);
-    finalTextRef.current = "";
+    finalTextRef.current = initialTranscript;
     interimRef.current = "";
-    setTranscript("");
+    setTranscript(initialTranscript);
     setInterimText("");
-    setFinalTranscript("");
+    setFinalTranscript(initialTranscript);
     if (!isBargeIn) {
       setInterruptDetected(false);
     }
@@ -1385,7 +1387,7 @@ export function useVoiceAI({
               console.log("[useVoiceAI] Speech result:", { interim, finalText });
             }
             if (finalText) {
-              const appended = (finalTextRef.current + " " + finalText).trim();
+              const appended = (finalTextRef.current + " " + finalText.trim()).trim();
               finalTextRef.current =
                 appended.length > MAX_TRANSCRIPT_LENGTH
                   ? appended.slice(-MAX_TRANSCRIPT_LENGTH)
@@ -1574,7 +1576,7 @@ export function useVoiceAI({
       setState("error");
       activeRef.current = false;
     }
-  }, [submitAnswer, startBackchannelSchedule, scheduleAfterSpeechSilence, startWhisperFallback]);
+  }, [closeAnswerResumeWindow, submitAnswer, startBackchannelSchedule, scheduleAfterSpeechSilence, startWhisperFallback]);
   startRef.current = start;
 
   const stop = useCallback(() => {
@@ -1854,6 +1856,14 @@ export function useVoiceAI({
     [personaGender],
   );
 
+  const markPlaybackStarted = useCallback(() => {
+    closeAnswerResumeWindow();
+    speakingStartedAtRef.current = Date.now();
+    stateRef.current = "speaking";
+    setState("speaking");
+    setVoiceState("asking");
+  }, [closeAnswerResumeWindow]);
+
   const speakGaplessSequence = useCallback(
     async (segments, { onStart, onEnd } = {}) => {
       if (!segments || segments.length === 0) {
@@ -1869,11 +1879,17 @@ export function useVoiceAI({
       if (ttsAbortRef.current) ttsAbortRef.current.abort();
       const controller = new AbortController();
       ttsAbortRef.current = controller;
+      let playbackStarted = false;
+      const handlePlaybackStart = () => {
+        if (playbackStarted || controller.signal.aborted) return;
+        playbackStarted = true;
+        markPlaybackStarted();
+        onStart?.();
+      };
 
       // Pinned session voice: if locked into browser speech fallback after repeated cloud failures, stay on it
       if (pinnedTtsProviderRef.current === 'browser-speech') {
-        setState("speaking");
-        onStart?.();
+        setState("loading");
         let isFirstSegment = true;
         for (const seg of cleanSegments) {
           if (controller.signal.aborted) break;
@@ -1888,10 +1904,13 @@ export function useVoiceAI({
             gender: personaGender,
             controller,
             guardMs: TTS_PLAYBACK_GUARD_MS,
+            onStartCb: handlePlaybackStart,
           });
         }
-        setState("idle");
-        onEnd?.();
+        if (!controller.signal.aborted) {
+          setState("idle");
+          onEnd?.();
+        }
         return;
       }
 
@@ -1979,27 +1998,25 @@ export function useVoiceAI({
           }
         }
 
+        if (controller.signal.aborted) return;
+
         // Pipelined HTML Audio fallback if Web Audio is unavailable or decode threw
         if (!useWebAudio || !buf0) {
-          setState("speaking");
-          setVoiceState("asking");
-          speakingStartedAtRef.current = Date.now();
           playedSegmentCount = 1;
-          await playBlobAudio(blob0, { onStart, signal: controller.signal });
+          await playBlobAudio(blob0, { onStart: handlePlaybackStart, signal: controller.signal });
 
           for (let i = 1; i < blobPromises.length; i++) {
             if (controller.signal.aborted) break;
             const nextBlob = await blobPromises[i];
             if (controller.signal.aborted) break;
             playedSegmentCount = i + 1;
-            await playBlobAudio(nextBlob, { signal: controller.signal });
+            await playBlobAudio(nextBlob, { onStart: handlePlaybackStart, signal: controller.signal });
           }
-          onEnd?.();
           return;
         }
 
         // Pipelined Web Audio scheduling:
-        // Schedule segment 0 immediately at ctx.currentTime + 0.04 so candidate hears audio in <100ms
+        // Start the first segment immediately. Only later segments need scheduling.
         const gainNodes = [];
         const sourceNodes = [];
         const fadeMs = 0.02;
@@ -2046,7 +2063,7 @@ export function useVoiceAI({
         };
         controller.signal.addEventListener("abort", abortAudioGraph);
 
-        let schedTime = ctx.currentTime + 0.04;
+        let schedTime = ctx.currentTime;
         let segEnd = scheduleBuffer(buf0, schedTime);
         schedTime = segEnd - fadeMs;
         playedSegmentCount = 1;
@@ -2054,10 +2071,7 @@ export function useVoiceAI({
         currentGainNodeRef.current = gainNodes[0];
         currentSourceNodeRef.current = sourceNodes[0];
 
-        setState("speaking");
-        setVoiceState("asking");
-        speakingStartedAtRef.current = Date.now();
-        onStart?.();
+        handlePlaybackStart();
 
         // While segment 0 plays, asynchronously pipeline and crossfade subsequent segments
         for (let i = 1; i < blobPromises.length; i++) {
@@ -2109,10 +2123,6 @@ export function useVoiceAI({
         }
         analyticsRef.current.ttsFallbacks++;
         setConnectionHealth("fallback");
-        setState("speaking");
-        if (playedSegmentCount === 0) {
-          onStart?.();
-        }
         const segmentsToSpeak = cleanSegments.slice(playedSegmentCount);
         let isFirstSegment = true;
         for (const seg of segmentsToSpeak) {
@@ -2128,16 +2138,19 @@ export function useVoiceAI({
             gender: personaGender,
             controller,
             guardMs: TTS_PLAYBACK_GUARD_MS,
+            onStartCb: handlePlaybackStart,
           });
         }
       } finally {
-        setState("idle");
         currentGainNodeRef.current = null;
         currentSourceNodeRef.current = null;
-        onEnd?.();
+        if (!controller.signal.aborted) {
+          setState("idle");
+          onEnd?.();
+        }
       }
     },
-    [getAudioContext, personaGender, voicePersona, resolveAuthHeaders, pickBrowserVoice]
+    [getAudioContext, markPlaybackStarted, personaGender, voicePersona, resolveAuthHeaders, pickBrowserVoice]
   );
 
   const speak = useCallback(
@@ -2328,8 +2341,7 @@ export function useVoiceAI({
             prosody,
             onStartCb: () => {
               // Browser speech actually started — now activate speaking state
-              speakingStartedAtRef.current = Date.now();
-              setState("speaking");
+              markPlaybackStarted();
               onStart?.();
             },
           });
@@ -2354,18 +2366,21 @@ export function useVoiceAI({
           try {
             console.log("[useVoiceAI] Starting audio playback...");
             await audioRef.current.play();
+            if (controller.signal.aborted) {
+              URL.revokeObjectURL(url);
+              return;
+            }
             setTimeout(() => {
               if (audioRef.current) audioRef.current.volume = 1.0;
             }, 50);
             console.log("[useVoiceAI] ✓ Audio playback started");
             // Audio is actually playing now — activate speaking state + lip-sync
-            speakingStartedAtRef.current = Date.now();
-            setState("speaking");
-            setVoiceState("asking");
+            markPlaybackStarted();
             onStart?.();
           } catch (playError) {
             console.error("[useVoiceAI] Audio playback failed:", playError);
             URL.revokeObjectURL(url);
+            if (controller.signal.aborted) return;
             if ("speechSynthesis" in window) {
               analyticsRef.current.ttsFallbacks++;
               console.info(
@@ -2378,8 +2393,7 @@ export function useVoiceAI({
                 guardMs: TTS_PLAYBACK_GUARD_MS,
                 prosody,
                 onStartCb: () => {
-                  speakingStartedAtRef.current = Date.now();
-                  setState("speaking");
+                  markPlaybackStarted();
                   onStart?.();
                 },
               });
@@ -2450,7 +2464,7 @@ export function useVoiceAI({
         }
       }
     },
-    [personaGender, pickBrowserVoice, resolveAuthHeaders, voicePersona],
+    [markPlaybackStarted, personaGender, pickBrowserVoice, resolveAuthHeaders, voicePersona],
   );
 
   const prefetch = useCallback(
@@ -2556,12 +2570,7 @@ export function useVoiceAI({
           : "We couldn't recognize that answer. Your recording is kept in this session; try speaking again.");
       }
 
-      pendingWhisperBlobRef.current = null;
-      setFinalTranscript(transcribed);
-      setTranscript(transcribed);
-      setInterimText("");
-      transcriptListener?.(transcribed);
-      onAnswer?.(transcribed, {});
+      submitWhisperTranscript(transcribed);
       setState("idle");
       stateRef.current = "idle";
       activeRef.current = false;
@@ -2575,7 +2584,7 @@ export function useVoiceAI({
       activeRef.current = false;
       return false;
     }
-  }, [onAnswer, transcriptListener]);
+  }, [submitWhisperTranscript]);
 
   const resetError = useCallback(() => {
     setErrorMessage(null);
@@ -2587,10 +2596,11 @@ export function useVoiceAI({
   }, []);
 
   const cleanup = useCallback(() => {
+    closeAnswerResumeWindow();
     stop();
     interrupt();
     releaseStream();
-  }, [stop, interrupt, releaseStream]);
+  }, [closeAnswerResumeWindow, stop, interrupt, releaseStream]);
 
   useEffect(
     () => () => {
@@ -2621,6 +2631,7 @@ export function useVoiceAI({
     start,
     stop,
     submitAnswer,
+    closeAnswerResumeWindow,
     retryTranscription,
     hasPendingTranscription: Boolean(pendingWhisperBlobRef.current),
     interrupt,
@@ -2660,6 +2671,7 @@ export function useVoiceAI({
     start,
     stop,
     submitAnswer,
+    closeAnswerResumeWindow,
     retryTranscription,
     interrupt,
     bargeIn,

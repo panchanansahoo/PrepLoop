@@ -2567,9 +2567,9 @@
 
 .ai-vc-answer-review {
   position: relative;
-  z-index: 5;
+  z-index: 16;
   width: min(720px, 100%);
-  margin: 12px auto;
+  margin: 12px auto 72px;
   padding: 14px;
   border: 1px solid rgba(129, 140, 248, 0.38);
   border-radius: 14px;

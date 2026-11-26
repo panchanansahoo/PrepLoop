@@ -139,7 +139,7 @@ export function useInterviewSession(options = {}) {
   const [adaptiveNotice, setAdaptiveNotice] = useState(null);
   const wrapUpTimerRef = useRef(null);
   const recentOpenersRef = useRef([]);
-  const { user: _user, getAuthHeaders: authHeadersFn } = useAuth();
+  const { user: _user, loading: authLoading, getAuthHeaders: authHeadersFn } = useAuth();
   const getAuthHeaders = useCallback((extra = {}) => {
     if (typeof authHeadersFn === 'function') {
       return authHeadersFn(extra);
@@ -405,32 +405,10 @@ export function useInterviewSession(options = {}) {
   const pendingEvalsRef = useRef([]);
   const submittedQuestionKeyRef = useRef(null);
   const ttsAudioRef = useRef(null);
-  // Holds the latest voice answer text so sendAnswer can read it synchronously
-  // even before React re-renders stateRefs.current.transcript.
-  const pendingVoiceAnswerRef = useRef("");
   const topicFollowUpCountRef = useRef(0);
   const emptyTranscriptCountRef = useRef(0);
   const handleEmptyTranscriptRef = useRef(null);
   const limitChimePlayedRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const savedDraft = window.sessionStorage.getItem("preploop_active_transcript");
-      if (savedDraft && !transcript) {
-        setTranscriptRaw(savedDraft);
-      }
-    } catch { /* empty */ }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (transcript && transcript.trim()) {
-        window.sessionStorage.setItem("preploop_active_transcript", transcript.trim());
-      }
-    } catch { /* empty */ }
-  }, [transcript]);
 
   const setTranscript = useCallback((val) => {
     setTranscriptRaw(typeof val === "function" ? val : val || "");
@@ -459,7 +437,7 @@ export function useInterviewSession(options = {}) {
     isCodingRound,
     enableInterrupt: false,
     enableBackchannel: false,
-    onResumeSpeech: useCallback((previousAnswer) => {
+    onResumeSpeech: useCallback((draft) => {
       console.log("[Interview] Speech resumed in 2s resume window! Aborting pending follow-up and stopping audio.");
       resumedTurnsCountRef.current += 1;
       const totalTurns = Math.max(1, totalTurnsCountRef.current);
@@ -506,8 +484,9 @@ export function useInterviewSession(options = {}) {
       setAiSpeaking(false);
       setLoading(false);
       setInterviewerStatus("");
-      pendingVoiceAnswerRef.current = previousAnswer;
-      setTranscriptRaw(previousAnswer);
+      setCandidateTurnActive(true);
+      candidateTurnActiveRef.current = true;
+      setTranscriptRaw(draft);
     }, []),
     onAnswer: useCallback((answerText, meta = {}) => {
       sttEndedAtRef.current = Date.now();
@@ -526,9 +505,7 @@ export function useInterviewSession(options = {}) {
           setCandidatePacingOffset(0);
         }
       }
-      const priorAnswer = pendingVoiceAnswerRef.current.trim();
-      const completeAnswer = [priorAnswer, (answerText || "").trim()].filter(Boolean).join(" ");
-      pendingVoiceAnswerRef.current = "";
+      const completeAnswer = (answerText || "").trim();
       setTranscriptRaw(completeAnswer);
       const isSilentAnswer =
         !completeAnswer ||
@@ -567,7 +544,7 @@ export function useInterviewSession(options = {}) {
     persona: getInterviewVoicePersona(interviewType),
     question: currentQuestion,
     getAuthHeaders,
-    isPaused,
+    isPaused: isPaused || !isOnline,
     onSpeculativeCandidateAnswer: (text) => handleSpeculativeCandidateAnswerRef.current?.(text),
     onAbortSpeculative: () => abortSpeculativeRef.current?.(),
   });
@@ -692,30 +669,25 @@ export function useInterviewSession(options = {}) {
     }
     if (phase === "interview") {
       updateLifecycle(isPausedRef.current ? INTERVIEW_LIFECYCLE.PAUSED : INTERVIEW_LIFECYCLE.ACTIVE, "reconnected");
-      if (!isPausedRef.current && awaitingAnswer && !isListeningRef.current) {
-        voiceAI.start();
+      if (!isPausedRef.current && !answerReview && !isSendingRef.current &&
+          (awaitingAnswer || candidateTurnActiveRef.current) && !isListeningRef.current) {
+        voiceAI.start({ initialTranscript: stateRefs.current.transcript });
       }
     }
-  }, [awaitingAnswer, phase, updateLifecycle, voiceAI]);
+  }, [answerReview, awaitingAnswer, phase, updateLifecycle, voiceAI]);
 
-  const handleSessionErrorAction = useCallback((actionType) => {
-    if (actionType === "reconnect") {
-      setReconnectAttempt(0);
+  const lastOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (lastOnlineRef.current === isOnline) return;
+    lastOnlineRef.current = isOnline;
+    if (phase !== "interview") return;
+    if (isOnline) {
       reconnectSession();
-    } else if (actionType === "retry_mic") {
-      setReconnectAttempt(0);
-      voiceAI.resetError?.();
-      startVoiceRecording();
-    } else if (actionType === "retry_transcription") {
-      voiceAI.retryTranscription?.();
-    } else if (actionType === "switch_typed") {
-      voiceAI.resetError?.();
-      setAnswerReview(true);
-    } else if (actionType === "reset_lobby") {
-      setPhase("lobby");
-      updateLifecycle(INTERVIEW_LIFECYCLE.IDLE, "reset_to_lobby");
+    } else {
+      abortSpeculativeRef.current?.();
+      if (isListeningRef.current) voiceAI.stop();
     }
-  }, [reconnectSession, updateLifecycle, voiceAI]);
+  }, [isOnline, phase, reconnectSession, voiceAI]);
 
   const intelligence = useInterviewIntelligence({ getAuthHeaders });
   const isListening = voiceAI.state === "listening";
@@ -845,7 +817,10 @@ export function useInterviewSession(options = {}) {
     candidateTurnActiveRef.current = candidateTurnActive;
   }, [candidateTurnActive]);
 
-  const startVoiceRecording = useCallback(() => voiceAI.start(), [voiceAI]);
+  const startVoiceRecording = useCallback(
+    (initialTranscript = stateRefs.current.transcript) => voiceAI.start({ initialTranscript }),
+    [voiceAI],
+  );
   const stopVoiceRecording = useCallback(() => voiceAI.stop(), [voiceAI]);
 
   // Clear the "your turn" cue as soon as either side becomes active again,
@@ -911,19 +886,27 @@ export function useInterviewSession(options = {}) {
 
   const speakSequenceCancelledRef = useRef(false);
   const speakSequence = useCallback(
-    async (segments, { pauseMs = 150 } = {}) => {
+    async (segments, { pauseMs = 150, onStart } = {}) => {
       if (!segments || segments.length === 0 || speakerMuted || speakSequenceCancelledRef.current) return;
       const cleanSegments = (segments || []).map((s) =>
         typeof s === "string" && typeof respellForTts === "function" ? respellForTts(s) : s
       );
       const prosody = getMoodProsody(interviewerMood);
       // Don't set aiSpeaking here — let voiceAI.speak's onStart fire it when audio plays
+      let started = false;
+      const handlePlaybackStart = () => {
+        if (!started) {
+          started = true;
+          recordTurnEvent(questionIndexRef.current, "audio_playback_started", { segmentsCount: cleanSegments.length });
+          onStart?.();
+        }
+        setAiSpeaking(true);
+      };
       try {
-        recordTurnEvent(questionIndexRef.current, "audio_playback_started", { segmentsCount: cleanSegments.length });
         if (typeof voiceAI.speakGaplessSequence === "function") {
           await voiceAI.speakGaplessSequence(cleanSegments, {
             prosody,
-            onStart: () => setAiSpeaking(true),
+            onStart: handlePlaybackStart,
           });
         } else {
           for (let i = 0; i < cleanSegments.length; i++) {
@@ -932,7 +915,7 @@ export function useInterviewSession(options = {}) {
             if (!text || !text.trim()) continue;
             await voiceAI.speak(text, {
               prosody,
-              onStart: () => setAiSpeaking(true),
+              onStart: handlePlaybackStart,
               onEnd: () => {},
             });
             if (speakSequenceCancelledRef.current) break;
@@ -951,6 +934,7 @@ export function useInterviewSession(options = {}) {
 
   const handoffToCandidate = useCallback(() => {
     if (!isPausedRef.current && phaseRef.current === "interview") {
+      voiceAI.closeAnswerResumeWindow?.();
       setTranscript("");
       // Prompt user immediately and give a clear auditory cue
       setAwaitingAnswer(true);
@@ -970,18 +954,30 @@ export function useInterviewSession(options = {}) {
           setCandidateTurnActive(true);
           candidateTurnActiveRef.current = true;
           setQuestionElapsed(0);
-          startVoiceRecording();
+          startVoiceRecording("");
           // Safety retry if SpeechRecognition took longer to start
           setTimeout(() => {
             if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
               console.log("[handoffToCandidate] Retry #1 starting voice recording");
-              startVoiceRecording();
+              startVoiceRecording("");
             }
           }, 800);
         }
       }, 250);
     }
-  }, [setTranscript, startVoiceRecording, speakerMuted]);
+  }, [setTranscript, startVoiceRecording, speakerMuted, voiceAI]);
+
+  const restoreCandidateTurn = useCallback((draft) => {
+    const capturedText = typeof draft === "string" ? draft : "";
+    if (!capturedText.trim()) {
+      setAnswerReview(false);
+      handoffToCandidate();
+      return;
+    }
+    setAwaitingAnswer(false);
+    setTranscript(capturedText);
+    setAnswerReview(true);
+  }, [handoffToCandidate, setTranscript]);
 
   const handleEmptyTranscript = useCallback(async () => {
     if (phaseRef.current !== "interview" || isPausedRef.current) return;
@@ -1097,7 +1093,7 @@ export function useInterviewSession(options = {}) {
 
   // ─── SessionStorage State Recovery: Preserves active attemptId, questionIndex, and reconnects on refresh ───
   useEffect(() => {
-    if (sessionRecoveredRef.current) return;
+    if (sessionRecoveredRef.current || authLoading || phaseRef.current !== "lobby") return;
     try {
       if (typeof window === "undefined" || !window.sessionStorage) return;
       const storageKey = questionSetCode
@@ -1110,7 +1106,9 @@ export function useInterviewSession(options = {}) {
       if (raw) {
         const active = JSON.parse(raw);
         const isFresh = Boolean(active && active.timestamp && (Date.now() - active.timestamp < 3 * 60 * 60 * 1000));
-        if (active && active.isActive && isFresh) {
+        const matchesInterview = (active?.questionSetCode || null) === (questionSetCode || null);
+        const matchesOwner = active?.userId === undefined || active.userId === (_user?.id || null);
+        if (active && active.isActive && isFresh && matchesInterview && matchesOwner) {
           sessionRecoveredRef.current = true;
           setIsSessionRecovered(true);
 
@@ -1168,16 +1166,13 @@ export function useInterviewSession(options = {}) {
           phaseRef.current = "interview";
           updateLifecycle(INTERVIEW_LIFECYCLE.ACTIVE, "session_recovered");
 
-          // Reconnect smoothly: reopen voice listening / handoff to candidate
-          setTimeout(() => {
-            handoffToCandidate();
-          }, 650);
+          restoreCandidateTurn(active.currentQuestion && active.pendingTranscript);
         }
       }
     } catch (e) {
       console.warn("Failed to recover session from sessionStorage:", e);
     }
-  }, [questionSetCode, handoffToCandidate, updateLifecycle]);
+  }, [_user?.id, authLoading, questionSetCode, restoreCandidateTurn, updateLifecycle]);
 
   useEffect(() => {
     try {
@@ -1191,7 +1186,6 @@ export function useInterviewSession(options = {}) {
           setSavedSession(session);
         } else {
           window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
-      window.sessionStorage.removeItem("preploop_active_transcript");
         }
       }
     } catch {
@@ -1214,7 +1208,6 @@ export function useInterviewSession(options = {}) {
         AI_INTERVIEW_SESSION_KEY,
         JSON.stringify({
           conversation: checkpointConversation,
-          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
           questionIndex,
           currentQuestion,
           elapsed,
@@ -1233,12 +1226,13 @@ export function useInterviewSession(options = {}) {
       if (typeof window !== "undefined" && window.sessionStorage) {
         const activeSessionData = {
           attemptId: customAttemptIdRef.current,
+          userId: _user?.id || null,
           questionIndex,
           currentQuestion,
           elapsed,
           totalQuestions,
           conversation: checkpointConversation,
-          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
+          pendingTranscript: candidateTurnActive || answerReview ? transcript.slice(0, 10000) : "",
           interviewType,
           interviewerGender,
           code: typeof code === 'string' ? code.slice(0, 50000) : code,
@@ -1268,7 +1262,6 @@ export function useInterviewSession(options = {}) {
       if (_user?.id && checkpointKeyRef.current) {
         const payload = {
           conversation: checkpointConversation,
-          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
           questionIndex,
           currentQuestion,
           elapsed,
@@ -1308,6 +1301,8 @@ export function useInterviewSession(options = {}) {
     language,
     notes,
     transcript,
+    answerReview,
+    candidateTurnActive,
     _user?.id,
   ]);
 
@@ -1330,6 +1325,30 @@ export function useInterviewSession(options = {}) {
     } catch { /* empty */ }
   }, [_user?.id, questionSetCode]);
 
+  const handleSessionErrorAction = useCallback((actionType) => {
+    if (actionType === "reconnect") {
+      setReconnectAttempt(0);
+      reconnectSession();
+    } else if (actionType === "retry_mic") {
+      setReconnectAttempt(0);
+      voiceAI.resetError?.();
+      startVoiceRecording();
+    } else if (actionType === "retry_transcription") {
+      voiceAI.retryTranscription?.();
+    } else if (actionType === "switch_typed") {
+      voiceAI.stop();
+      voiceAI.resetError?.();
+      setAnswerReview(true);
+    } else if (actionType === "reset_lobby") {
+      phaseRef.current = "lobby";
+      clearSavedSession();
+      setTranscript("");
+      setAnswerReview(false);
+      setPhase("lobby");
+      updateLifecycle(INTERVIEW_LIFECYCLE.IDLE, "reset_to_lobby");
+    }
+  }, [clearSavedSession, reconnectSession, setTranscript, startVoiceRecording, updateLifecycle, voiceAI]);
+
   const restoreSession = useCallback((session) => {
     if (session.attemptId) {
       customAttemptIdRef.current = session.attemptId;
@@ -1344,18 +1363,13 @@ export function useInterviewSession(options = {}) {
     setCode(session.code || BOILERPLATE.python);
     setLanguage(session.language || "python");
     setNotes(session.notes || "");
-    if (session.pendingTranscript || session.transcript) {
-      setTranscriptRaw(session.pendingTranscript || session.transcript || "");
-    }
     setSavedSession(null);
     setLoading(false);
     setPhase("interview");
+    phaseRef.current = "interview";
     updateLifecycle(INTERVIEW_LIFECYCLE.ACTIVE, "session_restored");
-    // Mid-answer transcripts are not part of the checkpoint, so resume the
-    // current question by opening the mic again instead of waiting for the
-    // candidate to discover the mic button.
-    setTimeout(() => handoffToCandidate(), 600);
-  }, [handoffToCandidate, updateLifecycle]);
+    restoreCandidateTurn(session.pendingTranscript || session.transcript);
+  }, [restoreCandidateTurn, updateLifecycle]);
 
   const questionIndexRef = useRef(1);
   useEffect(() => {
@@ -2195,6 +2209,8 @@ export function useInterviewSession(options = {}) {
   }, [aiSpeaking, interviewerVideoReady]);
 
   const startInterview = async () => {
+    setTranscript("");
+    setAnswerReview(false);
     setPhase("connecting");
     setElapsed(0);
     setCandidateTurnActive(false);
@@ -2635,7 +2651,6 @@ export function useInterviewSession(options = {}) {
       setCheckInActive(false);
       setWrapUpWarning(false);
       if (isListeningRef.current) stopVoiceRecording();
-      speakSequenceCancelledRef.current = true;
       voiceAI.interrupt();
       if (ttsAudioRef.current) {
         ttsAudioRef.current.pause();
@@ -2644,10 +2659,6 @@ export function useInterviewSession(options = {}) {
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       setAiSpeaking(false);
 
-      // Use pendingVoiceAnswerRef as the most reliable source for voice answers —
-      // it's set synchronously in onAnswer before React re-renders stateRefs.
-      const pendingVoice = pendingVoiceAnswerRef.current.trim();
-      pendingVoiceAnswerRef.current = "";
       const currentTranscript = stateRefs.current.transcript.trim();
       // Shared private interviews are voice-only. Ignore stale/manual text input
       // so an invitee cannot accidentally submit a typed answer through another UI.
@@ -2662,7 +2673,7 @@ export function useInterviewSession(options = {}) {
         interimText ||
         ""
       ).trim();
-      const providedAnswer = answerOverride?.trim() || pendingVoice || currentUserInput || fullTranscript;
+      const providedAnswer = answerOverride?.trim() || currentUserInput || fullTranscript;
       
       const answer =
         isAutoSkip === true && !providedAnswer
@@ -2701,6 +2712,7 @@ export function useInterviewSession(options = {}) {
         ? `${cleanAnswerForLlm}\n\n${CODE_DELIMITER_MARKER}\n${currentCode}`
         : cleanAnswerForLlm;
 
+      const resolvedStage = STAGE_API_MAP[interviewType] || "Technical";
       setConversation((prev) => [
         ...prev,
         {
@@ -2726,7 +2738,6 @@ export function useInterviewSession(options = {}) {
       setUserInput("");
       setLoading(true);
 
-      const resolvedStage = STAGE_API_MAP[interviewType] || "Technical";
       const resolvedCompany = targetCompany || "Google";
       const resolvedRole = targetRole || "Software Engineer";
 
@@ -2885,18 +2896,20 @@ export function useInterviewSession(options = {}) {
         }
 
         if (!data) {
-          followUpAbortControllerRef.current = new AbortController();
+          const controller = new AbortController();
+          followUpAbortControllerRef.current = controller;
           let res = await authFetch("/api/company-interview/fast-reply", {
             method: "POST",
             body: JSON.stringify(followUpPayload),
-            signal: followUpAbortControllerRef.current.signal,
+            signal: controller.signal,
           }).catch(() => null);
 
+          if (controller.signal.aborted || speakSequenceCancelledRef.current) return;
           if (!res || !res.ok) {
             res = await authFetch("/api/company-interview/follow-up", {
               method: "POST",
               body: JSON.stringify(followUpPayload),
-              signal: followUpAbortControllerRef.current.signal,
+              signal: controller.signal,
             });
           }
 
@@ -2919,6 +2932,7 @@ export function useInterviewSession(options = {}) {
 
           data = await res.json();
         }
+        if (speakSequenceCancelledRef.current) return;
 
         if (data?.interviewerNotice) {
           setConversation((prev) => [
@@ -2994,7 +3008,6 @@ export function useInterviewSession(options = {}) {
         pendingEvalPromiseRef.current = turnEvalPromise;
         pendingEvalsRef.current.push({ id: turnId, promise: turnEvalPromise, controller: evalCtrl });
 
-        currentQuestionIdRef.current = data.questionMeta?.id || null;
         if (data.interviewerMood) setInterviewerMood(data.interviewerMood);
         const feedbackScore = data.feedback?.score || data.score || 0;
         if (data.stageLabel) setStageLabel(data.stageLabel);
@@ -3131,17 +3144,19 @@ export function useInterviewSession(options = {}) {
           wasRescuedRef.current = true;
           rescueCountRef.current += 1;
           const rescueQ = data.followUpQuestion || data.nextQuestion || continueQ;
-          setCurrentQuestion(rescueQ);
-          setConversation((prev) => [
-            ...prev,
-            { role: "interviewer", content: rescueQ, timestamp: Date.now(), isRescue: true },
-          ]);
           setInterviewerStatus("Guiding you...");
           setLoading(false);
           const rescueMicro = data.microReaction || "No problem at all, let's break this down together.";
           await voiceAI.waitForBackchannel?.();
           if (speakSequenceCancelledRef.current) return;
           await speakSequence([rescueMicro, rescueQ], { pauseMs: 400 });
+          if (speakSequenceCancelledRef.current) return;
+          currentQuestionIdRef.current = data.questionMeta?.id || null;
+          setCurrentQuestion(rescueQ);
+          setConversation((prev) => [
+            ...prev,
+            { role: "interviewer", content: rescueQ, turnId, timestamp: Date.now(), isRescue: true },
+          ]);
           setInterviewerStatus("");
           handoffToCandidate();
           return;
@@ -3175,16 +3190,19 @@ export function useInterviewSession(options = {}) {
             : [data.closingRemark || closingRemark || "Great job today! Thank you for your time. We'll be in touch soon."];
           const fullClosingText = closingSeq.join(" ");
           await voiceAI.prefetch(closingSeq[0]);
+          if (speakSequenceCancelledRef.current) return;
           setConversation((prev) => [
             ...prev,
             {
               role: "interviewer",
               content: fullClosingText,
+              turnId,
               timestamp: Date.now(),
             },
           ]);
           setLoading(false);
           await speakSequence(closingSeq, { pauseMs: 600 });
+          if (speakSequenceCancelledRef.current) return;
           setTimeout(() => endInterview(), 1500);
         } else if (consecutiveSilentQuestionsRef.current >= CONSECUTIVE_SILENT_THRESHOLD) {
           const earlyEndText =
@@ -3194,11 +3212,13 @@ export function useInterviewSession(options = {}) {
             {
               role: "interviewer",
               content: earlyEndText,
+              turnId,
               timestamp: Date.now(),
             },
           ]);
           setLoading(false);
           await speakInterviewerText(earlyEndText);
+          if (speakSequenceCancelledRef.current) return;
           setTimeout(() => endInterview("consecutive_silence"), 1500);
         } else {
           let finalMicroToSpeak = microToSpeak;
@@ -3229,15 +3249,9 @@ export function useInterviewSession(options = {}) {
           if (remainingDelayMs > 0) {
             await new Promise((r) => setTimeout(r, remainingDelayMs));
           }
-          const actualReplyGapMs = Date.now() - pauseConfirmedTime;
           const speechAnchor = lastSpeechDetectedAtRef.current || pauseConfirmedTime;
-          const lastSpeechToFirstAudioLatencyMs = Date.now() - speechAnchor;
-
-          // Don't log a latency sample for turns cancelled by resume
-          if (!speakSequenceCancelledRef.current && lastSpeechToFirstAudioLatencyMs > 0) {
-            console.log(`[Interview Latency] Q${questionIndexRef.current} last-speech to first-audio: ${lastSpeechToFirstAudioLatencyMs}ms (reply gap: ${actualReplyGapMs}ms)`);
-            logInterviewTelemetry("last_speech_to_first_audio_latency", { latencyMs: lastSpeechToFirstAudioLatencyMs, replyGapMs: actualReplyGapMs, questionIndex: questionIndexRef.current });
-          }
+          let actualReplyGapMs = null;
+          let lastSpeechToFirstAudioLatencyMs = null;
 
           // Opener variation guard (Part B Section 2: Vary openers, don't repeat within 3 turns)
           if (!isNeutralTurn) {
@@ -3270,13 +3284,24 @@ export function useInterviewSession(options = {}) {
             ? [finalMicroToSpeak, continueQ]
             : [continueQ];
 
-          speakSequenceCancelledRef.current = false;
           await voiceAI.waitForBackchannel?.();
           if (speakSequenceCancelledRef.current) return;
-          await speakSequence(sequenceToSpeak, { pauseMs: interPhrasePauseMs });
+          await speakSequence(sequenceToSpeak, {
+            pauseMs: interPhrasePauseMs,
+            onStart: () => {
+              const playbackStartedAt = Date.now();
+              actualReplyGapMs = playbackStartedAt - pauseConfirmedTime;
+              lastSpeechToFirstAudioLatencyMs = playbackStartedAt - speechAnchor;
+              logInterviewTelemetry("last_speech_to_first_audio_latency", {
+                latencyMs: lastSpeechToFirstAudioLatencyMs,
+                replyGapMs: actualReplyGapMs,
+                questionIndex: questionIndexRef.current,
+              });
+            },
+          });
           turnsSinceLastBackchannelRef.current += 1;
 
-          // If speech was resumed during audio playback, DO NOT advance question counter or commit new question!
+          // Candidate speech before playback cancels the provisional turn.
           if (speakSequenceCancelledRef.current) {
             console.log("[Interview] Audio playback cancelled by candidate speech resumption. Retaining current question and counter.");
             return;
@@ -3294,6 +3319,7 @@ export function useInterviewSession(options = {}) {
             topicFollowUpCountRef.current = 0;
           }
 
+          currentQuestionIdRef.current = data.questionMeta?.id || null;
           setCurrentQuestion(continueQ);
           setQuestionIndex((prev) => prev + 1);
           voiceAI.resetVoicePinning?.();
@@ -3329,7 +3355,7 @@ export function useInterviewSession(options = {}) {
           handoffToCandidate();
         }
       } catch (error) {
-        if (error?.name === "AbortError" || followUpAbortControllerRef.current?.signal?.aborted) {
+        if (speakSequenceCancelledRef.current || error?.name === "AbortError") {
           console.log("[Interview] Follow-up request was cleanly aborted for speech resumption.");
           return;
         }
@@ -3366,16 +3392,19 @@ export function useInterviewSession(options = {}) {
           const closingFallback =
             "Great job today! Thank you for your time. We'll be in touch soon.";
           await voiceAI.prefetch(closingFallback);
+          if (speakSequenceCancelledRef.current) return;
           setConversation((prev) => [
             ...prev,
             {
               role: "interviewer",
               content: closingFallback,
+              turnId,
               timestamp: Date.now(),
             },
           ]);
           setLoading(false);
           await speakInterviewerText(closingFallback);
+          if (speakSequenceCancelledRef.current) return;
           setTimeout(() => endInterview(), 1500);
         } else {
           const sessionSeed = customAttemptIdRef.current || saveIdempotencyKeyRef.current || checkpointKeyRef.current || questionSetCode;
@@ -3385,7 +3414,7 @@ export function useInterviewSession(options = {}) {
           setLoading(false);
           // Thinking pause even on fallback path
           await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
-          speakSequenceCancelledRef.current = false;
+          if (speakSequenceCancelledRef.current) return;
           await speakInterviewerText(spokenFallback);
           if (speakSequenceCancelledRef.current) {
             console.log("[Interview] Fallback speech cancelled by candidate resumption. Retaining question counter.");
@@ -3395,6 +3424,7 @@ export function useInterviewSession(options = {}) {
             ...prev,
             { role: "interviewer", content: fallbackQ, timestamp: Date.now() },
           ]);
+          currentQuestionIdRef.current = null;
           setCurrentQuestion(fallbackQ);
           setQuestionIndex((prev) => prev + 1);
           submittedQuestionKeyRef.current = null;
@@ -3935,7 +3965,7 @@ export function useInterviewSession(options = {}) {
     if (isPausedRef.current) return;
     if (isListening) {
       // Finish capture and let the candidate review/edit before sending.
-      voiceAI.submitAnswer();
+      voiceAI.submitAnswer(false, { submissionType: "user_done" });
     } else {
       startVoiceRecording();
     }
@@ -3952,7 +3982,7 @@ export function useInterviewSession(options = {}) {
 
   const handleVoiceInput = useCallback(() => {
     if (isListening) {
-      voiceAI.submitAnswer();
+      voiceAI.submitAnswer(false, { submissionType: "user_done" });
     } else if (!isPausedRef.current) {
       startVoiceRecording();
     }
@@ -4094,12 +4124,12 @@ export function useInterviewSession(options = {}) {
   }, [startVoiceRecording]);
 
   const continueAnswer = useCallback(() => {
-    const currentAnswer = stateRefs.current.transcript.trim();
-    if (currentAnswer) pendingVoiceAnswerRef.current = currentAnswer;
-    setTranscript("");
+    if (isPausedRef.current) return;
     setAnswerReview(false);
-    if (!isPausedRef.current) startVoiceRecording();
-  }, [setTranscript, setAnswerReview, startVoiceRecording]);
+    setCandidateTurnActive(true);
+    candidateTurnActiveRef.current = true;
+    startVoiceRecording();
+  }, [startVoiceRecording]);
 
   const actions = useMemo(() => ({
     fetchNextQuestion,

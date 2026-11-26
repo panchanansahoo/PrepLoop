@@ -115,8 +115,8 @@ export default function Contact() {
                             <div style={{ marginTop: '40px', paddingTop: '32px', borderTop: '1px solid var(--zinc-800)' }}>
                                 <p style={{ color: 'var(--zinc-500)', fontSize: '14px', marginBottom: '16px' }}>Follow our journey</p>
                                 <div style={{ display: 'flex', gap: '16px' }}>
-                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Twitter size={18} /></a>
-                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Github size={18} /></a>
+                                    <a href="https://twitter.com/preploop" aria-label="PrepLoop on X" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Twitter size={18} /></a>
+                                    <a href="https://github.com/preploop" aria-label="PrepLoop on GitHub" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Github size={18} /></a>
                                 </div>
                             </div>
                         </div>

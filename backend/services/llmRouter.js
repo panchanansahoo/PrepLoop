@@ -979,6 +979,8 @@ export async function callTurnScoring({
       questionNumber,
       previousQuestion,
       userAnswer,
+      code,
+      codeLanguage,
       company,
       role,
       stage,

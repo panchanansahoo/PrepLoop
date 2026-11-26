@@ -277,7 +277,7 @@ export default function AIInterviewPage() {
             return;
         }
         if (isListening) {
-            voiceAI.submitAnswer();
+            voiceAI.submitAnswer(false, { submissionType: "user_done" });
         }
     }, [awaitingAnswer, isListening, startAnswer, voiceAI]);
 

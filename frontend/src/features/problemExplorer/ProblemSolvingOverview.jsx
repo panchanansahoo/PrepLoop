@@ -243,8 +243,8 @@ export function ProblemSolvingOverview({
                         <div style={{ fontSize: 11, color: dimText, fontWeight: 600 }}>{calYear}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <button onClick={() => nav(-1)} style={btnStyle(isLight)}><ChevronLeft size={14} /></button>
-                        <button onClick={() => nav(1)} style={btnStyle(isLight)}><ChevronRight size={14} /></button>
+                        <button aria-label="Previous month" onClick={() => nav(-1)} style={btnStyle(isLight)}><ChevronLeft size={14} /></button>
+                        <button aria-label="Next month" onClick={() => nav(1)} style={btnStyle(isLight)}><ChevronRight size={14} /></button>
                     </div>
                 </div>
 
