@@ -4,7 +4,7 @@ import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/aut
 import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 import { fetchAllIndianJobs } from '../utils/indianJobApis.js';
-import { getCachedJobs, setCachedJobs, checkRateLimit } from '../utils/jobCache.js';
+import { getCachedJobs, setCachedJobs, checkRateLimit, MAX_REQUESTS_PER_WINDOW } from '../utils/jobCache.js';
 import {
   buildCareerSearchQuery,
   hasMeaningfulProfileSignals,
@@ -308,11 +308,14 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   let aggregatedJobs = [];
 
   // ── Priority 1: Free Indian Job APIs (Indeed, Naukri, Foundit, LinkedIn) ──
+  let indianTimeoutId;
   try {
     logger.info(`Fetching Indian jobs for query: ${indianQuery}`);
     const indianJobs = await Promise.race([
       fetchAllIndianJobs(indianQuery, 'India'),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+      new Promise((_, reject) => {
+        indianTimeoutId = setTimeout(() => reject(new Error('Timeout')), 10000);
+      }),
     ]);
     
     if (indianJobs && indianJobs.length > 0) {
@@ -323,6 +326,8 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     }
   } catch (error) {
     logger.error('Indian job APIs error', { error: error.message });
+  } finally {
+    clearTimeout(indianTimeoutId);
   }
 
   // ── Try JSearch (RapidAPI) - Filter for India only ──
@@ -331,6 +336,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
       const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(indianQuery)}&page=${page}&num_pages=1&date_posted=month`;
       const safeUrl = ensureAllowedExternalJobUrl(url);
       const response = await fetch(safeUrl, {
+        signal: AbortSignal.timeout(6000),
         headers: {
           'x-rapidapi-key': RAPIDAPI_KEY,
           'x-rapidapi-host': JSEARCH_HOST,
@@ -386,7 +392,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
       const keyword = encodeURIComponent(cleanQuery);
       const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=50&what=${keyword}&max_days_old=30`;
       const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
-      const response = await fetch(safeAdzunaUrl);
+      const response = await fetch(safeAdzunaUrl, { signal: AbortSignal.timeout(6000) });
 
       if (response.ok) {
         const result = await response.json();
@@ -967,9 +973,17 @@ Return this exact JSON structure:
 // ─── GET /api/jobs — List jobs (admin + external API combined) ───
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    // Rate limiting
+    const isDevOrLocal =
+      process.env.NODE_ENV === 'development' ||
+      req.ip === '::1' ||
+      req.ip === '127.0.0.1' ||
+      req.ip === '::ffff:127.0.0.1';
+
+    // Rate limiting (skip in development/local to avoid blocking local testing)
     const identifier = req.user?.id || req.ip || 'anonymous';
-    const rateLimit = checkRateLimit(identifier);
+    const rateLimit = isDevOrLocal
+      ? { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW }
+      : checkRateLimit(identifier);
     
     if (!rateLimit.allowed) {
       return res.status(429).json({ 
@@ -997,37 +1011,43 @@ router.get('/', optionalAuth, async (req, res) => {
     let adminJobs = [];
     let externalJobs = [];
 
-    // ── Fetch admin-posted jobs from Supabase ──
-    let query = supabaseAdmin
-      .from('job_listings')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    // ── Fetch admin-posted jobs from Supabase (degrade gracefully if DB fails) ──
+    try {
+      let query = supabaseAdmin
+        .from('job_listings')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
 
-    // Only show active jobs unless admin requests all
-    if (req.query.include_inactive !== 'true') {
-      query = query.eq('is_active', true);
-    }
-
-    if (category && category !== 'all') query = query.eq('category', category);
-    if (company) query = query.ilike('company', `%${company}%`);
-    if (type) query = query.eq('type', type);
-    if (search && typeof search === 'string') {
-      const safeSearch = search.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100);
-      if (safeSearch) {
-        query = query.or(`title.ilike.%${safeSearch}%,company.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+      // Only show active jobs unless admin requests all
+      if (req.query.include_inactive !== 'true') {
+        query = query.eq('is_active', true);
       }
-    }
 
-    const { data, error } = await query.range(offset, offset + parsedLimit - 1);
+      if (category && category !== 'all') query = query.eq('category', category);
+      if (company) query = query.ilike('company', `%${company}%`);
+      if (type) query = query.eq('type', type);
+      if (search && typeof search === 'string') {
+        const safeSearch = search.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100);
+        if (safeSearch) {
+          query = query.or(`title.ilike.%${safeSearch}%,company.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+        }
+      }
 
-    if (error) {
-      logger.error('Supabase job fetch error', { error: error.message, code: error.code });
-    } else {
-      adminJobs = (data || []).map(j => ({ ...j, source: 'admin' }));
+      const { data, error } = await query.range(offset, offset + parsedLimit - 1);
+
+      if (error) {
+        logger.error('Supabase job fetch error', { error: error.message, code: error.code });
+      } else {
+        adminJobs = (data || []).map(j => ({ ...j, source: 'admin' }));
+      }
+    } catch (dbErr) {
+      logger.warn('Database job fetch exception, falling back to external/curated jobs', {
+        error: dbErr.message,
+      });
     }
 
     // ── Fetch external API jobs (only page 1 or when specifically requested) ──
-    const searchQuery = search || category || 'fresher software developer India';
+    const searchQuery = search || (category && category !== 'all' ? category : null) || 'fresher software developer India';
     if (source !== 'admin' && parsedPage <= 2) {
       externalJobs = await fetchExternalJobs(searchQuery, parsedPage);
     }
@@ -1071,7 +1091,7 @@ router.get('/', optionalAuth, async (req, res) => {
       cached: !!getCachedJobs(`jobs_${searchQuery}_${parsedPage}`),
       rateLimit: {
         remaining: rateLimit.remaining,
-        limit: 10
+        limit: MAX_REQUESTS_PER_WINDOW
       }
     });
   } catch (error) {

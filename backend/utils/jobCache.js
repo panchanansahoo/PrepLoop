@@ -29,7 +29,7 @@ export function clearJobCache() {
 // Rate limiting
 const rateLimits = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 10;
+export const MAX_REQUESTS_PER_WINDOW = 30;
 
 export function checkRateLimit(identifier) {
   const now = Date.now();
@@ -58,7 +58,7 @@ export function checkRateLimit(identifier) {
 }
 
 // Clean up old rate limit entries every 5 minutes
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, value] of rateLimits.entries()) {
     if (now > value.resetTime) {
@@ -66,3 +66,4 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+cleanupInterval.unref?.();

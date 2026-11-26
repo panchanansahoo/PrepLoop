@@ -232,4 +232,34 @@ describe('JobUpdates Job Discovery <-> Job Tracker Integration', () => {
     );
     expect(postCalls.length).toBe(0);
   });
+
+  it('surfaces backend error details and omits cache-busting _t param on /api/jobs', async () => {
+    authFetchMock.mockImplementation((url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/jobs')) {
+        return Promise.resolve({
+          ok: false,
+          status: 429,
+          json: async () => ({ error: 'Too many requests. Please try again in 30 seconds.' }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ applications: [] }) });
+    });
+
+    vi.spyOn(AuthContext, 'useAuth').mockReturnValue({ user: null });
+
+    render(
+      <MemoryRouter>
+        <JobUpdates />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Too many requests. Please try again in 30 seconds.')).toBeInTheDocument();
+    });
+
+    const jobCall = authFetchMock.mock.calls.find(([url]) => String(url).includes('/api/jobs'));
+    expect(jobCall).toBeDefined();
+    expect(String(jobCall[0])).not.toContain('_t=');
+  });
 });

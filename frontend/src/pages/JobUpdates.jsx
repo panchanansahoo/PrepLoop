@@ -134,12 +134,14 @@ export default function JobUpdates() {
       if (debouncedSearch) params.append('search', debouncedSearch);
       params.append('page', page.toString());
       params.append('limit', '100');
-      params.append('_t', Date.now().toString());
 
       const _headers = buildAuthHeaders(user);
 
       const response = await authFetch(`${API_URL}/api/jobs?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || `Failed to fetch jobs (HTTP ${response.status})`);
+      }
 
       const data = await response.json();
       setJobs(data.jobs || []);
