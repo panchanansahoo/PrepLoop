@@ -29,6 +29,8 @@
   --text-secondary: var(--zinc-400);
   --text-muted: var(--zinc-600);
   --text-invert: #000000;
+  --success: #10b981;
+  --red: #ef4444;
 
   --border: var(--zinc-800);
   --border-light: var(--zinc-700);

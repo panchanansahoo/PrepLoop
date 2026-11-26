@@ -3,8 +3,14 @@ import cacheManager from '../utils/cacheManager.js';
 import { buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
 import { normalizeProfileUpdatePayload } from '../utils/profilePayload.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
-import { isAdminEmail } from '../middleware/auth.ts';
-import type { PublicPortfolio, UserSettings } from '../types/services.js';
+import { isAdminEmail, invalidateUserRole } from '../middleware/auth.ts';
+import type {
+  PublicPortfolio,
+  SettingsCodeEditor,
+  SettingsDifficulty,
+  SettingsLanguage,
+  UserSettings,
+} from '../types/services.js';
 
 export const PROFILE_COMPLETION_COIN_REWARD = 20;
 
@@ -592,88 +598,325 @@ export const claimUserCustomUrl = async (userId: string, userContext: UserContex
   return buildProfileResponse(userContext, profileRow);
 };
 
+const VALID_LANGUAGES = new Set<SettingsLanguage>(['en', 'hi', 'es']);
+const VALID_EDITORS = new Set<SettingsCodeEditor>(['vscode', 'sublime', 'vim']);
+const VALID_DIFFICULTIES = new Set<SettingsDifficulty>(['easy', 'medium', 'hard']);
+const VALID_EXPERIENCE_LEVELS = new Set(['beginner', 'intermediate', 'advanced', 'expert']);
+
+export const difficultyToExperienceLevel = (difficulty?: string): string => {
+  if (difficulty === 'easy') return 'beginner';
+  if (difficulty === 'hard') return 'advanced';
+  return 'intermediate';
+};
+
+export const experienceLevelToDifficulty = (level?: string): SettingsDifficulty => {
+  if (level === 'beginner') return 'easy';
+  if (level === 'advanced' || level === 'expert') return 'hard';
+  return 'medium';
+};
+
+export const normalizeUserSettingsPreferences = (
+  rawPrefs: Record<string, any> | null | undefined,
+  experienceLevel?: string
+) => {
+  const prefs = rawPrefs && typeof rawPrefs === 'object' ? rawPrefs : {};
+  const language = VALID_LANGUAGES.has(prefs.language) ? prefs.language : 'en';
+  const codeEditor = VALID_EDITORS.has(prefs.codeEditor) ? prefs.codeEditor : 'vscode';
+  const difficulty = VALID_DIFFICULTIES.has(prefs.difficulty)
+    ? prefs.difficulty
+    : experienceLevelToDifficulty(experienceLevel);
+
+  return {
+    emailNotifications: typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
+    practiceReminders: typeof prefs.practiceReminders === 'boolean' ? prefs.practiceReminders : true,
+    weeklyReport: typeof prefs.weeklyReport === 'boolean' ? prefs.weeklyReport : true,
+    language,
+    codeEditor,
+    difficulty,
+  };
+};
+
+async function getAuthUserMeta(userId: string, userContext?: UserContext) {
+  let userMetadata: Record<string, any> = { ...(userContext?.user_metadata || {}) };
+  let authProvider: string | undefined;
+
+  try {
+    const adminApi = (supabaseAdmin as any)?.auth?.admin;
+    if (adminApi && typeof adminApi.getUserById === 'function') {
+      const { data, error } = await adminApi.getUserById(userId);
+      if (!error && data?.user) {
+        userMetadata = { ...userMetadata, ...(data.user.user_metadata || {}) };
+        authProvider = data.user.app_metadata?.provider || data.user.identities?.[0]?.provider;
+      }
+    }
+  } catch {
+    // Non-fatal fallback to JWT user_metadata
+  }
+
+  return { userMetadata, authProvider };
+}
+
 /**
  * Retrieves user account settings.
  */
-export const getUserSettings = async (userId: string, userContext: UserContext): Promise<{ settings: UserSettings; degraded?: boolean }> => {
-  const { data: profile, error } = await (supabaseAdmin as any)
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
+export const getUserSettings = async (
+  userId: string,
+  userContext: UserContext
+): Promise<{ settings: UserSettings; degraded?: boolean }> => {
+  const [{ data: profile, error }, { userMetadata, authProvider }] = await Promise.all([
+    (supabaseAdmin as any)
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle(),
+    getAuthUserMeta(userId, userContext),
+  ]);
 
   if (isProfilesAccessBlocked(error)) {
+    const expLevel = 'beginner';
     return {
       settings: {
         full_name: userContext.user_metadata?.full_name || '',
-        experience_level: 'beginner',
+        experience_level: expLevel,
         subscription_tier: 'free',
+        ...normalizeUserSettingsPreferences(userMetadata?.settings, expLevel),
+        ...(authProvider ? { authProvider } : {}),
       },
       degraded: true,
     };
   }
 
-  if (error || !profile) {
+  if (error) {
+    throw error;
+  }
+
+  if (!profile && !userContext?.id) {
     const err: any = new Error('User not found');
     err.status = 404;
     throw err;
   }
 
+  const experienceLevel = profile?.experience_level || 'beginner';
+
   return {
     settings: {
-      full_name: profile.full_name || '',
-      experience_level: profile.experience_level || 'beginner',
-      subscription_tier: profile.subscription_tier || 'free',
+      full_name: profile?.full_name || userMetadata?.full_name || '',
+      experience_level: experienceLevel,
+      subscription_tier: profile?.subscription_tier || 'free',
+      ...normalizeUserSettingsPreferences(userMetadata?.settings, experienceLevel),
+      ...(authProvider ? { authProvider } : {}),
     },
   };
 };
 
-/**
- * Updates user account settings.
- */
-export const updateUserSettings = async (userId: string, updates: { fullName?: string; experienceLevel?: string }) => {
-  const dbUpdates: Record<string, any> = {};
-  if (updates.fullName) dbUpdates.full_name = updates.fullName;
-  if (updates.experienceLevel) dbUpdates.experience_level = updates.experienceLevel;
+export interface UpdateUserSettingsInput {
+  fullName?: string;
+  experienceLevel?: string;
+  emailNotifications?: boolean;
+  practiceReminders?: boolean;
+  weeklyReport?: boolean;
+  language?: string;
+  codeEditor?: string;
+  difficulty?: string;
+}
 
-  if (Object.keys(dbUpdates).length === 0) {
+/**
+ * Updates user account settings and preferences.
+ */
+export const updateUserSettings = async (
+  userId: string,
+  updates: UpdateUserSettingsInput = {},
+  userContext?: UserContext
+): Promise<{ settings: UserSettings; degraded?: boolean }> => {
+  const dbUpdates: Record<string, any> = {};
+  const prefUpdates: Record<string, any> = {};
+
+  if (typeof updates.fullName === 'string' && updates.fullName.trim().length > 0) {
+    dbUpdates.full_name = updates.fullName.trim().slice(0, 120);
+  }
+
+  if (typeof updates.difficulty === 'string') {
+    if (!VALID_DIFFICULTIES.has(updates.difficulty as SettingsDifficulty)) {
+      const err: any = new Error('Invalid difficulty preference');
+      err.status = 400;
+      throw err;
+    }
+    prefUpdates.difficulty = updates.difficulty;
+  }
+
+  if (typeof updates.experienceLevel === 'string' && updates.experienceLevel.trim().length > 0) {
+    const normalizedExp = updates.experienceLevel.trim().toLowerCase();
+    if (!VALID_EXPERIENCE_LEVELS.has(normalizedExp)) {
+      const err: any = new Error('Invalid experience level');
+      err.status = 400;
+      throw err;
+    }
+    dbUpdates.experience_level = normalizedExp;
+  } else if (prefUpdates.difficulty) {
+    dbUpdates.experience_level = difficultyToExperienceLevel(prefUpdates.difficulty);
+  }
+
+  if (typeof updates.emailNotifications === 'boolean') {
+    prefUpdates.emailNotifications = updates.emailNotifications;
+  }
+  if (typeof updates.practiceReminders === 'boolean') {
+    prefUpdates.practiceReminders = updates.practiceReminders;
+  }
+  if (typeof updates.weeklyReport === 'boolean') {
+    prefUpdates.weeklyReport = updates.weeklyReport;
+  }
+
+  if (typeof updates.language === 'string') {
+    if (!VALID_LANGUAGES.has(updates.language as SettingsLanguage)) {
+      const err: any = new Error('Unsupported language preference');
+      err.status = 400;
+      throw err;
+    }
+    prefUpdates.language = updates.language;
+  }
+
+  if (typeof updates.codeEditor === 'string') {
+    if (!VALID_EDITORS.has(updates.codeEditor as SettingsCodeEditor)) {
+      const err: any = new Error('Unsupported code editor preference');
+      err.status = 400;
+      throw err;
+    }
+    prefUpdates.codeEditor = updates.codeEditor;
+  }
+
+  if (Object.keys(dbUpdates).length === 0 && Object.keys(prefUpdates).length === 0) {
     const err: any = new Error('No fields to update');
     err.status = 400;
     throw err;
   }
 
-  const { data, error } = await (supabaseAdmin as any)
-    .from('profiles')
-    .update(dbUpdates)
-    .eq('id', userId)
-    .select()
-    .maybeSingle();
+  let profileRow: RawProfile | null = null;
+  let profileDegraded = false;
 
-  if (error) {
-    if (isProfilesAccessBlocked(error)) {
-      const err: any = new Error('Settings update is temporarily unavailable');
-      err.status = 503;
-      err.degraded = true;
-      throw err;
+  if (Object.keys(dbUpdates).length > 0) {
+    dbUpdates.updated_at = new Date().toISOString();
+    const { data, error } = await (supabaseAdmin as any)
+      .from('profiles')
+      .update(dbUpdates)
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      if (isProfilesAccessBlocked(error)) {
+        profileDegraded = true;
+      } else {
+        throw error;
+      }
+    } else if (data) {
+      profileRow = data;
+    } else {
+      const { data: inserted, error: insertErr } = await (supabaseAdmin as any)
+        .from('profiles')
+        .insert({
+          id: userId,
+          full_name: dbUpdates.full_name || userContext?.user_metadata?.full_name || '',
+          experience_level: dbUpdates.experience_level || 'beginner',
+          subscription_tier: 'free',
+          role: userContext?.role || 'user',
+        })
+        .select()
+        .maybeSingle();
+
+      if (insertErr) {
+        if (isProfilesAccessBlocked(insertErr)) {
+          profileDegraded = true;
+        } else {
+          throw insertErr;
+        }
+      } else {
+        profileRow = inserted;
+      }
     }
-    throw error;
+  } else {
+    const { data, error } = await (supabaseAdmin as any)
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      if (isProfilesAccessBlocked(error)) {
+        profileDegraded = true;
+      } else {
+        throw error;
+      }
+    } else {
+      profileRow = data;
+    }
   }
 
-  if (!data) {
-    const err: any = new Error('User not found');
-    err.status = 404;
-    throw err;
+  const { userMetadata, authProvider } = await getAuthUserMeta(userId, userContext);
+  const resolvedExpLevel =
+    profileRow?.experience_level ||
+    dbUpdates.experience_level ||
+    'beginner';
+
+  const mergedPrefs = normalizeUserSettingsPreferences(
+    {
+      ...(userMetadata?.settings || {}),
+      ...prefUpdates,
+    },
+    resolvedExpLevel
+  );
+
+  if (Object.keys(prefUpdates).length > 0) {
+    const adminApi = (supabaseAdmin as any)?.auth?.admin;
+    if (adminApi && typeof adminApi.updateUserById === 'function') {
+      const { error: metaError } = await adminApi.updateUserById(userId, {
+        user_metadata: {
+          ...userMetadata,
+          settings: mergedPrefs,
+        },
+      });
+      if (metaError) {
+        throw metaError;
+      }
+    }
   }
 
   await cacheManager.delete(`profile:${userId}`).catch(() => {});
 
   return {
     settings: {
-      full_name: data.full_name,
-      experience_level: data.experience_level,
-      subscription_tier: data.subscription_tier,
+      full_name: profileRow?.full_name || dbUpdates.full_name || userMetadata?.full_name || '',
+      experience_level: resolvedExpLevel,
+      subscription_tier: profileRow?.subscription_tier || 'free',
+      ...mergedPrefs,
+      ...(authProvider ? { authProvider } : {}),
     },
+    ...(profileDegraded ? { degraded: true } : {}),
   };
+};
+
+/**
+ * Permanently deletes a user account and clears cached state.
+ */
+export const deleteUserAccount = async (userId: string): Promise<{ success: boolean }> => {
+  if (!userId) {
+    const err: any = new Error('User not authenticated');
+    err.status = 401;
+    throw err;
+  }
+
+  const adminApi = (supabaseAdmin as any)?.auth?.admin;
+  if (!adminApi || typeof adminApi.deleteUser !== 'function') {
+    throw new Error('Account deletion service unavailable');
+  }
+
+  const { error } = await adminApi.deleteUser(userId);
+  if (error) {
+    throw error;
+  }
+
+  invalidateUserRole(userId);
+  await cacheManager.delete(`profile:${userId}`).catch(() => {});
+  return { success: true };
 };
 
 /**
@@ -719,5 +962,6 @@ export default {
   getUserSettings,
   updateUserSettings,
   updateUserPreferences,
+  deleteUserAccount,
   PROFILE_COMPLETION_COIN_REWARD,
 };

@@ -98,10 +98,21 @@ export interface PublicPortfolio {
   };
 }
 
+export type SettingsLanguage = 'en' | 'hi' | 'es';
+export type SettingsCodeEditor = 'vscode' | 'sublime' | 'vim';
+export type SettingsDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface UserSettings {
   full_name: string;
   experience_level: string;
   subscription_tier: string;
+  emailNotifications: boolean;
+  practiceReminders: boolean;
+  weeklyReport: boolean;
+  language: SettingsLanguage;
+  codeEditor: SettingsCodeEditor;
+  difficulty: SettingsDifficulty;
+  authProvider?: string;
 }
 
 

@@ -3,6 +3,7 @@ import multer from "multer";
 import { authenticateToken, optionalAuth } from "../../middleware/auth.ts";
 import { invalidateCache } from "../../middleware/apiCache.js";
 import { requireValidFileSignature, uploadEndpointsLimiter } from "../../middleware/uploadProtection.js";
+import { clearSessionCookies } from "../auth/helpers.js";
 import {
   getOrCreateUserProfile,
   getPublicPortfolioBySlug,
@@ -12,6 +13,7 @@ import {
   getUserSettings,
   updateUserSettings,
   updateUserPreferences,
+  deleteUserAccount,
   isProfilesAccessBlocked,
 } from "../../services/profileService.ts";
 
@@ -147,7 +149,7 @@ router.get("/settings", authenticateToken, async (req, res) => {
  */
 router.put("/settings", authenticateToken, async (req, res) => {
   try {
-    const result = await updateUserSettings(req.user.id, req.body);
+    const result = await updateUserSettings(req.user.id, req.body, req.user);
     invalidateCache(`/api/user/settings/${req.user.id}`);
     invalidateCache(`/api/user/profile/${req.user.id}`);
     return res.json(result);
@@ -155,6 +157,33 @@ router.put("/settings", authenticateToken, async (req, res) => {
     console.error("Error updating settings:", error);
     if (error.status) return res.status(error.status).json({ error: error.message, degraded: error.degraded });
     return res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
+/**
+ * DELETE /api/user/account
+ * Permanently deletes the authenticated user's account
+ */
+router.delete("/account", authenticateToken, async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+    const confirmation = String(req.body?.confirmation || '').trim().toUpperCase();
+    if (confirmation !== 'DELETE') {
+      return res.status(400).json({ error: 'Please type DELETE to confirm account deletion.' });
+    }
+
+    await deleteUserAccount(req.user.id);
+    clearSessionCookies(res);
+    invalidateCache(`/api/user/settings/${req.user.id}`);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
+    invalidateCache('/api/user/portfolio');
+    return res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    return res.status(500).json({ error: "Failed to delete account" });
   }
 });
 

@@ -1339,6 +1339,18 @@
   color: #fca5a5;
 }
 
+[data-theme="light"] .account-status-message.success {
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+[data-theme="light"] .account-status-message.error {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
 .account-hero-actions {
   display: flex;
   flex-direction: column;
@@ -1370,15 +1382,15 @@
   background: var(--bg-tertiary);
 }
 
-.account-secondary-button:hover,
-.account-inline-button:hover {
+.account-secondary-button:hover:not(:disabled),
+.account-inline-button:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--border-light);
   background: var(--bg-hover);
 }
 
 .account-danger-button {
-  color: var(--red);
+  color: var(--red, #ef4444);
   border: 1px solid rgba(220, 38, 38, 0.45);
   background: rgba(220, 38, 38, 0.1);
   display: inline-flex;
@@ -1386,10 +1398,19 @@
   gap: 8px;
 }
 
-.account-danger-button:hover {
+.account-danger-button:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: rgba(220, 38, 38, 0.7);
   background: rgba(220, 38, 38, 0.14);
+}
+
+.account-secondary-button:disabled,
+.account-inline-button:disabled,
+.account-danger-button:disabled,
+.account-hero-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .account-link-action {
@@ -1672,6 +1693,17 @@
 
 .account-toggle.is-on .account-toggle-thumb {
   transform: translateX(20px);
+  background: var(--text-invert);
+}
+
+.account-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.account-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .settings-section {
@@ -1690,6 +1722,174 @@
 
 .settings-page .account-grid {
   align-items: start;
+}
+
+.settings-hero-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.settings-chip-dirty {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}
+
+[data-theme="light"] .settings-chip-dirty {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.settings-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.settings-modal-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.settings-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-modal-close:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.settings-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.settings-password-wrap .account-input {
+  padding-right: 42px;
+}
+
+.settings-password-toggle {
+  position: absolute;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.settings-password-toggle:hover {
+  color: var(--text-primary);
+}
+
+.settings-password-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.settings-password-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-password-rule.is-met {
+  color: var(--success, #10b981);
+}
+
+.settings-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-text-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  align-self: flex-start;
+}
+
+.settings-text-button:hover {
+  color: var(--text-primary);
 }
 
 @media (max-width: 1080px) {

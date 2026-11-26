@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { forgotPasswordLimiter, isEmailCoolingDown, markEmailSent } from '../../middleware/rateLimiter.js';
+import { authenticateToken } from '../../middleware/auth.ts';
+import { authLoginLimiter, forgotPasswordLimiter, isEmailCoolingDown, markEmailSent } from '../../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../../utils/captcha.js';
 import { sendEmail, isEmailConfigured } from '../../services/emailService.js';
 import { validatePasswordStrength } from './helpers.js';
@@ -177,6 +179,67 @@ router.post('/reset-password', forgotPasswordLimiter, async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+router.post('/change-password', authenticateToken, authLoginLimiter, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword || typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ error: 'New password must be different from your current password' });
+  }
+
+  const passwordError = validatePasswordStrength(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
+  }
+
+  try {
+    let email = req.user?.email;
+    if (!email && supabaseAdmin?.auth?.admin?.getUserById) {
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(req.user.id);
+      email = userData?.user?.email;
+    }
+
+    if (!email) {
+      return res.status(400).json({ error: 'Account email not found' });
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+    const isDummyUrl = !supabaseUrl || supabaseUrl.includes('example.supabase.co');
+
+    if (!isDummyUrl && supabaseAnonKey) {
+      // Ephemeral client prevents signInWithPassword from mutating supabaseAdmin's service-role state
+      const verifyClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { error: signInError } = await verifyClient.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: currentPassword,
+      });
+      if (signInError) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+    }
+
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
+      password: newPassword,
+    });
+
+    if (updateError) {
+      return res.status(400).json({
+        error: process.env.NODE_ENV === 'production' ? 'Failed to update password' : updateError.message,
+      });
+    }
+
+    return res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ error: 'Failed to update password' });
   }
 });
 
