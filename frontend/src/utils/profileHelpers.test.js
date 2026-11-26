@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildInitialProfile,
+  fillLinkedinBlanks,
   normalizeProfileData,
   buildProfilePayload,
   splitSkillChips,
@@ -8,10 +9,19 @@ import {
   normalizeExternalUrl,
   buildSocialUrl,
   normalizeGithubHandle,
+  normalizeLinkedinInput,
   getPlanBadgeMeta,
 } from './profileHelpers.js';
 
 describe('Profile Helpers', () => {
+  it('fills LinkedIn gaps without replacing existing profile details or social links', () => {
+    const profile = { ...buildInitialProfile({ fullName: 'Chosen name' }), location: '  ', socialLinks: { twitter: 'me' } };
+    const imported = { fullName: 'LinkedIn name', location: 'Pune', skills: 'React', linkedin: 'https://linkedin.com/in/me' };
+    const filled = fillLinkedinBlanks(profile, imported);
+    expect(filled).toMatchObject({ fullName: 'Chosen name', location: 'Pune', skills: 'React', socialLinks: { twitter: 'me', linkedin: imported.linkedin } });
+    expect(fillLinkedinBlanks(filled, { skills: 'Vue', linkedin: 'different' })).toEqual(filled);
+  });
+
   it('builds initial profile state from user object', () => {
     const user = { fullName: 'Alex Mercer', email: 'alex@example.com' };
     const profile = buildInitialProfile(user);
@@ -70,6 +80,19 @@ describe('Profile Helpers', () => {
     expect(normalizeGithubHandle('https://github.com/octocat/')).toBe('octocat');
     expect(normalizeGithubHandle('@octo-cat')).toBe('octo-cat');
     expect(normalizeGithubHandle('bad user!')).toBeNull();
+  });
+
+  it('normalizes LinkedIn user IDs and profile URLs and rejects invalid values', () => {
+    expect(normalizeLinkedinInput('john-doe')).toEqual({
+      slug: 'john-doe',
+      url: 'https://www.linkedin.com/in/john-doe',
+    });
+    expect(normalizeLinkedinInput('https://www.linkedin.com/in/jane-doe-123/')).toEqual({
+      slug: 'jane-doe-123',
+      url: 'https://www.linkedin.com/in/jane-doe-123',
+    });
+    expect(normalizeLinkedinInput('https://linkedin.com/company/acme')).toBeNull();
+    expect(normalizeLinkedinInput('   ')).toBeNull();
   });
 
   it('preserves subscriptionTier and maps plan badge metadata', () => {

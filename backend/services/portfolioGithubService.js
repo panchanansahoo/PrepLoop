@@ -56,7 +56,7 @@ const fetchReadme = (owner, repo) => {
   }
 };
 
-export const fetchGithubPortfolioData = async (username) => {
+export const fetchGithubPortfolioData = async (username, options = {}) => {
   const safeUsername = String(username || '').trim();
   if (!safeUsername) {
     return {
@@ -67,15 +67,18 @@ export const fetchGithubPortfolioData = async (username) => {
     };
   }
 
+  const perPage = Math.min(100, Math.max(1, Number(options.perPage || 100)));
+  const includeReadmes = options.includeReadmes !== false;
+
   const [profile, repos, organizations] = await Promise.all([
     fetchJson(`${GITHUB_API_BASE}/users/${encodeURIComponent(safeUsername)}`),
-    fetchJson(`${GITHUB_API_BASE}/users/${encodeURIComponent(safeUsername)}/repos?per_page=100&sort=updated`),
+    fetchJson(`${GITHUB_API_BASE}/users/${encodeURIComponent(safeUsername)}/repos?per_page=${perPage}&sort=updated`),
     fetchJson(`${GITHUB_API_BASE}/users/${encodeURIComponent(safeUsername)}/orgs`),
   ]);
 
   const repositories = await Promise.all(
     repos.map(async (repo) => {
-      const readme = await fetchReadme(safeUsername, repo.name);
+      const readme = includeReadmes ? await fetchReadme(safeUsername, repo.name) : '';
       return {
         id: repo.id,
         name: repo.name,
@@ -85,6 +88,7 @@ export const fetchGithubPortfolioData = async (username) => {
         language: repo.language,
         stargazers_count: repo.stargazers_count,
         forks_count: repo.forks_count,
+        fork: Boolean(repo.fork),
         pushed_at: repo.pushed_at,
         topics: repo.topics || [],
         pinned: false,

@@ -25,6 +25,8 @@ export function buildInitialProfile(user) {
     yearsOfExperience: '',
     specialization: '',
     profileTheme: 'aurora',
+    projects: [],
+    certifications: [],
     socialLinks: {
       twitter: '',
       linkedin: '',
@@ -32,6 +34,61 @@ export function buildInitialProfile(user) {
       dribbble: '',
     },
   };
+}
+
+export function normalizeLinkedinInput(rawValue) {
+  const safe = String(rawValue || '').trim();
+  if (!safe) return null;
+
+  const HANDLE_RE = /^[a-zA-Z0-9][a-zA-Z0-9-_%]{1,99}$/;
+  if (/^https?:\/\//i.test(safe) || /linkedin\.com/i.test(safe)) {
+    try {
+      const parsed = new URL(/^https?:\/\//i.test(safe) ? safe : `https://${safe}`);
+      if (!parsed.hostname.toLowerCase().endsWith('linkedin.com')) return null;
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts[0]?.toLowerCase() !== 'in' || !parts[1] || !HANDLE_RE.test(parts[1])) return null;
+      return {
+        slug: parts[1],
+        url: `https://www.linkedin.com/in/${parts[1]}`,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  const cleanSlug = safe.replace(/^@+/, '').replace(/^\/+|\/+$/g, '');
+  if (!HANDLE_RE.test(cleanSlug)) return null;
+  return {
+    slug: cleanSlug,
+    url: `https://www.linkedin.com/in/${cleanSlug}`,
+  };
+}
+
+export function fillLinkedinBlanks(profile, imported) {
+  const next = { ...profile };
+  for (const key of ['fullName', 'currentRole', 'bio', 'skills', 'experience', 'education', 'location', 'company', 'website', 'phone', 'avatar_url', 'githubUsername']) {
+    const value = imported[key];
+    if (!String(profile[key] || '').trim() && typeof value === 'string' && value.trim()) {
+      next[key] = value.trim();
+    }
+  }
+  if (next.fullName !== profile.fullName) next.full_name = next.fullName;
+  if (next.currentRole !== profile.currentRole) next.designation = next.currentRole;
+  if (next.githubUsername !== profile.githubUsername) next.github_username = next.githubUsername;
+  if (Array.isArray(imported.projects) && imported.projects.length > 0 && (!Array.isArray(profile.projects) || profile.projects.length === 0)) {
+    next.projects = imported.projects;
+  }
+  const socialUpdates = {};
+  if (imported.linkedin && !profile.socialLinks?.linkedin?.trim()) {
+    socialUpdates.linkedin = imported.linkedin;
+  }
+  if (imported.twitter && !profile.socialLinks?.twitter?.trim()) {
+    socialUpdates.twitter = imported.twitter;
+  }
+  if (Object.keys(socialUpdates).length > 0) {
+    next.socialLinks = { ...(profile.socialLinks || {}), ...socialUpdates };
+  }
+  return next;
 }
 
 export function normalizeProfileData(data) {
@@ -61,6 +118,8 @@ export function normalizeProfileData(data) {
     avatar_url: merged.avatar_url ?? '',
     custom_url: merged.custom_url ?? '',
     is_public: merged.is_public ?? false,
+    projects: Array.isArray(merged.projects) ? merged.projects : [],
+    certifications: Array.isArray(merged.certifications) ? merged.certifications : [],
     socialLinks: merged.socialLinks ?? merged.social_links ?? {
       twitter: merged.twitter ?? '',
       linkedin: merged.linkedin ?? '',
@@ -98,6 +157,8 @@ export function buildProfilePayload(profile) {
     company: trimmedCompany,
     yearsOfExperience: trimmedYearsExp,
     specialization: trimmedSpecialization,
+    projects: Array.isArray(profile.projects) ? profile.projects : undefined,
+    certifications: Array.isArray(profile.certifications) ? profile.certifications : undefined,
     socialLinks: profile.socialLinks || {},
   };
 }

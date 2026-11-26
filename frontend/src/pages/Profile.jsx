@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
-import {mergeAuthHeaders} from '../utils/authHeaders';
+import { mergeAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
-import { User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut, Github, Sparkles, FileText, Upload, Pencil, Save, X, Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as _Bolt, ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star, Phone, Calendar as _CalendarIcon, MapPin as LocationIcon, ExternalLink, Hash, Tag, Camera, Info } from 'lucide-react';
+import { User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut, Github, Sparkles, FileText, Upload, Pencil, Save, X, Zap, Copy, Check, Link2, Palette, PenSquare, LayoutGrid, Layout, Zap as _Bolt, ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star, Phone, Calendar as _CalendarIcon, MapPin as LocationIcon, ExternalLink, Hash, Tag, Camera, Info, GitFork, Globe, Linkedin, Twitter } from 'lucide-react';
 import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
 import {
@@ -23,6 +23,7 @@ import {
   normalizeExternalUrl,
   buildSocialUrl,
   normalizeGithubHandle,
+  normalizeLinkedinInput,
   getPlanBadgeMeta,
 } from '../utils/profileHelpers';
 
@@ -39,7 +40,6 @@ export default function Profile() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [rewardMessage, setRewardMessage] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [githubUsername, setGithubUsername] = useState('');
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -48,6 +48,10 @@ export default function Profile() {
   const [resumeSnapshot, setResumeSnapshot] = useState(null);
   const [autofillSuggestions, setAutofillSuggestions] = useState({});
   const [linkedinImporting, setLinkedinImporting] = useState(false);
+  const [linkedinInput, setLinkedinInput] = useState('');
+  const [showLinkedinPaste, setShowLinkedinPaste] = useState(false);
+  const [linkedinPasteText, setLinkedinPasteText] = useState('');
+  const [linkedinFallbackNotice, setLinkedinFallbackNotice] = useState('');
   const [resumeImporting, setResumeImporting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const isMountedRef = useRef(true);
@@ -85,6 +89,9 @@ export default function Profile() {
           }));
           if (normalized.githubUsername) {
             setGithubUsername(normalized.githubUsername);
+          }
+          if (normalized.socialLinks?.linkedin) {
+            setLinkedinInput((prev) => prev || normalized.socialLinks.linkedin);
           }
         }
       }
@@ -145,10 +152,6 @@ export default function Profile() {
       controller.abort();
     };
   }, [fetchProfile, fetchLatestResumeSnapshot, fetchJobMatches]);
-
-  useEffect(() => {
-    if (profile.is_public !== undefined) setIsPublic(!!profile.is_public);
-  }, [profile.is_public]);
 
   useEffect(() => {
     if (!resumeSnapshot || hasAutofilledFromResumeRef.current) return;
@@ -269,10 +272,10 @@ export default function Profile() {
         throw new Error(await readApiErrorMessage(res, 'Could not save profile. Please try again.'));
       }
       const data = await res.json();
-      
+
       const normalized = normalizeProfileData(data);
       setProfile(prev => ({ ...prev, ...normalized }));
-      
+
       if (data?.coinsAwarded) {
         setRewardMessage(`+${data.coinsAwarded} coins earned for completing your profile.`);
       }
@@ -291,6 +294,27 @@ export default function Profile() {
     setSaving(false);
   };
 
+  const persistProfileUpdates = async (nextProfile) => {
+    const payload = buildProfilePayload(nextProfile);
+    const res = await authFetch('/api/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      throw new Error(await readApiErrorMessage(res, 'Could not save profile updates.'));
+    }
+    const data = await res.json();
+    const normalized = normalizeProfileData(data);
+    setProfile((prev) => ({ ...prev, ...normalized }));
+    if (data?.coinsAwarded) {
+      setRewardMessage(`+${data.coinsAwarded} coins earned for completing your profile.`);
+    }
+    refreshBalance();
+    refreshDashboard();
+    fetchJobMatches();
+    return normalized;
+  };
+
   const handleGithubConnect = async () => {
     const normalizedHandle = normalizeGithubHandle(githubUsername);
     if (!normalizedHandle) {
@@ -303,21 +327,49 @@ export default function Profile() {
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      const res = await authFetch('/api/user/profile', {
-        method: 'PUT',
-        body: JSON.stringify({ githubUsername: normalizedHandle })
-      });
-      if (!res.ok) {
-        throw new Error(await readApiErrorMessage(res, 'Failed to save GitHub username.'));
+      let autofillData = null;
+      try {
+        const autoRes = await authFetch('/api/user/profile/github-autofill', {
+          method: 'POST',
+          body: JSON.stringify({ githubUsername: normalizedHandle }),
+        });
+        if (autoRes.ok) {
+          autofillData = await autoRes.json();
+        }
+      } catch (_autoErr) {
+        // Fallback to saving just the GitHub handle below
       }
-      const data = await res.json();
-      const normalized = normalizeProfileData(data);
-      const savedHandle = normalized.githubUsername || normalizedHandle;
-      setProfile(prev => ({ ...prev, githubUsername: savedHandle }));
-      setGithubUsername(savedHandle);
-      setGithubChartError(false);
-      setSuccessMessage('GitHub account connected.');
-      setStatus('saved');
+
+      if (autofillData?.profileData) {
+        const merged = fillLinkedinBlanks(profile, {
+          ...autofillData.profileData,
+          githubUsername: autofillData.githubUsername || normalizedHandle,
+        });
+        merged.githubUsername = autofillData.githubUsername || normalizedHandle;
+        merged.github_username = merged.githubUsername;
+        const saved = await persistProfileUpdates(merged);
+        setGithubUsername(saved.githubUsername || merged.githubUsername);
+        setGithubChartError(false);
+        setActiveTab('portfolio');
+        setSuccessMessage('GitHub connected and portfolio auto-filled.');
+        setStatus('saved');
+      } else {
+        const res = await authFetch('/api/user/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ githubUsername: normalizedHandle })
+        });
+        if (!res.ok) {
+          throw new Error(await readApiErrorMessage(res, 'Failed to save GitHub username.'));
+        }
+        const data = await res.json();
+        const normalized = normalizeProfileData(data);
+        const savedHandle = normalized.githubUsername || normalizedHandle;
+        setProfile(prev => ({ ...prev, githubUsername: savedHandle }));
+        setGithubUsername(savedHandle);
+        setGithubChartError(false);
+        setSuccessMessage('GitHub account connected.');
+        setStatus('saved');
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage(err.message || 'Failed to save GitHub username.');
@@ -352,29 +404,8 @@ export default function Profile() {
     setSaving(false);
   };
 
-  const handleTogglePublic = async () => {
-    const next = !isPublic;
-    setIsPublic(next);
-    try {
-      const res = await authFetch('/api/user/profile', {
-        method: 'PUT',
-        body: JSON.stringify({ is_public: next })
-      });
-      if (!res.ok) {
-        throw new Error(await readApiErrorMessage(res, 'Could not update profile visibility.'));
-      }
-      setProfile(prev => ({ ...prev, is_public: next }));
-      setStatus('saved');
-    } catch (err) {
-      console.error(err);
-      setIsPublic(!next);
-      setErrorMessage(err.message || 'Could not update profile visibility.');
-      setStatus('error');
-    }
-  };
-
   const handleCopyLink = async () => {
-    if (!isPublic) {
+    if (!profile.is_public) {
       try {
         const visibilityResponse = await authFetch('/api/user/profile', {
           method: 'PUT',
@@ -383,7 +414,6 @@ export default function Profile() {
         if (!visibilityResponse.ok) {
           throw new Error(await readApiErrorMessage(visibilityResponse, 'Could not make your profile public.'));
         }
-        setIsPublic(true);
         setProfile(prev => ({ ...prev, is_public: true }));
       } catch (e) {
         console.error('Failed to make profile public:', e);
@@ -453,7 +483,6 @@ export default function Profile() {
         custom_url: slug,
         is_public: true
       }));
-      setIsPublic(true);
       setClaimEditing(false);
       setClaimStatus('saved');
       setSuccessMessage(`Custom URL claimed! Your public profile is live at ${publicAppUrl}/u/${slug}`);
@@ -561,6 +590,109 @@ export default function Profile() {
     }));
   }, []);
 
+  const handleLinkedinIdImport = async () => {
+    const parsed = normalizeLinkedinInput(linkedinInput);
+    if (!parsed) {
+      setErrorMessage('Enter a valid LinkedIn user ID (e.g. john-doe) or profile URL.');
+      setStatus('error');
+      return;
+    }
+    setLinkedinImporting(true);
+    setStatus('idle');
+    setSuccessMessage('');
+    setErrorMessage('');
+    setLinkedinFallbackNotice('');
+    try {
+      const res = await authFetch('/api/resume/import-linkedin', {
+        method: 'POST',
+        body: JSON.stringify({ linkedinUsername: parsed.url }),
+      });
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'LinkedIn import failed.'));
+      }
+      const data = await res.json();
+      const linkedinUrl = data.linkedinUrl || parsed.url;
+      setLinkedinInput(linkedinUrl);
+
+      if (data.imported && data.profileData) {
+        const merged = fillLinkedinBlanks(profile, { ...data.profileData, linkedin: linkedinUrl });
+        merged.socialLinks = { ...(merged.socialLinks || {}), linkedin: linkedinUrl };
+        await persistProfileUpdates(merged);
+        setShowLinkedinPaste(false);
+        setActiveTab('portfolio');
+        setSuccessMessage('LinkedIn profile imported and portfolio updated.');
+        setStatus('saved');
+      } else {
+        const updatedSocial = { ...(profile.socialLinks || {}), linkedin: linkedinUrl };
+        const saveRes = await authFetch('/api/user/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ socialLinks: updatedSocial }),
+        });
+        if (saveRes.ok) {
+          const savedData = await saveRes.json();
+          const normalized = normalizeProfileData(savedData);
+          setProfile((prev) => ({ ...prev, ...normalized }));
+        } else {
+          setProfile((prev) => ({ ...prev, socialLinks: updatedSocial }));
+        }
+        setShowLinkedinPaste(true);
+        setLinkedinFallbackNotice(
+          data.message ||
+            'LinkedIn ID saved! Paste your LinkedIn profile text or upload your LinkedIn PDF below to auto-fill all portfolio sections.'
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err.message || 'LinkedIn lookup failed. Please try again.');
+      setStatus('error');
+    } finally {
+      setLinkedinImporting(false);
+    }
+  };
+
+  const handleLinkedinPasteImport = async () => {
+    if (!linkedinPasteText.trim()) {
+      setErrorMessage('Paste your LinkedIn profile text first, or upload your LinkedIn PDF.');
+      setStatus('error');
+      return;
+    }
+    setLinkedinImporting(true);
+    setStatus('idle');
+    setSuccessMessage('');
+    setErrorMessage('');
+    try {
+      const res = await authFetch('/api/resume/import-linkedin', {
+        method: 'POST',
+        body: JSON.stringify({ exportText: linkedinPasteText }),
+      });
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Could not parse LinkedIn profile text.'));
+      }
+      const data = await res.json();
+      if (data.profileData) {
+        const parsedInput = normalizeLinkedinInput(linkedinInput);
+        const imported = {
+          ...data.profileData,
+          linkedin: data.profileData.linkedin || parsedInput?.url || profile.socialLinks?.linkedin || '',
+        };
+        const merged = fillLinkedinBlanks(profile, imported);
+        await persistProfileUpdates(merged);
+        setShowLinkedinPaste(false);
+        setLinkedinPasteText('');
+        setLinkedinFallbackNotice('');
+        setActiveTab('portfolio');
+        setSuccessMessage('LinkedIn details auto-filled into your portfolio.');
+        setStatus('saved');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err.message || 'Could not parse LinkedIn text.');
+      setStatus('error');
+    } finally {
+      setLinkedinImporting(false);
+    }
+  };
+
   const handleLinkedInFileChange = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
@@ -577,7 +709,7 @@ export default function Profile() {
     try {
       const form = new FormData();
       form.append('file', file);
-      
+
       const res = await authFetch('/api/resume/import-linkedin', {
         method: 'POST',
         headers: mergeAuthHeaders({}, user),
@@ -590,9 +722,18 @@ export default function Profile() {
       const data = await res.json();
 
       if (data.profileData) {
-        applyImportedProfileData(data.profileData);
-        setEditing(true);
-        setSuccessMessage('LinkedIn data imported. Review and save to keep these changes.');
+        const parsedInput = normalizeLinkedinInput(linkedinInput);
+        const imported = {
+          ...data.profileData,
+          linkedin: data.profileData.linkedin || parsedInput?.url || profile.socialLinks?.linkedin || '',
+        };
+        const merged = fillLinkedinBlanks(profile, imported);
+        await persistProfileUpdates(merged);
+        if (imported.linkedin) setLinkedinInput(imported.linkedin);
+        setShowLinkedinPaste(false);
+        setLinkedinFallbackNotice('');
+        setActiveTab('portfolio');
+        setSuccessMessage('LinkedIn PDF imported and portfolio updated.');
         setStatus('saved');
       }
     } catch (err) {
@@ -625,7 +766,7 @@ export default function Profile() {
     try {
       const form = new FormData();
       form.append('resume', file);
-      
+
       const res = await authFetch('/api/resume/analyze', {
         method: 'POST',
         headers: mergeAuthHeaders({}, user),
@@ -639,12 +780,12 @@ export default function Profile() {
 
       if (data.resumeProfile) {
         const rp = data.resumeProfile;
-        
+
         const inferredSkills = Array.isArray(rp.coreSkills)
           ? rp.coreSkills.map((skill) => String(skill || '').trim()).filter(Boolean)
           : [];
         const safeSkills = inferredSkills.filter((skill) => skill.length >= 2);
-        
+
         const inferredExperience = Array.isArray(rp.likelyQuestionAreas)
           ? filterHighConfidenceExperienceAreas(rp.likelyQuestionAreas)
           : [];
@@ -673,7 +814,7 @@ export default function Profile() {
         setResumeSnapshot(data.resumeProfile);
         setEditing(true);
         setSuccessMessage('Resume data imported. Review and save to keep these changes.');
-        
+
         setStatus('saved');
       }
     } catch (err) {
@@ -757,6 +898,17 @@ export default function Profile() {
   const projects = Array.isArray(resumeSnapshot?.projectHighlights)
     ? resumeSnapshot.projectHighlights.slice(0, 2)
     : [];
+  const portfolioProjects = Array.isArray(profile.projects) && profile.projects.length > 0
+    ? profile.projects.slice(0, 6)
+    : projects.map((proj, idx) => ({
+        id: `resume-proj-${idx}`,
+        name: `Featured Project ${idx + 1}`,
+        description: proj,
+        stack: [],
+      }));
+  const githubHref = profile.githubUsername
+    ? `https://github.com/${encodeURIComponent(profile.githubUsername)}`
+    : '';
   const profileSummary = profile.bio || resumeSnapshot?.summary || 'No bio added yet.';
   const resumeAutofillApplied = Object.keys(autofillSuggestions).length > 0;
   const locationDisplay = profile.location || 'Location not set';
@@ -840,7 +992,7 @@ export default function Profile() {
                 </button>
               </h1>
               <p className="du-profile-email">{emailDisplay}</p>
-              
+
               <div className="du-profile-tags">
                 <span className="du-tag">
                   <Briefcase size={12} />
@@ -855,7 +1007,7 @@ export default function Profile() {
                   {locationDisplay}
                 </span>
               </div>
-              
+
               <span className={`du-plan-badge is-${planBadgeMeta.tier}`}>
                 <Sparkles size={12} />
                 {planBadgeMeta.label}
@@ -888,28 +1040,6 @@ export default function Profile() {
           <div className="du-profile-meta">
             <div className="du-meta-row">
               <div className="du-meta-left">
-                <Globe size={16} />
-                <div>
-                  <p className="du-meta-title">Profile is {isPublic ? 'Public' : 'Private'}</p>
-                  <p className="du-meta-subtitle">Anyone with the link can view your profile</p>
-                </div>
-              </div>
-              <button
-                className={`du-toggle ${isPublic ? 'is-on' : ''}`}
-                onClick={handleTogglePublic}
-                aria-label="Toggle profile visibility"
-                type="button"
-              >
-                <span className="du-toggle-knob" />
-              </button>
-              <button className="du-copy-btn" onClick={handleCopyLink} type="button">
-                {linkCopied ? <Check size={12} /> : <Copy size={12} />}
-                {linkCopied ? 'Copied' : 'Copy Public Link'}
-              </button>
-            </div>
-
-            <div className="du-meta-row">
-              <div className="du-meta-left">
                 <Link2 size={16} />
                 <div>
                   <p className="du-meta-title">Public Profile Link</p>
@@ -926,7 +1056,11 @@ export default function Profile() {
                 </div>
               </div>
               {!claimEditing ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="du-copy-btn" onClick={handleCopyLink} type="button">
+                    {linkCopied ? <Check size={12} /> : <Copy size={12} />}
+                    {linkCopied ? 'Copied' : 'Copy Public Link'}
+                  </button>
                   <button
                     className="du-claim-btn"
                     type="button"
@@ -991,28 +1125,28 @@ export default function Profile() {
         <div className="du-main-col">
           {/* Profile Navigation Tabs */}
           <div className="du-tabs">
-            <button 
+            <button
               className={`du-tab ${activeTab === 'basic' ? 'active' : ''}`}
               onClick={() => setActiveTab('basic')}
             >
               <User size={16} />
               Basic Info
             </button>
-            <button 
+            <button
               className={`du-tab ${activeTab === 'professional' ? 'active' : ''}`}
               onClick={() => setActiveTab('professional')}
             >
               <Briefcase size={16} />
               Professional
             </button>
-            <button 
+            <button
               className={`du-tab ${activeTab === 'portfolio' ? 'active' : ''}`}
               onClick={() => setActiveTab('portfolio')}
             >
               <Layout size={16} />
               Portfolio
             </button>
-            <button 
+            <button
               className={`du-tab ${activeTab === 'social' ? 'active' : ''}`}
               onClick={() => setActiveTab('social')}
             >
@@ -1025,11 +1159,11 @@ export default function Profile() {
           <div className="du-card">
             <div className="du-card-header">
               <h2 className="du-card-title">
-                {activeTab === 'basic' && <User />} 
-                {activeTab === 'professional' && <Briefcase />} 
+                {activeTab === 'basic' && <User />}
+                {activeTab === 'professional' && <Briefcase />}
                 {activeTab === 'portfolio' && <Layout />}
                 {activeTab === 'social' && <Users />}
-                
+
                 {activeTab === 'basic' && 'Basic Information'}
                 {activeTab === 'professional' && 'Professional Details'}
                 {activeTab === 'portfolio' && 'Your Generated Portfolio'}
@@ -1049,9 +1183,85 @@ export default function Profile() {
               <span>Complete your profile to unlock <strong>20 bonus coins</strong> and get personalized interview prep.</span>
             </div>
 
+            <div className="du-linkedin-id-bar">
+              <div className="du-linkedin-id-input-wrap">
+                <Linkedin size={15} className="du-linkedin-id-icon" />
+                <input
+                  type="text"
+                  className="du-linkedin-id-input"
+                  value={linkedinInput}
+                  onChange={(e) => setLinkedinInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLinkedinIdImport()}
+                  placeholder="Enter LinkedIn user ID or URL (e.g. john-doe)"
+                  aria-label="LinkedIn user ID or profile URL"
+                  disabled={!profileReady || linkedinImporting}
+                />
+              </div>
+              <button
+                type="button"
+                className="du-linkedin-id-btn"
+                onClick={handleLinkedinIdImport}
+                disabled={!profileReady || linkedinImporting || !linkedinInput.trim()}
+              >
+                <Sparkles size={14} />
+                {linkedinImporting ? 'Importing...' : 'Auto-Fill from LinkedIn ID'}
+              </button>
+              <button
+                type="button"
+                className="du-linkedin-paste-toggle"
+                onClick={() => setShowLinkedinPaste((prev) => !prev)}
+                disabled={!profileReady || linkedinImporting}
+              >
+                {showLinkedinPaste ? 'Hide Paste Box' : 'Paste LinkedIn Text'}
+              </button>
+            </div>
+
+            {showLinkedinPaste && (
+              <div className="du-linkedin-paste-card">
+                <p className="du-linkedin-paste-notice">
+                  {linkedinFallbackNotice ||
+                    'Open your LinkedIn profile, press Ctrl+A then Ctrl+C (or save as PDF), and paste below to auto-fill all sections.'}
+                </p>
+                <textarea
+                  className="du-form-textarea"
+                  rows={4}
+                  value={linkedinPasteText}
+                  onChange={(e) => setLinkedinPasteText(e.target.value)}
+                  placeholder="Paste your LinkedIn profile text here (Name, Headline, About, Experience, Education, Skills)..."
+                />
+                <div className="du-linkedin-paste-actions">
+                  <button
+                    type="button"
+                    className="du-save-btn"
+                    onClick={handleLinkedinPasteImport}
+                    disabled={linkedinImporting || !linkedinPasteText.trim()}
+                  >
+                    <Sparkles size={14} />
+                    {linkedinImporting ? 'Auto-Filling...' : 'Auto-Fill Portfolio'}
+                  </button>
+                  <button
+                    type="button"
+                    className="du-import-linkedin-btn"
+                    onClick={handleLinkedInImport}
+                    disabled={linkedinImporting}
+                  >
+                    <Upload size={14} />
+                    Upload LinkedIn PDF Instead
+                  </button>
+                  <button
+                    type="button"
+                    className="du-cancel-btn"
+                    onClick={() => setShowLinkedinPaste(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="du-import-actions">
-              <button 
-                className="du-import-resume-btn" 
+              <button
+                className="du-import-resume-btn"
                 onClick={handleResumeImport}
                 disabled={resumeImporting}
               >
@@ -1067,6 +1277,8 @@ export default function Profile() {
               <input type="file" ref={linkedinInputRef} accept=".pdf" style={{ display: 'none' }} onChange={handleLinkedInFileChange} />
               <input type="file" ref={resumeInputRef} accept=".pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleResumeFileChange} />
             </div>
+
+            <p className="du-linkedin-hint">Add your LinkedIn user ID (or paste profile text / upload PDF) and connect GitHub to auto-fill your portfolio view.</p>
 
             {resumeAutofillApplied && (
               <div className="du-resume-autofill-wrap">
@@ -1119,14 +1331,14 @@ export default function Profile() {
                         <Link2 size={16} className="du-contact-icon" />
                         <div className="du-contact-label">Website</div>
                         <a href={websiteHref}
-                           target="_blank" rel="noopener noreferrer" 
-                           className="du-contact-value du-link">
+                          target="_blank" rel="noopener noreferrer"
+                          className="du-contact-value du-link">
                           {profile.website}
                         </a>
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="du-showcase-summary">
                     <div className="du-showcase-panel-head">
                       <FileText size={14} />
@@ -1136,7 +1348,7 @@ export default function Profile() {
                   </div>
                 </div>
               )}
-              
+
               {activeTab === 'professional' && (
                 <div className="du-tab-content du-showcase-professional-info">
                   <div className="du-showcase-top-grid">
@@ -1221,7 +1433,7 @@ export default function Profile() {
                     <div className="du-social-url">
                       {linkedinHref ? (
                         <a href={linkedinHref}
-                           target="_blank" rel="noopener noreferrer">
+                          target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.linkedin}
                         </a>
                       ) : 'Not connected'}
@@ -1232,7 +1444,7 @@ export default function Profile() {
                     <div className="du-social-url">
                       {twitterHref ? (
                         <a href={twitterHref}
-                           target="_blank" rel="noopener noreferrer">
+                          target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.twitter}
                         </a>
                       ) : 'Not connected'}
@@ -1243,7 +1455,7 @@ export default function Profile() {
                     <div className="du-social-url">
                       {portfolioHref ? (
                         <a href={portfolioHref}
-                           target="_blank" rel="noopener noreferrer">
+                          target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.portfolio}
                         </a>
                       ) : 'Not set'}
@@ -1254,7 +1466,7 @@ export default function Profile() {
                     <div className="du-social-url">
                       {dribbbleHref ? (
                         <a href={dribbbleHref}
-                           target="_blank" rel="noopener noreferrer">
+                          target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.dribbble}
                         </a>
                       ) : 'Not connected'}
@@ -1264,33 +1476,71 @@ export default function Profile() {
               )}
 
               {activeTab === 'portfolio' && (
-                <div className="du-tab-content du-portfolio-showcase">
+                <div className={`du-tab-content du-portfolio-showcase is-theme-${profile.profileTheme || 'aurora'}`}>
                   {/* CTA Banner */}
                   <div className="du-portfolio-cta-banner">
                     <div className="du-portfolio-cta-left">
                       <Layout size={20} />
                       <div>
-                        <strong>Generate your public portfolio</strong>
-                        <p>Turn your profile data into a shareable, modern portfolio page in minutes.</p>
+                        <strong>Your Live Portfolio Preview</strong>
+                        <p>Auto-populated from your LinkedIn, GitHub, and resume data. Share your public URL or customize further.</p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="du-portfolio-cta-btn"
-                      onClick={() => navigate('/portfolio-creator', {
-                        state: {
-                          form: {
-                            githubUsername: profile.githubUsername || '',
-                            linkedinUrl: linkedinHref || '',
+                    <div className="du-portfolio-cta-actions">
+                      <a
+                        href={localProfilePath}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="du-copy-btn"
+                        style={{ textDecoration: 'none' }}
+                      >
+                        <ExternalLink size={13} /> Open Public View
+                      </a>
+                      <button
+                        type="button"
+                        className="du-portfolio-cta-btn"
+                        onClick={() => navigate('/portfolio-creator', {
+                          state: {
+                            form: {
+                              githubUsername: profile.githubUsername || '',
+                              linkedinUrl: linkedinHref || '',
+                            },
                           },
-                        },
-                      })}
-                    >
-                      <Sparkles size={14} /> Generate Portfolio →
-                    </button>
+                        })}
+                      >
+                        <Sparkles size={14} /> Customize Portfolio →
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Portfolio Hero */}
                   <div className="du-portfolio-header-premium">
+                    <div className="du-portfolio-hero-avatar">
+                      {profile.avatar_url && !avatarLoadError ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt={`${displayName}'s portrait`}
+                          onError={() => setAvatarLoadError(true)}
+                        />
+                      ) : (
+                        <span>{initial}</span>
+                      )}
+                    </div>
+                    <div className="du-portfolio-hero-badges">
+                      <span className="du-portfolio-hero-badge">
+                        <Sparkles size={12} /> Portfolio
+                      </span>
+                      {profile.company && (
+                        <span className="du-portfolio-hero-badge is-subtle">
+                          <Building size={12} /> {profile.company}
+                        </span>
+                      )}
+                      {profile.yearsOfExperience && (
+                        <span className="du-portfolio-hero-badge is-subtle">
+                          <Award size={12} /> {profile.yearsOfExperience} exp
+                        </span>
+                      )}
+                    </div>
                     <h1 className="du-portfolio-title">{profile.fullName || 'Your Name'}</h1>
                     <h3 className="du-portfolio-role">{roleDisplay}</h3>
                     {profile.location && (
@@ -1298,6 +1548,34 @@ export default function Profile() {
                         <LocationIcon size={14} /> {profile.location}
                       </p>
                     )}
+
+                    <div className="du-portfolio-social-pills">
+                      {linkedinHref && (
+                        <a href={linkedinHref} target="_blank" rel="noopener noreferrer" className="du-portfolio-social-pill">
+                          <Linkedin size={13} /> LinkedIn
+                        </a>
+                      )}
+                      {githubHref && (
+                        <a href={githubHref} target="_blank" rel="noopener noreferrer" className="du-portfolio-social-pill">
+                          <Github size={13} /> GitHub
+                        </a>
+                      )}
+                      {twitterHref && (
+                        <a href={twitterHref} target="_blank" rel="noopener noreferrer" className="du-portfolio-social-pill">
+                          <Twitter size={13} /> Twitter
+                        </a>
+                      )}
+                      {websiteHref && (
+                        <a href={websiteHref} target="_blank" rel="noopener noreferrer" className="du-portfolio-social-pill">
+                          <Globe size={13} /> Website
+                        </a>
+                      )}
+                      {portfolioHref && (
+                        <a href={portfolioHref} target="_blank" rel="noopener noreferrer" className="du-portfolio-social-pill">
+                          <ExternalLink size={13} /> Portfolio
+                        </a>
+                      )}
+                    </div>
                   </div>
 
                   <div className="du-portfolio-body-grid">
@@ -1305,33 +1583,88 @@ export default function Profile() {
                       {profileSummary && (
                         <div className="du-portfolio-section-card">
                           <h4 className="du-portfolio-section-title">
-                            <FileText size={20} /> About Me
+                            <FileText size={18} /> About Me
                           </h4>
                           <p className="du-portfolio-text">{profileSummary}</p>
                         </div>
                       )}
-                      
+
+                      {portfolioProjects.length > 0 && (
+                        <div className="du-portfolio-section-card">
+                          <h4 className="du-portfolio-section-title">
+                            <Code size={18} /> Featured Projects
+                          </h4>
+                          <div className="du-portfolio-projects-grid">
+                            {portfolioProjects.map((proj, idx) => {
+                              const stack = Array.isArray(proj.stack) ? proj.stack : [];
+                              const repoUrl = normalizeExternalUrl(proj.repoUrl);
+                              const liveUrl = normalizeExternalUrl(proj.liveUrl);
+                              const stars = Number(proj.metrics?.stars || 0);
+                              const forks = Number(proj.metrics?.forks || 0);
+                              return (
+                                <article key={proj.id || idx} className="du-portfolio-project-card">
+                                  <div className="du-portfolio-project-head">
+                                    <strong>{proj.name || `Project ${idx + 1}`}</strong>
+                                    <div className="du-portfolio-project-metrics">
+                                      {stars > 0 && <span><Star size={12} /> {stars}</span>}
+                                      {forks > 0 && <span><GitFork size={12} /> {forks}</span>}
+                                    </div>
+                                  </div>
+                                  {proj.description && (
+                                    <p className="du-portfolio-project-desc">{proj.description}</p>
+                                  )}
+                                  {stack.length > 0 && (
+                                    <div className="du-portfolio-project-stack">
+                                      {stack.slice(0, 4).map((tech) => (
+                                        <span key={tech} className="du-portfolio-project-tag">{tech}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {(repoUrl || liveUrl) && (
+                                    <div className="du-portfolio-project-links">
+                                      {repoUrl && (
+                                        <a href={repoUrl} target="_blank" rel="noopener noreferrer">
+                                          <Github size={13} /> Code
+                                        </a>
+                                      )}
+                                      {liveUrl && (
+                                        <a href={liveUrl} target="_blank" rel="noopener noreferrer">
+                                          <ExternalLink size={13} /> Live
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="du-portfolio-section-card">
                         <h4 className="du-portfolio-section-title">
-                          <Briefcase size={20} /> Experience
+                          <Briefcase size={18} /> Experience
                         </h4>
                         {experiencePoints.length ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          <div className="du-portfolio-timeline">
                             {experiencePoints.map((point, idx) => (
                               <div key={idx} className="du-portfolio-exp-item">
+                                <span className="du-portfolio-exp-dot" />
                                 <p className="du-portfolio-exp-text">{point}</p>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="du-portfolio-text" style={{ opacity: 0.6 }}>No experience listed.</p>
+                          <p className="du-portfolio-text" style={{ opacity: 0.6 }}>
+                            No experience listed yet. Add your LinkedIn profile or resume to auto-fill.
+                          </p>
                         )}
                       </div>
-                      
+
                       {profile.education && (
                         <div className="du-portfolio-section-card">
                           <h4 className="du-portfolio-section-title">
-                            <Award size={20} /> Education
+                            <GraduationCap size={18} /> Education
                           </h4>
                           <p className="du-portfolio-text">{profile.education}</p>
                         </div>
@@ -1341,7 +1674,7 @@ export default function Profile() {
                     <div className="du-portfolio-sidebar">
                       <div className="du-portfolio-section-card">
                         <h4 className="du-portfolio-section-title">
-                          <Zap size={20} /> Skills
+                          <Zap size={18} /> Skills &amp; Stack
                         </h4>
                         <div className="du-portfolio-skills-grid">
                           {skillChips.length ? skillChips.map(skill => (
@@ -1352,22 +1685,38 @@ export default function Profile() {
 
                       <div className="du-portfolio-section-card">
                         <h4 className="du-portfolio-section-title">
-                          <Mail size={20} /> Contact
+                          <Mail size={18} /> Contact &amp; Links
                         </h4>
                         <ul className="du-portfolio-contact-list">
                           <li className="du-portfolio-contact-item">
-                            <Mail size={16} /> {emailDisplay}
+                            <Mail size={16} /> <span>{emailDisplay}</span>
                           </li>
                           {profile.phone && (
                             <li className="du-portfolio-contact-item">
-                              <Phone size={16} /> {profile.phone}
+                              <Phone size={16} /> <span>{profile.phone}</span>
                             </li>
                           )}
                           {profile.website && websiteHref && (
                             <li className="du-portfolio-contact-item">
-                              <Link2 size={16} /> 
+                              <Globe size={16} />
                               <a href={websiteHref} target="_blank" rel="noopener noreferrer">
                                 {profile.website}
+                              </a>
+                            </li>
+                          )}
+                          {linkedinHref && (
+                            <li className="du-portfolio-contact-item">
+                              <Linkedin size={16} />
+                              <a href={linkedinHref} target="_blank" rel="noopener noreferrer">
+                                LinkedIn Profile
+                              </a>
+                            </li>
+                          )}
+                          {githubHref && (
+                            <li className="du-portfolio-contact-item">
+                              <Github size={16} />
+                              <a href={githubHref} target="_blank" rel="noopener noreferrer">
+                                @{profile.githubUsername}
                               </a>
                             </li>
                           )}
@@ -1643,7 +1992,7 @@ export default function Profile() {
                 </button>
               )}
             </div>
-            
+
             {!profile.githubUsername ? (
               <>
                 <p className="du-card-subtitle">
@@ -1657,8 +2006,8 @@ export default function Profile() {
                     onChange={(e) => setGithubUsername(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleGithubConnect()}
                   />
-                  <button 
-                    className="du-connect-btn" 
+                  <button
+                    className="du-connect-btn"
                     disabled={!githubUsername.trim() || saving}
                     onClick={handleGithubConnect}
                   >
@@ -1681,9 +2030,9 @@ export default function Profile() {
                     </a>.
                   </p>
                 ) : (
-                  <img 
-                    src={`https://ghchart.rshah.org/2cee91/${encodeURIComponent(profile.githubUsername)}`} 
-                    alt={`${profile.githubUsername}'s Github chart`} 
+                  <img
+                    src={`https://ghchart.rshah.org/2cee91/${encodeURIComponent(profile.githubUsername)}`}
+                    alt={`${profile.githubUsername}'s Github chart`}
                     style={{ width: '100%', maxWidth: '100%' }}
                     onError={() => setGithubChartError(true)}
                   />
@@ -1826,7 +2175,7 @@ export default function Profile() {
               {themeSaving && <small>Saving theme...</small>}
             </label>
           </div>
-          
+
           {/* Quick Stats */}
           <div className="du-card">
             <div className="du-card-header">
@@ -1873,9 +2222,9 @@ export default function Profile() {
       )}
 
       {selectedMatch && (
-        <AIMatchReportModal 
-          jobMatch={selectedMatch} 
-          onClose={() => setSelectedMatch(null)} 
+        <AIMatchReportModal
+          jobMatch={selectedMatch}
+          onClose={() => setSelectedMatch(null)}
         />
       )}
     </div>

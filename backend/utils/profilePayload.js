@@ -145,6 +145,9 @@ const normalizeProfileUpdatePayload = (body = {}) => {
       updates.profile_theme = normalizedTheme;
     }
   }
+  if (typeof body.avatar_url === 'string' && /^https:\/\//i.test(body.avatar_url) && body.avatar_url.length <= 2048) {
+    updates.avatar_url = body.avatar_url;
+  }
   if (socialLinks !== undefined) {
     // Ensure social_links is a valid JSON object
     try {

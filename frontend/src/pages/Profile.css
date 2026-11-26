@@ -12,8 +12,15 @@
 }
 
 @keyframes du-page-enter {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Profile Header Card */
@@ -51,8 +58,13 @@
 }
 
 @keyframes du-header-shimmer {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .du-profile-left {
@@ -430,6 +442,7 @@ a.du-profile-url:hover {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1561,6 +1574,7 @@ a.du-profile-url:hover {
     opacity: 0;
     transform: translateY(12px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1572,6 +1586,7 @@ a.du-profile-url:hover {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+
   to {
     opacity: 0;
     transform: translateY(12px) scale(0.96);
@@ -2146,8 +2161,15 @@ a.du-profile-url:hover {
 }
 
 @keyframes du-fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .du-portfolio-header-premium {
@@ -2479,13 +2501,20 @@ a.du-profile-url:hover {
   border-color: rgba(99, 102, 241, 0.2);
 }
 
-[data-theme="light"] .du-portfolio-cta-left svg { color: #4f46e5; }
-[data-theme="light"] .du-portfolio-cta-left strong { color: #1e293b; }
+[data-theme="light"] .du-portfolio-cta-left svg {
+  color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-cta-left strong {
+  color: #1e293b;
+}
+
 [data-theme="light"] .du-portfolio-cta-btn {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: #fff;
   box-shadow: none;
 }
+
 [data-theme="light"] .du-portfolio-cta-btn:hover {
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }
@@ -2502,4 +2531,384 @@ a.du-profile-url:hover {
   background: rgba(245, 158, 11, 0.14);
   color: #fcd34d;
   border-color: rgba(245, 158, 11, 0.35);
+}
+
+/* LinkedIn ID Auto-Fill Bar & Paste Fallback */
+.du-linkedin-id-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.du-linkedin-id-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.du-linkedin-id-icon {
+  position: absolute;
+  left: 12px;
+  color: #38bdf8;
+  pointer-events: none;
+}
+
+.du-linkedin-id-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f4f5;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.du-linkedin-id-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+.du-linkedin-id-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.du-linkedin-id-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.du-linkedin-id-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.du-linkedin-paste-toggle {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d4d4d8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.du-linkedin-paste-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.du-linkedin-paste-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(14, 165, 233, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.du-linkedin-paste-notice {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #bae6fd;
+}
+
+.du-linkedin-paste-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Enhanced Portfolio View */
+.du-portfolio-cta-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.du-portfolio-hero-avatar {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #031009;
+  background: linear-gradient(135deg, #2cee91, #38bdf8);
+  box-shadow: 0 0 0 4px rgba(44, 238, 145, 0.18), 0 12px 28px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.du-portfolio-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.du-portfolio-hero-badges {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.du-portfolio-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(44, 238, 145, 0.14);
+  color: #2cee91;
+  border: 1px solid rgba(44, 238, 145, 0.25);
+}
+
+.du-portfolio-hero-badge.is-subtle {
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.du-portfolio-social-pills {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.du-portfolio-social-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e4e4e7;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.du-portfolio-social-pill:hover {
+  border-color: rgba(44, 238, 145, 0.45);
+  background: rgba(44, 238, 145, 0.1);
+  color: #2cee91;
+  transform: translateY(-1px);
+}
+
+.du-portfolio-showcase.is-theme-midnight .du-portfolio-header-premium {
+  background: radial-gradient(100% 200% at 50% 0%, rgba(99, 102, 241, 0.22) 0%, rgba(15, 23, 42, 0.92) 100%);
+}
+
+.du-portfolio-showcase.is-theme-midnight .du-portfolio-role {
+  color: #818cf8;
+}
+
+.du-portfolio-showcase.is-theme-sunrise .du-portfolio-header-premium {
+  background: radial-gradient(100% 200% at 50% 0%, rgba(251, 146, 60, 0.22) 0%, rgba(24, 16, 14, 0.92) 100%);
+}
+
+.du-portfolio-showcase.is-theme-sunrise .du-portfolio-role {
+  color: #fb923c;
+}
+
+.du-portfolio-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .du-portfolio-projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.du-portfolio-project-card {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.du-portfolio-project-card:hover {
+  border-color: rgba(44, 238, 145, 0.28);
+  transform: translateY(-2px);
+}
+
+.du-portfolio-project-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.du-portfolio-project-head strong {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.du-portfolio-project-metrics {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.du-portfolio-project-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.du-portfolio-project-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #a1a1aa;
+}
+
+.du-portfolio-project-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.du-portfolio-project-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
+}
+
+.du-portfolio-project-links {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.du-portfolio-project-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2cee91;
+  text-decoration: none;
+}
+
+.du-portfolio-project-links a:hover {
+  text-decoration: underline;
+}
+
+.du-portfolio-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.du-portfolio-exp-item {
+  position: relative;
+  padding-left: 22px;
+}
+
+.du-portfolio-exp-dot {
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2cee91;
+  box-shadow: 0 0 8px rgba(44, 238, 145, 0.6);
+}
+
+[data-theme="light"] .du-linkedin-id-input {
+  background: #fff;
+  color: #1e293b;
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+[data-theme="light"] .du-linkedin-paste-toggle {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #334155;
+}
+
+[data-theme="light"] .du-linkedin-paste-notice {
+  color: #0369a1;
+}
+
+[data-theme="light"] .du-portfolio-hero-badge.is-subtle,
+[data-theme="light"] .du-portfolio-social-pill {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.18);
+  color: #334155;
+}
+
+[data-theme="light"] .du-portfolio-project-card {
+  background: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .du-portfolio-project-head strong {
+  color: #0f172a;
+}
+
+[data-theme="light"] .du-portfolio-project-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .du-portfolio-project-tag {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-project-links a {
+  color: #4f46e5;
 }

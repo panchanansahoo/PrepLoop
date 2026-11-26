@@ -13,6 +13,7 @@ import {
   getUserSettings,
   updateUserSettings,
   updateUserPreferences,
+  getGithubAutofillProfile,
   deleteUserAccount,
   isProfilesAccessBlocked,
 } from "../../services/profileService.ts";
@@ -125,6 +126,25 @@ router.post("/profile/claim-url", authenticateToken, async (req, res) => {
       return res.status(error.status).json({ error: error.message });
     }
     return res.status(500).json({ error: "Failed to claim custom_url" });
+  }
+});
+
+/**
+ * POST /api/user/profile/github-autofill
+ * Fetches public GitHub profile & top repositories to auto-fill blank profile fields
+ */
+router.post("/profile/github-autofill", authenticateToken, async (req, res) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: "User not authenticated" });
+    const rawUsername = req.body?.githubUsername ?? req.body?.username ?? '';
+    const result = await getGithubAutofillProfile(rawUsername);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("GitHub autofill error:", error);
+    if (error.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    return res.status(500).json({ error: "Failed to fetch GitHub profile" });
   }
 });
 

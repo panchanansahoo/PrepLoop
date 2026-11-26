@@ -1008,6 +1008,11 @@ router.post('/import-linkedin', authenticateToken, uploadEndpointsLimiter, resum
   try {
     let text = '';
 
+    const {
+      parseLinkedinExportText,
+      fetchLinkedinProfileById,
+    } = await import('../services/portfolioLinkedinService.js');
+
     // 1. Handle PDF upload
     if (req.file) {
       if (req.file.mimetype === 'application/pdf') {
@@ -1017,38 +1022,64 @@ router.post('/import-linkedin', authenticateToken, uploadEndpointsLimiter, resum
         text = req.file.buffer.toString('utf-8');
       }
     }
-    // 2. Handle username input (not supported without scraping API)
-    else if (req.body.linkedinUsername) {
-      return res.status(400).json({
-        error: 'Direct username import is unavailable. Please leave the input blank and click "Go" to upload your LinkedIn Profile PDF.'
+    // 2. Handle pasted LinkedIn profile export text
+    else if (req.body.exportText && String(req.body.exportText).trim()) {
+      text = String(req.body.exportText).slice(0, 15000);
+    }
+    // 3. Handle LinkedIn user ID / profile URL
+    else if (req.body.linkedinUsername || req.body.linkedinId || req.body.linkedinUrl) {
+      const rawLinkedin = req.body.linkedinUsername || req.body.linkedinId || req.body.linkedinUrl;
+      const result = await fetchLinkedinProfileById(rawLinkedin);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
+      }
+      if (result.available) {
+        return res.json({
+          success: true,
+          imported: true,
+          fallbackRequired: false,
+          slug: result.slug,
+          linkedinUrl: result.linkedinUrl,
+          profileData: result.profileData,
+          message: 'LinkedIn profile imported successfully',
+        });
+      }
+      return res.json({
+        success: true,
+        imported: false,
+        fallbackRequired: true,
+        reason: result.reason,
+        slug: result.slug,
+        linkedinUrl: result.linkedinUrl,
+        profileData: result.profileData,
+        message: 'LinkedIn ID linked! LinkedIn blocks direct lookups without an API provider—paste your LinkedIn profile text or upload your LinkedIn PDF to auto-fill all sections.',
       });
     }
-    // 3. Fallback if profileData is provided by some other client
+    // 4. Fallback if profileData is provided by some other client
     else if (req.body.profileData) {
       const extractedData = normalizeLinkedinImportProfile(req.body.profileData);
       if (!hasImportableProfileData(extractedData)) {
         return res.status(400).json({ error: 'No importable LinkedIn profile fields were provided.' });
       }
-      return res.json({ success: true, profileData: extractedData, message: 'LinkedIn data extracted successfully' });
+      return res.json({ success: true, imported: true, profileData: extractedData, message: 'LinkedIn data extracted successfully' });
     } else {
-      return res.status(400).json({ error: 'Please upload a LinkedIn profile PDF or provide profileData.' });
+      return res.status(400).json({ error: 'Please provide a LinkedIn ID/URL, paste profile text, or upload a LinkedIn profile PDF.' });
     }
 
-    // Process the extracted text using the existing portfolio parser logic, or a simple heuristic
+    // Process the extracted text using the portfolio LinkedIn parser
     if (text) {
-      // Dynamic import to avoid circular dependency or missing module issues if placed at top
-      const { parseLinkedinExportText } = await import('../services/portfolioLinkedinService.js');
       const parsed = parseLinkedinExportText(text.slice(0, 15000));
       const extractedData = normalizeLinkedinImportProfile(parsed || {});
 
       if (!hasImportableProfileData(extractedData)) {
-        return res.status(400).json({ error: 'Could not extract profile fields from the provided LinkedIn PDF.' });
+        return res.status(400).json({ error: 'Could not extract profile fields from the provided LinkedIn data.' });
       }
 
       return res.json({
         success: true,
+        imported: true,
         profileData: extractedData,
-        message: 'LinkedIn PDF parsed successfully'
+        message: 'LinkedIn data parsed successfully'
       });
     }
 

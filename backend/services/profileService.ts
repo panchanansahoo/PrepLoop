@@ -4,6 +4,8 @@ import { buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
 import { normalizeProfileUpdatePayload } from '../utils/profilePayload.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { isAdminEmail, invalidateUserRole } from '../middleware/auth.ts';
+import { fetchGithubPortfolioData } from './portfolioGithubService.js';
+import { scoreRepositoryVisibility } from './portfolioProfileNormalizerService.js';
 import type {
   PublicPortfolio,
   SettingsCodeEditor,
@@ -947,6 +949,112 @@ export const updateUserPreferences = async (userId: string, preferences: { exper
   return { success: true, message: 'Preferences saved' };
 };
 
+/**
+ * Fetches public GitHub profile & top repositories to auto-fill blank user profile fields.
+ */
+export const getGithubAutofillProfile = async (rawHandle: string) => {
+  let handle = String(rawHandle || '').trim();
+  if (/^https?:\/\//i.test(handle) || handle.includes('github.com')) {
+    try {
+      const parsed = new URL(/^https?:\/\//i.test(handle) ? handle : `https://${handle}`);
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts.length > 0) handle = parts[0];
+    } catch (_e) {
+      // fallback to trimmed string
+    }
+  }
+  handle = handle.replace(/^@+/, '');
+
+  if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(handle)) {
+    const error: any = new Error('Please enter a valid GitHub username or profile URL.');
+    error.status = 400;
+    throw error;
+  }
+
+  let githubData: any;
+  try {
+    githubData = await fetchGithubPortfolioData(handle, { includeReadmes: false, perPage: 30 });
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    const status = msg.includes('(404)') ? 404 : 502;
+    const error: any = new Error(
+      status === 404
+        ? `GitHub user "${handle}" was not found.`
+        : 'Could not fetch GitHub profile details right now.'
+    );
+    error.status = status;
+    throw error;
+  }
+
+  const ghProfile = githubData?.profile || {};
+  const repos = Array.isArray(githubData?.repositories) ? githubData.repositories : [];
+
+  const nonForkRepos = repos.filter((r: any) => !r.fork);
+  const candidateRepos = nonForkRepos.length > 0 ? nonForkRepos : repos;
+
+  const rankedProjects = candidateRepos
+    .map((repo: any) => ({
+      id: String(repo.id || repo.name),
+      name: repo.name,
+      description: repo.description || '',
+      stack: Array.from(new Set([repo.language, ...(Array.isArray(repo.topics) ? repo.topics : [])].filter(Boolean))).slice(0, 5),
+      repoUrl: repo.html_url || '',
+      liveUrl: repo.homepage || '',
+      visibilityScore: scoreRepositoryVisibility(repo),
+      metrics: {
+        stars: Number(repo.stargazers_count || 0),
+        forks: Number(repo.forks_count || 0),
+      },
+    }))
+    .sort((a: any, b: any) => b.visibilityScore - a.visibilityScore)
+    .slice(0, 6);
+
+  const skillCounts = new Map<string, number>();
+  for (const repo of candidateRepos) {
+    if (repo.language) {
+      const lang = String(repo.language).trim();
+      skillCounts.set(lang, (skillCounts.get(lang) || 0) + 2);
+    }
+    if (Array.isArray(repo.topics)) {
+      for (const topic of repo.topics) {
+        const cleanTopic = String(topic || '').trim();
+        if (cleanTopic) {
+          skillCounts.set(cleanTopic, (skillCounts.get(cleanTopic) || 0) + 1);
+        }
+      }
+    }
+  }
+  const topSkills = Array.from(skillCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([name]) => name);
+
+  const cleanCompany = String(ghProfile.company || '').trim().replace(/^@+/, '');
+  const rawWebsite = String(ghProfile.blog || '').trim();
+  const website = rawWebsite && !/^https?:\/\//i.test(rawWebsite) ? `https://${rawWebsite}` : rawWebsite;
+
+  return {
+    githubUsername: ghProfile.login || handle,
+    profileData: {
+      githubUsername: ghProfile.login || handle,
+      fullName: String(ghProfile.name || '').trim(),
+      bio: String(ghProfile.bio || '').trim(),
+      company: cleanCompany,
+      location: String(ghProfile.location || '').trim(),
+      website,
+      avatar_url: String(ghProfile.avatar_url || '').trim(),
+      twitter: String(ghProfile.twitter_username || '').trim(),
+      skills: topSkills.join(', '),
+      projects: rankedProjects,
+    },
+    openSource: {
+      publicRepos: Number(ghProfile.public_repos || repos.length || 0),
+      followers: Number(ghProfile.followers || 0),
+      stars: repos.reduce((sum: number, repo: any) => sum + Number(repo.stargazers_count || 0), 0),
+    },
+  };
+};
+
 export default {
   hasText,
   isProfilesAccessBlocked,
@@ -962,6 +1070,7 @@ export default {
   getUserSettings,
   updateUserSettings,
   updateUserPreferences,
+  getGithubAutofillProfile,
   deleteUserAccount,
   PROFILE_COMPLETION_COIN_REWARD,
 };
