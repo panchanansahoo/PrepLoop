@@ -10,6 +10,7 @@ import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
 import {
   buildInitialProfile,
+  fillLinkedinBlanks,
   normalizeProfileData,
   buildProfilePayload,
   splitSkillChips,
@@ -1194,14 +1195,14 @@ export default function Profile() {
                   onKeyDown={(e) => e.key === 'Enter' && handleLinkedinIdImport()}
                   placeholder="Enter LinkedIn user ID or URL (e.g. john-doe)"
                   aria-label="LinkedIn user ID or profile URL"
-                  disabled={!profileReady || linkedinImporting}
+                  disabled={linkedinImporting}
                 />
               </div>
               <button
                 type="button"
                 className="du-linkedin-id-btn"
                 onClick={handleLinkedinIdImport}
-                disabled={!profileReady || linkedinImporting || !linkedinInput.trim()}
+                disabled={linkedinImporting || !linkedinInput.trim()}
               >
                 <Sparkles size={14} />
                 {linkedinImporting ? 'Importing...' : 'Auto-Fill from LinkedIn ID'}
@@ -1210,7 +1211,7 @@ export default function Profile() {
                 type="button"
                 className="du-linkedin-paste-toggle"
                 onClick={() => setShowLinkedinPaste((prev) => !prev)}
-                disabled={!profileReady || linkedinImporting}
+                disabled={linkedinImporting}
               >
                 {showLinkedinPaste ? 'Hide Paste Box' : 'Paste LinkedIn Text'}
               </button>
