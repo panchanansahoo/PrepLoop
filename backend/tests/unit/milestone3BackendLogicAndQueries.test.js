@@ -321,7 +321,8 @@ describe('Milestone 3: Backend Business Logic, Queries & Regression Tests Suite'
       const code = readBackend('routes/practice.js');
       expect(code).toMatch(/const\s+parsedCount\s*=\s*Math\.min\(50,\s*Math\.max\(1,\s*parseInt\(count,\s*10\)\s*\|\|\s*5\)\)/);
       expect(code).toMatch(/const\s+parsedDuration\s*=\s*Math\.min\(180,\s*Math\.max\(5,\s*parseInt\(duration,\s*10\)\s*\|\|\s*30\)\)/);
-      expect(code).toMatch(/const\s+selected\s*=\s*shuffled\.slice\(0,\s*parsedCount\)/);
+      expect(code).toMatch(/count:\s*parsedCount/);
+      expect(code).toMatch(/\.slice\(0,\s*count\)/);
       expect(code).toMatch(/duration:\s*parsedDuration/);
     });
 
