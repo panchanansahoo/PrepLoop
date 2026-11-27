@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -20,6 +20,66 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const JOB_TYPES = ["All", "Full-time", "Remote", "Internship", "Contract"];
+const PAGE_LIMIT = 50;
+const SEARCH_DEBOUNCE_MS = 350;
+
+function extractJobsList(data) {
+    if (Array.isArray(data)) return data;
+    return data?.jobs || data?.data || data?.results || [];
+}
+
+function getJobKey(job, fallbackIndex) {
+    if (job?.id != null) return String(job.id);
+    const title = (job?.title || job?.jobTitle || "").trim().toLowerCase();
+    const company = (job?.company || job?.companyName || "").trim().toLowerCase();
+    const location = (job?.location || job?.jobLocation || "").trim().toLowerCase();
+    if (title || company) return `${title}:${company}:${location}`;
+    return `idx:${fallbackIndex}`;
+}
+
+function mergeUniqueJobs(existing, incoming) {
+    const seen = new Set();
+    const merged = [];
+    for (const list of [existing, incoming]) {
+        for (let i = 0; i < list.length; i += 1) {
+            const job = list[i];
+            const key = getJobKey(job, merged.length);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(job);
+        }
+    }
+    return merged;
+}
+
+function computeHasMore(data, nextPage, mergedCount, pageCount) {
+    if (pageCount === 0) return false;
+    if (typeof data?.totalPages === "number") {
+        return nextPage < data.totalPages;
+    }
+    if (typeof data?.total === "number") {
+        return mergedCount < data.total;
+    }
+    if (typeof data?.pagination?.hasMore === "boolean") {
+        return data.pagination.hasMore;
+    }
+    return pageCount >= PAGE_LIMIT;
+}
+
+function buildJobsQueryParams({ targetPage = 1, searchQuery = "", selectedType = "All" } = {}) {
+    const params = {
+        page: targetPage,
+        limit: PAGE_LIMIT,
+    };
+    const trimmed = String(searchQuery || "").trim();
+    if (trimmed) {
+        params.search = trimmed;
+    }
+    if (selectedType && selectedType !== "All") {
+        params.type = selectedType.toLowerCase();
+    }
+    return params;
+}
 
 function JobCard({ job, onApply }) {
     const applyUrl =
@@ -98,58 +158,110 @@ function JobCard({ job, onApply }) {
 export default function JobsScreen() {
     const insets = useSafeAreaInsets();
     const [jobs, setJobs] = useState([]);
-    const [filtered, setFiltered] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState("All");
-
-    async function loadJobs() {
-        try {
-            setError("");
-            const data = await jobsApi.getJobs({ limit: 50 });
-            const list = Array.isArray(data)
-                ? data
-                : data.jobs || data.data || data.results || [];
-            setJobs(list);
-            setFiltered(list);
-        } catch (err) {
-            setError(err?.response?.data?.message || "Failed to load jobs.");
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const requestSeqRef = useRef(0);
+    const jobsRef = useRef([]);
 
     useEffect(() => {
-        loadJobs();
-    }, []);
+        if (!search.trim()) {
+            setDebouncedSearch("");
+            return undefined;
+        }
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    const loadJobs = useCallback(
+        async ({
+            targetPage = 1,
+            append = false,
+            searchQuery = debouncedSearch,
+            selectedType = typeFilter,
+            isRefresh = false,
+        } = {}) => {
+            const reqId = ++requestSeqRef.current;
+            try {
+                if (!append && !isRefresh) setLoading(true);
+                if (append) setLoadingMore(true);
+                setError("");
+
+                const params = buildJobsQueryParams({
+                    targetPage,
+                    searchQuery,
+                    selectedType,
+                });
+
+                const data = await jobsApi.getJobs(params);
+                if (reqId !== requestSeqRef.current) return;
+
+                const list = extractJobsList(data);
+                const nextJobs = append ? mergeUniqueJobs(jobsRef.current, list) : list;
+                jobsRef.current = nextJobs;
+                setJobs(nextJobs);
+                setHasMore(
+                    computeHasMore(
+                        data,
+                        targetPage,
+                        nextJobs.length,
+                        list.length,
+                    ),
+                );
+                setPage(targetPage);
+            } catch (err) {
+                if (reqId !== requestSeqRef.current) return;
+                setError(
+                    err?.response?.data?.message ||
+                        err?.response?.data?.error ||
+                        "Failed to load jobs.",
+                );
+            } finally {
+                if (reqId === requestSeqRef.current) {
+                    setLoading(false);
+                    setLoadingMore(false);
+                    setRefreshing(false);
+                }
+            }
+        },
+        [debouncedSearch, typeFilter],
+    );
 
     useEffect(() => {
-        let result = jobs;
-        if (typeFilter !== "All") {
-            const tf = typeFilter.toLowerCase();
-            result = result.filter((j) =>
-                tf === "remote"
-                    ? Boolean(j.is_remote) ||
-                      j.type?.toLowerCase().includes("remote") ||
-                      j.location?.toLowerCase().includes("remote")
-                    : j.type?.toLowerCase().includes(tf),
-            );
-        }
-        if (search.trim()) {
-            const q = search.toLowerCase();
-            result = result.filter(
-                (j) =>
-                    (j.title || j.jobTitle || "").toLowerCase().includes(q) ||
-                    (j.company || j.companyName || "")
-                        .toLowerCase()
-                        .includes(q),
-            );
-        }
-        setFiltered(result);
-    }, [jobs, search, typeFilter]);
+        loadJobs({
+            targetPage: 1,
+            append: false,
+            searchQuery: debouncedSearch,
+            selectedType: typeFilter,
+        });
+    }, [debouncedSearch, typeFilter, loadJobs]);
+
+    const handleLoadMore = useCallback(() => {
+        if (loading || loadingMore || refreshing || !hasMore) return;
+        loadJobs({
+            targetPage: page + 1,
+            append: true,
+            searchQuery: debouncedSearch,
+            selectedType: typeFilter,
+        });
+    }, [
+        loading,
+        loadingMore,
+        refreshing,
+        hasMore,
+        page,
+        debouncedSearch,
+        typeFilter,
+        loadJobs,
+    ]);
 
     async function handleApply(url) {
         try {
@@ -161,8 +273,6 @@ export default function JobsScreen() {
             );
         }
     }
-
-    if (loading) return <LoadingSpinner fullScreen message="Loading jobs..." />;
 
     return (
         <View style={styles.container}>
@@ -221,8 +331,20 @@ export default function JobsScreen() {
             </View>
 
             {error ? (
-                <ErrorMessage message={error} onRetry={loadJobs} />
-            ) : filtered.length === 0 ? (
+                <ErrorMessage
+                    message={error}
+                    onRetry={() =>
+                        loadJobs({
+                            targetPage: 1,
+                            append: false,
+                            searchQuery: debouncedSearch,
+                            selectedType: typeFilter,
+                        })
+                    }
+                />
+            ) : loading ? (
+                <LoadingSpinner message="Loading jobs..." />
+            ) : jobs.length === 0 ? (
                 <EmptyState
                     emoji="🔍"
                     title="No jobs found"
@@ -230,19 +352,32 @@ export default function JobsScreen() {
                 />
             ) : (
                 <FlatList
-                    data={filtered}
-                    keyExtractor={(item, i) => item.id?.toString() || String(i)}
+                    data={jobs}
+                    keyExtractor={(item, i) => getJobKey(item, i)}
                     renderItem={({ item }) => (
                         <JobCard job={item} onApply={handleApply} />
                     )}
                     contentContainerStyle={styles.list}
                     showsVerticalScrollIndicator={false}
+                    onEndReached={handleLoadMore}
+                    onEndReachedThreshold={0.4}
+                    ListFooterComponent={
+                        loadingMore ? (
+                            <LoadingSpinner message="Loading more jobs..." />
+                        ) : null
+                    }
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={() => {
                                 setRefreshing(true);
-                                loadJobs();
+                                loadJobs({
+                                    targetPage: 1,
+                                    append: false,
+                                    searchQuery: debouncedSearch,
+                                    selectedType: typeFilter,
+                                    isRefresh: true,
+                                });
                             }}
                             tintColor={colors.primary}
                             colors={[colors.primary]}

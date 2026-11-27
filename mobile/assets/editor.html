@@ -21,6 +21,8 @@
             color: #A0ADB8;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 14px;
+            text-align: center;
+            width: 80%;
         }
 
         .spinner {
@@ -46,109 +48,135 @@
     <div id="container"></div>
 
     <script>
+        var editorReady = false;
+        var loadFailed = false;
+
         // Send messages back to React Native
         function sendMessage(type, payload) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type, payload }));
+            if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, payload: payload }));
+            }
         }
 
+        function reportEditorLoadError(message) {
+            if (editorReady || loadFailed) return;
+            loadFailed = true;
+            var loadingEl = document.getElementById('loading');
+            if (loadingEl) {
+                loadingEl.style.display = 'block';
+                loadingEl.textContent = message || 'Unable to load code editor.';
+            }
+            sendMessage('ERROR', {
+                message: message || 'Unable to load code editor. Please check your connection and retry.',
+                code: 'EDITOR_LOAD_FAILED',
+            });
+        }
+        window.reportEditorLoadError = reportEditorLoadError;
+
         // Catch global errors
-        window.onerror = function(message, source, lineno, colno, error) {
-            sendMessage('ERROR', { message });
+        window.onerror = function(message) {
+            if (!editorReady) {
+                reportEditorLoadError(typeof message === 'string' ? message : 'Failed to load code editor.');
+            } else {
+                sendMessage('ERROR', { message: message });
+            }
         };
+
+        var loadTimeout = setTimeout(function() {
+            if (!editorReady) {
+                reportEditorLoadError('Editor took too long to load. Check your connection and retry.');
+            }
+        }, 10000);
     </script>
 
     <!-- Load Monaco Editor from CDN -->
-    <script src="https://unpkg.com/monaco-editor@0.36.1/min/vs/loader.js"></script>
+    <script
+        src="https://unpkg.com/monaco-editor@0.36.1/min/vs/loader.js"
+        onerror="window.reportEditorLoadError('Editor script failed to load from CDN. Check your connection and retry.')"
+    ></script>
     <script>
-        require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@0.36.1/min/vs' } });
+        if (typeof require === 'undefined') {
+            reportEditorLoadError('Editor loader is unavailable. Check your connection and retry.');
+        } else {
+            require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@0.36.1/min/vs' } });
 
-        require(['vs/editor/editor.main'], function() {
-            // Hide loading indicator
-            document.getElementById('loading').style.display = 'none';
+            require(['vs/editor/editor.main'], function() {
+                editorReady = true;
+                clearTimeout(loadTimeout);
+                document.getElementById('loading').style.display = 'none';
 
-            // Define custom Preploop Dark theme
-            monaco.editor.defineTheme('preploop-dark', {
-                base: 'vs-dark',
-                inherit: true,
-                rules: [
-                    { background: '0F0F1A' },
-                    { token: 'comment', foreground: '64748b', fontStyle: 'italic' },
-                    { token: 'keyword', foreground: 'c586c0' },
-                    { token: 'string', foreground: 'ce9178' },
-                ],
-                colors: {
-                    'editor.background': '#0F0F1A',
-                    'editor.lineHighlightBackground': '#1A1A2E',
-                    'editorLineNumber.foreground': '#475569',
-                    'editorIndentGuide.background': '#1e293b',
-                    'editor.selectionBackground': '#264f78',
-                }
-            });
-
-            // Initialize editor
-            window.editor = monaco.editor.create(document.getElementById('container'), {
-                value: '// Start coding here...',
-                language: 'javascript',
-                theme: 'preploop-dark',
-                automaticLayout: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                fontSize: 14,
-                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-                lineHeight: 22,
-                padding: { top: 16, bottom: 16 },
-                wordWrap: 'on',
-                renderLineHighlight: 'all',
-                hideCursorInOverviewRuler: true,
-                scrollbar: {
-                    verticalScrollbarSize: 6,
-                    horizontalScrollbarSize: 6
-                }
-            });
-
-            // Notify RN that editor is ready
-            sendMessage('READY', null);
-
-            // Listen for content changes and send to RN
-            window.editor.onDidChangeModelContent(function() {
-                const value = window.editor.getValue();
-                sendMessage('CHANGE', { code: value });
-            });
-
-            // Handle messages from React Native
-            document.addEventListener('message', function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'SET_CODE') {
-                        if (window.editor.getValue() !== data.payload.code) {
-                            window.editor.setValue(data.payload.code);
-                        }
-                    } else if (data.type === 'SET_LANGUAGE') {
-                        monaco.editor.setModelLanguage(window.editor.getModel(), data.payload.language);
+                // Define custom Preploop Dark theme
+                monaco.editor.defineTheme('preploop-dark', {
+                    base: 'vs-dark',
+                    inherit: true,
+                    rules: [
+                        { background: '0F0F1A' },
+                        { token: 'comment', foreground: '64748b', fontStyle: 'italic' },
+                        { token: 'keyword', foreground: 'c586c0' },
+                        { token: 'string', foreground: 'ce9178' },
+                    ],
+                    colors: {
+                        'editor.background': '#0F0F1A',
+                        'editor.lineHighlightBackground': '#1A1A2E',
+                        'editorLineNumber.foreground': '#475569',
+                        'editorIndentGuide.background': '#1e293b',
+                        'editor.selectionBackground': '#264f78',
                     }
-                } catch (e) {
-                    sendMessage('ERROR', { message: 'Failed to parse message from RN' });
-                }
-            });
-            
-            // iOS window.postMessage compatibility
-            window.addEventListener('message', function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'SET_CODE') {
-                        if (window.editor.getValue() !== data.payload.code) {
-                            window.editor.setValue(data.payload.code);
-                        }
-                    } else if (data.type === 'SET_LANGUAGE') {
-                        monaco.editor.setModelLanguage(window.editor.getModel(), data.payload.language);
+                });
+
+                // Initialize editor
+                window.editor = monaco.editor.create(document.getElementById('container'), {
+                    value: '// Start coding here...',
+                    language: 'javascript',
+                    theme: 'preploop-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 14,
+                    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                    lineHeight: 22,
+                    padding: { top: 16, bottom: 16 },
+                    wordWrap: 'on',
+                    renderLineHighlight: 'all',
+                    hideCursorInOverviewRuler: true,
+                    scrollbar: {
+                        verticalScrollbarSize: 6,
+                        horizontalScrollbarSize: 6
                     }
-                } catch (e) {
-                    // Ignore non-JSON messages (like webpack HMR)
+                });
+
+                // Notify RN that editor is ready
+                sendMessage('READY', null);
+
+                // Listen for content changes and send to RN
+                window.editor.onDidChangeModelContent(function() {
+                    var value = window.editor.getValue();
+                    sendMessage('CHANGE', { code: value });
+                });
+
+                function handleHostMessage(event) {
+                    try {
+                        var data = JSON.parse(event.data);
+                        if (data.type === 'SET_CODE') {
+                            if (window.editor.getValue() !== data.payload.code) {
+                                window.editor.setValue(data.payload.code);
+                            }
+                        } else if (data.type === 'SET_LANGUAGE') {
+                            monaco.editor.setModelLanguage(window.editor.getModel(), data.payload.language);
+                        }
+                    } catch (e) {
+                        // Ignore non-JSON messages
+                    }
                 }
+
+                // Handle messages from React Native (Android & iOS)
+                document.addEventListener('message', handleHostMessage);
+                window.addEventListener('message', handleHostMessage);
+            }, function() {
+                clearTimeout(loadTimeout);
+                reportEditorLoadError('Failed to load editor modules from CDN. Check your connection and retry.');
             });
-        });
+        }
     </script>
 </body>
 </html>

@@ -15,7 +15,10 @@ export default function AptitudeResults() {
         questions = [],
         answers = {},
         totalTime = 0,
+        questionTimes = {},
         mode = 'practice',
+        difficulty = 'all',
+        count = null,
         correct = 0,
         attempted = 0,
         total = 0,
@@ -50,12 +53,20 @@ export default function AptitudeResults() {
     const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
     const _score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
     const totalPoints = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + (q.xp || 10), 0);
-    const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
+    const summedQuestionTime = Object.values(questionTimes || {}).reduce(
+        (sum, val) => sum + (Number.isFinite(Number(val)) ? Number(val) : 0),
+        0
+    );
+    const effectiveTotalTime = totalTime > 0 ? totalTime : summedQuestionTime;
+    const rawAvgTime = attempted > 0 ? effectiveTotalTime / attempted : 0;
+    const avgTime = rawAvgTime > 0 && rawAvgTime < 1 ? Number(rawAvgTime.toFixed(1)) : Math.round(rawAvgTime);
     const skipped = total - attempted;
 
     const formatTime = (s) => {
-        const m = Math.floor(s / 60);
-        const sec = s % 60;
+        if (s > 0 && s < 1) return `${Number(s.toFixed(1))}s`;
+        const rounded = Math.round(s);
+        const m = Math.floor(rounded / 60);
+        const sec = rounded % 60;
         return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
     };
 
@@ -107,7 +118,7 @@ export default function AptitudeResults() {
                     }}>
                         {[
                             { label: 'Accuracy', value: `${accuracy}%`, icon: <Target size={16} />, color: '#818cf8' },
-                            { label: 'Time', value: formatTime(totalTime), icon: <Clock size={16} />, color: '#22d3ee' },
+                            { label: 'Time', value: formatTime(effectiveTotalTime), icon: <Clock size={16} />, color: '#22d3ee' },
                             { label: 'Points Earned', value: `+${totalPoints}`, icon: <Zap size={16} />, color: '#facc15' },
                             { label: 'Attempted', value: `${attempted}/${total}`, icon: <BarChart3 size={16} />, color: '#34d399' },
                             { label: 'Skipped', value: skipped, icon: <ArrowRight size={16} />, color: '#f87171' },
@@ -163,12 +174,38 @@ export default function AptitudeResults() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' }}>
-                    <button onClick={() => navigate(`/aptitude/practice/${category}?sub=${subcategory || ''}&mode=${mode}&difficulty=all`)}
-                        className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (subcategory) params.set('sub', subcategory);
+                            if (mode) params.set('mode', mode);
+                            if (difficulty) params.set('difficulty', difficulty);
+                            const effectiveCount = count || (questions.length > 0 ? questions.length : total);
+                            if (effectiveCount > 0) params.set('count', String(effectiveCount));
+                            navigate(`/aptitude/practice/${category}?${params.toString()}`, {
+                                state: {
+                                    retryQuestions: questions,
+                                    retryId: Date.now(),
+                                    negativeMarking,
+                                },
+                            });
+                        }}
+                        className="btn btn-outline"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
                         <RotateCcw size={16} /> Retry Same Set
                     </button>
-                    <button onClick={() => navigate(`/aptitude/practice/${category}?mode=${mode}&difficulty=hard`)}
-                        className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: '#f87171', color: '#f87171' }}>
+                    <button
+                        onClick={() => {
+                            const params = new URLSearchParams();
+                            if (subcategory) params.set('sub', subcategory);
+                            if (mode) params.set('mode', mode);
+                            params.set('difficulty', 'hard');
+                            navigate(`/aptitude/practice/${category}?${params.toString()}`);
+                        }}
+                        className="btn btn-outline"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: '#f87171', color: '#f87171' }}
+                    >
                         <TrendingUp size={16} /> Try Harder Set
                     </button>
                     <Link to="/aptitude" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

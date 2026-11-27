@@ -14,19 +14,37 @@ router.get("/learning-paths", authenticateToken, (_req, res) => {
   }
 });
 
-router.get("/learning-paths/:pathId", authenticateToken, (req, res) => {
+router.get("/learning-paths/:pathId", authenticateToken, async (req, res) => {
   try {
     const { pathId } = req.params;
     const pathData = LearningPathService.getPathDetail(pathId);
 
-    if (!pathData) {
-      return res.status(404).json({ error: "Learning path not found" });
+    if (pathData) {
+      return res.json(pathData);
     }
 
-    res.json(pathData);
+    const topicProgress = await LearningPathService.getTopicProgress(pathId, req.user?.id);
+    if (topicProgress) {
+      return res.json(topicProgress);
+    }
+
+    return res.status(404).json({ error: "Learning path not found" });
   } catch (error) {
     console.error("Error fetching learning path:", error);
     res.status(500).json({ error: "Failed to fetch learning path" });
+  }
+});
+
+router.post("/learning-paths/:topicId/complete", authenticateToken, async (req, res) => {
+  try {
+    const result = await LearningPathService.markTopicComplete(req.user.id, req.params.topicId);
+    if (!result) {
+      return res.status(404).json({ error: "Topic not found" });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error("Error completing learning topic:", error);
+    res.status(500).json({ error: "Failed to mark topic complete" });
   }
 });
 
@@ -83,6 +101,32 @@ router.get("/learning-path/ai", optionalAuth, async (req, res) => {
   } catch (error) {
     console.error("Error fetching AI learning path:", error);
     res.status(500).json({ error: "Failed to fetch learning path" });
+  }
+});
+
+router.get("/learning-path/:track", optionalAuth, async (req, res) => {
+  try {
+    const trackData = await LearningPathService.getTrackPathWithProgress(req.params.track, req.user?.id);
+    if (!trackData) {
+      return res.status(404).json({ error: "Learning track not found" });
+    }
+    res.json(trackData);
+  } catch (error) {
+    console.error("Error fetching learning track:", error);
+    res.status(500).json({ error: "Failed to fetch learning track" });
+  }
+});
+
+router.get("/learning-path/:track/module/:topicId", optionalAuth, async (req, res) => {
+  try {
+    const module = await LearningPathService.getTrackModule(req.params.track, req.params.topicId, req.user?.id);
+    if (!module) {
+      return res.status(404).json({ error: "Topic not found" });
+    }
+    res.json(module);
+  } catch (error) {
+    console.error("Error fetching learning topic:", error);
+    res.status(500).json({ error: "Failed to fetch topic" });
   }
 });
 

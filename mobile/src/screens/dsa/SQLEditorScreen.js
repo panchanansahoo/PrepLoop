@@ -9,6 +9,7 @@ import {
     Platform,
     Alert,
     ScrollView,
+    TextInput,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { Asset } from "expo-asset";
@@ -30,7 +31,10 @@ export default function SQLEditorScreen({ route, navigation }) {
     const [loadError, setLoadError] = useState("");
     const [htmlContent, setHtmlContent] = useState("");
     const [activeTab, setActiveTab] = useState("description"); // 'description', 'schema', 'editor', 'result'
-    
+    const [editorStatus, setEditorStatus] = useState("loading"); // 'loading' | 'ready' | 'error'
+    const [editorError, setEditorError] = useState("");
+    const [editorReloadKey, setEditorReloadKey] = useState(0);
+
     const webViewRef = useRef(null);
     
     // Load local HTML asset
@@ -94,16 +98,43 @@ export default function SQLEditorScreen({ route, navigation }) {
         }));
     }, [code]);
     
+    useEffect(() => {
+        if (activeTab !== "editor") {
+            if (editorStatus === "ready") {
+                setEditorStatus("loading");
+            }
+            return undefined;
+        }
+        if (editorStatus !== "loading") return undefined;
+
+        const timer = setTimeout(() => {
+            setEditorStatus("error");
+            setEditorError("Editor took too long to load. Check your connection and retry.");
+        }, 12000);
+        return () => clearTimeout(timer);
+    }, [activeTab, editorStatus, editorReloadKey]);
+
+    const handleRetryEditor = () => {
+        setEditorError("");
+        setEditorStatus("loading");
+        setEditorReloadKey((k) => k + 1);
+    };
+
     const onMessage = (event) => {
         try {
             const data = JSON.parse(event.nativeEvent.data);
             
             if (data.type === "READY") {
+                setEditorStatus("ready");
+                setEditorError("");
                 syncEditorState();
             } else if (data.type === "CHANGE") {
                 setCode(data.payload.code);
             } else if (data.type === "ERROR") {
-                console.warn("Editor Error:", data.payload.message);
+                const msg = data.payload?.message || "Failed to load query editor.";
+                console.warn("Editor Error:", msg);
+                setEditorStatus("error");
+                setEditorError(msg);
             }
         } catch (e) {
             console.error("Failed to parse WebView message", e);
@@ -259,22 +290,55 @@ export default function SQLEditorScreen({ route, navigation }) {
                             <Text style={styles.toolbarLabel}>Language: SQL</Text>
                         </View>
                         
-                        <WebView
-                            ref={webViewRef}
-                            source={{ uri: htmlContent }}
-                            style={styles.webview}
-                            originWhitelist={["file://*", "https://unpkg.com"]}
-                            allowFileAccess={false}
-                            allowFileAccessFromFileURLs={false}
-                            allowUniversalAccessFromFileURLs={false}
-                            onMessage={onMessage}
-                            bounces={false}
-                            scrollEnabled={false}
-                            showsHorizontalScrollIndicator={false}
-                            showsVerticalScrollIndicator={false}
-                            keyboardDisplayRequiresUserAction={false}
-                            hideKeyboardAccessoryView={true}
-                        />
+                        {editorStatus === "error" ? (
+                            <View style={styles.editorFallbackWrap}>
+                                <View style={styles.editorErrorBanner}>
+                                    <Text style={styles.editorErrorText}>
+                                        {editorError || "Editor failed to load. You can retry or write SQL below."}
+                                    </Text>
+                                    <TouchableOpacity style={styles.retryEditorBtn} onPress={handleRetryEditor}>
+                                        <Text style={styles.retryEditorBtnText}>Retry</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <TextInput
+                                    style={styles.fallbackCodeInput}
+                                    multiline
+                                    value={code}
+                                    onChangeText={setCode}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    textAlignVertical="top"
+                                    placeholder="-- Write your SQL query here..."
+                                    placeholderTextColor={colors.textMuted}
+                                />
+                            </View>
+                        ) : (
+                            <WebView
+                                key={editorReloadKey}
+                                ref={webViewRef}
+                                source={{ uri: htmlContent }}
+                                style={styles.webview}
+                                originWhitelist={["file://*", "https://unpkg.com"]}
+                                allowFileAccess={false}
+                                allowFileAccessFromFileURLs={false}
+                                allowUniversalAccessFromFileURLs={false}
+                                onMessage={onMessage}
+                                onError={() => {
+                                    setEditorStatus("error");
+                                    setEditorError("Failed to load query editor. Check your connection and tap Retry.");
+                                }}
+                                onHttpError={() => {
+                                    setEditorStatus("error");
+                                    setEditorError("Editor resource failed to load. Tap Retry.");
+                                }}
+                                bounces={false}
+                                scrollEnabled={false}
+                                showsHorizontalScrollIndicator={false}
+                                showsVerticalScrollIndicator={false}
+                                keyboardDisplayRequiresUserAction={false}
+                                hideKeyboardAccessoryView={true}
+                            />
+                        )}
                     </View>
                 )}
 
@@ -541,6 +605,46 @@ const styles = StyleSheet.create({
     webview: {
         flex: 1,
         backgroundColor: colors.bg,
+    },
+    editorFallbackWrap: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    editorErrorBanner: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        backgroundColor: "rgba(239, 68, 68, 0.12)",
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(239, 68, 68, 0.35)",
+    },
+    editorErrorText: {
+        flex: 1,
+        color: "#fca5a5",
+        fontSize: typography.fontSizeXS,
+    },
+    retryEditorBtn: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        borderRadius: borderRadius.sm,
+    },
+    retryEditorBtnText: {
+        color: "#fff",
+        fontSize: typography.fontSizeXS,
+        fontWeight: typography.fontWeightBold,
+    },
+    fallbackCodeInput: {
+        flex: 1,
+        padding: spacing.md,
+        color: colors.textPrimary,
+        fontFamily: "SpaceMono-Regular",
+        fontSize: 13,
+        lineHeight: 20,
+        backgroundColor: "#0F0F1A",
     },
     
     /* Result */

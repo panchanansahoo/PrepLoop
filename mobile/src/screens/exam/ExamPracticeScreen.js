@@ -19,6 +19,7 @@ export default function ExamPracticeScreen({ route, navigation }) {
     const { title, examId } = route.params || {};
 
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [examData, setExamData] = useState(null);
     const [activeSection, setActiveSection] = useState(null);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,7 +32,7 @@ export default function ExamPracticeScreen({ route, navigation }) {
             const q = examData?.questions?.find((q) => String(q.id) === String(qId));
             return q && ans === q.correctAnswer;
         }).length;
-        const totalAnswered = Object.keys(answers).length;
+        const totalAnswered = Object.values(answers).filter((v) => v != null).length;
         const totalQuestions = examData?.questions?.length ?? 0;
 
         Alert.alert(
@@ -45,44 +46,77 @@ export default function ExamPracticeScreen({ route, navigation }) {
     handleSubmitRef.current = handleSubmit;
 
     useEffect(() => {
+        setLoading(true);
+        setLoadError("");
+        setExamData(null);
+        setActiveSection(null);
+        setCurrentIndex(0);
+        setAnswers({});
+
         const loadTimeout = setTimeout(() => {
-            const data = getFullExamQuestions(examId);
-            if (data && data.sections && data.sections.length > 0) {
-                const formattedSections = data.sections.map((s) => ({
-                    id: s.id,
-                    title: s.title,
-                }));
-
-                const formattedQs = data.sections.flatMap((s) =>
-                    (s.questions || []).map((q) => {
-                        const correctOpt = q.options?.find(
-                            (opt) => opt.label === q.correctAnswer,
-                        );
-                        return {
-                            ...q,
-                            sectionId: s.id,
-                            options: q.options
-                                ? q.options.map((o) => o.value)
-                                : [],
-                            correctAnswer: correctOpt
-                                ? correctOpt.value
-                                : q.correctAnswer,
-                        };
-                    }),
+            try {
+                const data = getFullExamQuestions(examId);
+                const hasQuestions = Boolean(
+                    data?.sections?.length &&
+                        data.sections.some(
+                            (s) => Array.isArray(s.questions) && s.questions.length > 0,
+                        ),
                 );
+                if (hasQuestions) {
+                    const formattedSections = data.sections.map((s) => ({
+                        id: s.id,
+                        title: s.title,
+                    }));
 
-                setExamData({
-                    exam: data.exam,
-                    sections: formattedSections,
-                    questions: formattedQs,
-                });
-                setActiveSection(formattedSections[0]?.id);
-                if (data.exam?.totalTime) {
-                    setTimeLeft(data.exam.totalTime * 60);
+                    const formattedQs = data.sections.flatMap((s) =>
+                        (s.questions || []).map((q) => {
+                            const correctOpt = q.options?.find(
+                                (opt) => opt.label === q.correctAnswer,
+                            );
+                            return {
+                                ...q,
+                                sectionId: s.id,
+                                options: q.options
+                                    ? q.options.map((o) => o.value)
+                                    : [],
+                                correctAnswer: correctOpt
+                                    ? correctOpt.value
+                                    : q.correctAnswer,
+                            };
+                        }),
+                    );
+
+                    setExamData({
+                        exam: data.exam,
+                        sections: formattedSections,
+                        questions: formattedQs,
+                    });
+                    setActiveSection(formattedSections[0]?.id ?? null);
+                    setTimeLeft((data.exam?.totalTime || 120) * 60);
+                    setLoadError("");
+                } else {
+                    setExamData(null);
+                    setLoadError(
+                        examId
+                            ? `Mock exam "${examId}" is unavailable or has no questions.`
+                            : "No mock exam was selected.",
+                    );
                 }
+            } catch {
+                setExamData(null);
+                setLoadError("Unable to load this mock exam. Please try again.");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }, 500);
+        }, 300);
+
+        return () => {
+            clearTimeout(loadTimeout);
+        };
+    }, [examId]);
+
+    useEffect(() => {
+        if (loading || !examData || !examData.questions?.length) return undefined;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -96,10 +130,9 @@ export default function ExamPracticeScreen({ route, navigation }) {
         }, 1000);
 
         return () => {
-            clearTimeout(loadTimeout);
             clearInterval(timer);
         };
-    }, [examId]);
+    }, [loading, examData]);
 
     const formatTime = (seconds) => {
         const h = Math.floor(seconds / 3600);
@@ -109,13 +142,42 @@ export default function ExamPracticeScreen({ route, navigation }) {
         return `${m}m ${s}s`;
     };
 
-    if (loading || !examData) {
+    if (loading) {
         return (
             <SafeAreaView style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={styles.loadingText}>
                     Preparing Exam Environment...
                 </Text>
+            </SafeAreaView>
+        );
+    }
+
+    if (loadError || !examData || !examData.questions?.length) {
+        return (
+            <SafeAreaView style={styles.errorContainer}>
+                <Ionicons
+                    name="alert-circle-outline"
+                    size={48}
+                    color={colors.error}
+                />
+                <Text style={styles.errorTitle}>Unable to Start Exam</Text>
+                <Text style={styles.errorMessage}>
+                    {loadError || "This mock exam could not be loaded."}
+                </Text>
+                <TouchableOpacity
+                    style={styles.errorBackBtn}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons
+                        name="arrow-back"
+                        size={18}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.errorBackBtnText}>Back to Mock Exams</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
@@ -127,18 +189,45 @@ export default function ExamPracticeScreen({ route, navigation }) {
 
     if (!currentQuestion) {
         return (
-            <SafeAreaView style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Loading question...</Text>
+            <SafeAreaView style={styles.errorContainer}>
+                <Ionicons
+                    name="alert-circle-outline"
+                    size={48}
+                    color={colors.error}
+                />
+                <Text style={styles.errorTitle}>Section Unavailable</Text>
+                <Text style={styles.errorMessage}>
+                    No questions were found in this section.
+                </Text>
+                <TouchableOpacity
+                    style={styles.errorBackBtn}
+                    onPress={() => navigation.goBack()}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons
+                        name="arrow-back"
+                        size={18}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.errorBackBtnText}>Back to Mock Exams</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
     const handleAnswer = (option) => {
         if (!currentQuestion) return;
-        setAnswers({
-            ...answers,
-            [currentQuestion.id]: option,
+        setAnswers((prev) => {
+            if (option == null) {
+                const next = { ...prev };
+                delete next[currentQuestion.id];
+                return next;
+            }
+            return {
+                ...prev,
+                [currentQuestion.id]: option,
+            };
         });
     };
 
@@ -188,7 +277,7 @@ export default function ExamPracticeScreen({ route, navigation }) {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle} numberOfLines={1}>
-                    {title}
+                    {title || examData.exam?.title || "Mock Exam"}
                 </Text>
                 <View style={styles.timerBadge}>
                     <Ionicons
@@ -359,6 +448,41 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         marginTop: spacing.md,
         fontSize: typography.fontSizeMD,
+    },
+    errorContainer: {
+        flex: 1,
+        backgroundColor: colors.bg,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: spacing.xl,
+    },
+    errorTitle: {
+        color: colors.textPrimary,
+        fontSize: typography.fontSizeLG,
+        fontWeight: typography.fontWeightBold,
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+        textAlign: "center",
+    },
+    errorMessage: {
+        color: colors.textSecondary,
+        fontSize: typography.fontSizeMD,
+        textAlign: "center",
+        lineHeight: 22,
+        marginBottom: spacing.lg,
+    },
+    errorBackBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: colors.primary,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: borderRadius.md,
+    },
+    errorBackBtnText: {
+        color: "#fff",
+        fontSize: typography.fontSizeMD,
+        fontWeight: typography.fontWeightSemiBold,
     },
     header: {
         flexDirection: "row",

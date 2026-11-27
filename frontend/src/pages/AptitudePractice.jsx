@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap, BookOpen, Target, Calculator, Hash, Check, X, Bookmark, BookmarkCheck, Grid3X3, Send, Lightbulb, FileText } from 'lucide-react';
 import {
     APTITUDE_CATEGORIES, getCategoryQuestions, getSubcategoryQuestions,
@@ -136,20 +136,34 @@ export function CalcWidget({ onClose, isLight }) {
     );
 }
 
+function findNextUnexpiredIndex(qs, fromIndex, timeMap, limit) {
+    const after = qs.findIndex((q, idx) => idx > fromIndex && (timeMap[q.id] || 0) < limit);
+    if (after !== -1) return after;
+    return qs.findIndex((q) => (timeMap[q.id] || 0) < limit);
+}
+
 export default function AptitudePractice() {
     const { category } = useParams();
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const navigate = useNavigate();
     const subParam = searchParams.get('sub');
     const modeParam = searchParams.get('mode') || 'practice';
     const diffParam = searchParams.get('difficulty') || 'all';
+    const countParam = searchParams.get('count');
+    const retryQuestions = location.state?.retryQuestions;
+    const retryId = location.state?.retryId;
 
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const mode = MODE_CONFIG[modeParam] || MODE_CONFIG.practice;
+    const speedLimit = mode.perQ || 30;
 
-    // Load questions
+    // Load questions (preserving exact retry question set when retrying)
     const questions = useMemo(() => {
+        if (Array.isArray(retryQuestions) && retryQuestions.length > 0) {
+            return retryQuestions;
+        }
         let qs = [];
         if (category === 'all') {
             qs = getAllQuestions();
@@ -159,10 +173,16 @@ export default function AptitudePractice() {
             qs = getCategoryQuestions(category);
         }
         qs = filterByDifficulty(qs, diffParam);
-        if (modeParam === 'speed') return getRandomQuestions(qs, 20);
-        if (category === 'all') return getRandomQuestions(qs, 20);
+        const parsedCount = countParam ? Number.parseInt(countParam, 10) : null;
+        const hasValidCount = Number.isFinite(parsedCount) && parsedCount > 0;
+        if (modeParam === 'speed' || category === 'all') {
+            return getRandomQuestions(qs, hasValidCount ? parsedCount : 20);
+        }
+        if (hasValidCount) {
+            return qs.slice(0, parsedCount);
+        }
         return qs;
-    }, [category, subParam, diffParam, modeParam]);
+    }, [category, subParam, diffParam, modeParam, countParam, retryQuestions]);
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState({});
@@ -172,48 +192,87 @@ export default function AptitudePractice() {
     const [showFormula, setShowFormula] = useState(false);
     const [showGrid, setShowGrid] = useState(false);
     const [submitted, setSubmitted] = useState(false);
-    const [questionTime, setQuestionTime] = useState(0);
+    const [questionTimeMap, setQuestionTimeMap] = useState({});
     const [totalTime, setTotalTime] = useState(0);
-    const [negativeMarking, _setNegativeMarking] = useState(false);
+    const [negativeMarking, _setNegativeMarking] = useState(Boolean(location.state?.negativeMarking));
     const timerRef = useRef(null);
+    const currentQIdRef = useRef(null);
+    const autoAdvancedRef = useRef(new Set());
+    const sessionKey = `${category}|${subParam || ''}|${modeParam}|${diffParam}|${countParam || ''}|${retryId || ''}`;
+    const prevSessionKeyRef = useRef(sessionKey);
+
+    useEffect(() => {
+        if (prevSessionKeyRef.current === sessionKey) return;
+        prevSessionKeyRef.current = sessionKey;
+        setCurrentIndex(0);
+        setAnswers({});
+        setShowExplanation({});
+        setBookmarks(new Set());
+        setShowCalc(false);
+        setShowFormula(false);
+        setShowGrid(false);
+        setSubmitted(false);
+        setQuestionTimeMap({});
+        setTotalTime(0);
+        autoAdvancedRef.current = new Set();
+    }, [sessionKey]);
 
     const currentQ = questions[currentIndex];
+    const currentQId = currentQ?.id;
+    const rawQuestionElapsed = currentQId !== undefined && currentQId !== null ? (questionTimeMap[currentQId] || 0) : 0;
+    const currentQuestionElapsed = modeParam === 'speed' ? Math.min(speedLimit, rawQuestionElapsed) : rawQuestionElapsed;
+    const speedRemaining = modeParam === 'speed' ? Math.max(0, speedLimit - currentQuestionElapsed) : null;
+    const isQuestionExpired = modeParam === 'speed' && speedRemaining <= 0;
     const isAnswered = answers[currentQ?.id] !== undefined;
     const _isCorrect = answers[currentQ?.id] === currentQ?.correctAnswer;
 
-    // Timer
     useEffect(() => {
-        if (!mode.timer || submitted) return;
+        currentQIdRef.current = currentQId ?? null;
+    }, [currentQId]);
+
+    // Track elapsed time (total and per-question) across all modes including learning
+    useEffect(() => {
+        if (submitted || !questions.length) return;
         timerRef.current = setInterval(() => {
-            setQuestionTime(t => t + 1);
+            const activeId = currentQIdRef.current;
             setTotalTime(t => t + 1);
+            if (activeId !== undefined && activeId !== null) {
+                setQuestionTimeMap(prev => {
+                    const prevTime = prev[activeId] || 0;
+                    if (modeParam === 'speed' && prevTime >= speedLimit) {
+                        return prev;
+                    }
+                    return { ...prev, [activeId]: prevTime + 1 };
+                });
+            }
         }, 1000);
         return () => clearInterval(timerRef.current);
-    }, [mode.timer, submitted]);
+    }, [submitted, questions.length, modeParam, speedLimit]);
 
-    // Speed mode auto-advance
+    // Speed mode auto-advance when active question reaches 0s for the first time
     useEffect(() => {
-        if (modeParam === 'speed' && questionTime >= 30 && !submitted) {
-            if (currentIndex < questions.length - 1) {
-                setCurrentIndex(i => i + 1);
-                setQuestionTime(0);
+        if (modeParam !== 'speed' || submitted || currentQId === undefined || currentQId === null) return;
+        const elapsed = questionTimeMap[currentQId] || 0;
+        if (elapsed >= speedLimit && !autoAdvancedRef.current.has(currentQId)) {
+            autoAdvancedRef.current.add(currentQId);
+            const nextIdx = findNextUnexpiredIndex(questions, currentIndex, questionTimeMap, speedLimit);
+            if (nextIdx !== -1) {
+                setCurrentIndex(nextIdx);
             } else {
                 setSubmitted(true);
             }
         }
-    }, [questionTime, modeParam, currentIndex, questions.length, submitted]);
-
-    // Reset question timer on question change
-    useEffect(() => { setQuestionTime(0); }, [currentIndex]);
+    }, [questionTimeMap, modeParam, currentQId, currentIndex, questions, submitted, speedLimit]);
 
     const selectAnswer = useCallback((qId, ans) => {
         if (submitted) return;
+        if (modeParam === 'speed' && (questionTimeMap[qId] || 0) >= speedLimit) return;
         if (modeParam === 'test' && answers[qId] !== undefined) return; // Can't change in test
         setAnswers(prev => ({ ...prev, [qId]: ans }));
         if (modeParam === 'learning') {
             setShowExplanation(prev => ({ ...prev, [qId]: true }));
         }
-    }, [submitted, modeParam, answers]);
+    }, [submitted, modeParam, answers, questionTimeMap, speedLimit]);
 
     const toggleBookmark = (qId) => {
         setBookmarks(prev => {
@@ -236,11 +295,23 @@ export default function AptitudePractice() {
         // Navigate to results
         const correct = questions.filter(q => answers[q.id] === q.correctAnswer).length;
         const attempted = Object.keys(answers).length;
+        const parsedCount = countParam ? Number.parseInt(countParam, 10) : null;
+        const sessionCount = Number.isFinite(parsedCount) && parsedCount > 0 ? parsedCount : questions.length;
         navigate('/aptitude/results', {
             state: {
-                questions, answers, bookmarks: [...bookmarks],
-                totalTime, mode: modeParam, negativeMarking,
-                correct, attempted, total: questions.length, category,
+                questions,
+                answers,
+                bookmarks: [...bookmarks],
+                totalTime,
+                questionTimes: questionTimeMap,
+                mode: modeParam,
+                difficulty: diffParam,
+                count: sessionCount,
+                negativeMarking,
+                correct,
+                attempted,
+                total: questions.length,
+                category,
                 subcategory: subParam
             }
         });
@@ -299,14 +370,14 @@ export default function AptitudePractice() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     {/* Timer */}
                     {mode.timer && (
-                        <div style={{
+                        <div data-testid="practice-timer" style={{
                             display: 'flex', alignItems: 'center', gap: 6,
                             padding: '6px 12px', borderRadius: 8, background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
                             fontSize: 14, fontFamily: 'monospace', fontWeight: 600,
-                            color: modeParam === 'speed' && questionTime > 20 ? '#f87171' : (isLight ? '#1a1a2e' : '#fff')
+                            color: modeParam === 'speed' && currentQuestionElapsed > 20 ? '#f87171' : (isLight ? '#1a1a2e' : '#fff')
                         }}>
                             <Clock size={14} />
-                            {modeParam === 'speed' ? `${30 - questionTime}s` : formatTime(totalTime)}
+                            {modeParam === 'speed' ? `${speedRemaining}s` : formatTime(totalTime)}
                         </div>
                     )}
 
@@ -315,8 +386,8 @@ export default function AptitudePractice() {
                         <div style={{ width: 80, height: 4, background: isLight ? '#e5e7eb' : '#333', borderRadius: 2, overflow: 'hidden' }}>
                             <div style={{
                                 height: '100%', borderRadius: 2, transition: 'width 1s linear',
-                                width: `${((30 - questionTime) / 30) * 100}%`,
-                                background: questionTime > 20 ? '#f87171' : questionTime > 15 ? '#facc15' : '#34d399'
+                                width: `${(speedRemaining / speedLimit) * 100}%`,
+                                background: currentQuestionElapsed > 20 ? '#f87171' : currentQuestionElapsed > 15 ? '#facc15' : '#34d399'
                             }} />
                         </div>
                     )}
@@ -465,6 +536,15 @@ export default function AptitudePractice() {
                         </div>
 
                         {/* Options */}
+                        {isQuestionExpired && !submitted && (
+                            <div role="status" style={{
+                                marginBottom: 12, padding: '8px 12px', borderRadius: 8,
+                                background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.3)',
+                                color: '#f87171', fontSize: 13, fontWeight: 500
+                            }}>
+                                Time&apos;s up for this question.
+                            </div>
+                        )}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
                             {currentQ.options.map(opt => {
                                 const isSelected = answers[currentQ.id] === opt.label;
@@ -481,11 +561,11 @@ export default function AptitudePractice() {
                                     <button
                                         key={opt.label}
                                         onClick={() => selectAnswer(currentQ.id, opt.label)}
-                                        disabled={submitted || (modeParam === 'learning' && isAnswered)}
+                                        disabled={submitted || (modeParam === 'learning' && isAnswered) || isQuestionExpired}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 16,
                                             padding: '16px 20px', borderRadius: 12, border: `1px solid ${borderCol}`,
-                                            background: bg, cursor: submitted ? 'default' : 'pointer',
+                                            background: bg, cursor: submitted || isQuestionExpired ? 'default' : 'pointer',
                                             transition: 'all 0.2s', textAlign: 'left', color: isLight ? '#1a1a2e' : '#fff', fontSize: 15
                                         }}
                                     >
@@ -543,7 +623,7 @@ export default function AptitudePractice() {
                             </button>
 
                             <div style={{ display: 'flex', gap: 8 }}>
-                                {modeParam !== 'test' && currentIndex === questions.length - 1 && (
+                                {modeParam !== 'test' && (currentIndex === questions.length - 1 || submitted) && (
                                     <button onClick={handleSubmit} className="btn btn-primary" style={{
                                         padding: '10px 24px', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8
                                     }}>

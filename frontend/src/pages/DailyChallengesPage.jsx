@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
@@ -25,6 +25,9 @@ export default function DailyChallengesPage() {
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('all'); // 'all' | 'Product' | 'Service'
     const [filterSection, setFilterSection] = useState('all'); // 'all' | 'dsa' | 'sql'
+    const [pendingJumpToToday, setPendingJumpToToday] = useState(false);
+
+    const todayCompany = dailyChallenges[todayIndex];
 
     const filtered = useMemo(() => {
         return dailyChallenges.filter(c => {
@@ -33,6 +36,28 @@ export default function DailyChallengesPage() {
             return true;
         });
     }, [search, filterType]);
+
+    const handleJumpToToday = (e) => {
+        e.preventDefault();
+        if (!todayCompany) return;
+        const isTodayVisible = filtered.some(c => c.id === todayCompany.id);
+        if (!isTodayVisible) {
+            setSearch('');
+            setFilterType('all');
+        }
+        setPendingJumpToToday(true);
+    };
+
+    useEffect(() => {
+        if (!pendingJumpToToday || !todayCompany) return;
+        const isTodayVisible = filtered.some(c => c.id === todayCompany.id);
+        if (!isTodayVisible) return;
+        const target = document.getElementById(`company-${todayCompany.id}`);
+        if (target && typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        setPendingJumpToToday(false);
+    }, [pendingJumpToToday, filtered, todayCompany]);
 
     const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -102,6 +127,7 @@ export default function DailyChallengesPage() {
                             </div>
                         </div>
                         <a href={`#company-${dailyChallenges[todayIndex].id}`}
+                            onClick={handleJumpToToday}
                             style={{
                                 padding: '10px 22px', borderRadius: 12, cursor: 'pointer',
                                 background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',

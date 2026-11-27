@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import dsaLearningPath, { getModuleProblems, getModuleProgress } from '../data/dsaLearningPath.js';
 import lldLearningPath from '../data/lldLearningPath.js';
 import aiLearningPath from '../data/aiLearningPath.js';
+import { findMobileTrackModule, getMobileTrack } from '../data/mobileLearningTracks.js';
 
 export const LEARNING_PATHS_CATALOG = [
   {
@@ -201,6 +202,34 @@ export const DETAILED_PATHS: Record<string, any> = {
   },
 };
 
+function formatDsaModuleContent(module: any): { content: string; code_example: string | null } {
+  const parts: string[] = [];
+  if (module?.description) {
+    parts.push(String(module.description).trim());
+  }
+  if (Array.isArray(module?.topics) && module.topics.length > 0) {
+    parts.push(`Key Topics:\n${module.topics.map((topic: string) => `• ${topic}`).join('\n')}`);
+  }
+  const fundamentals = module?.theory?.fundamentals;
+  if (typeof fundamentals === 'string' && fundamentals.trim()) {
+    parts.push(fundamentals.trim());
+  }
+
+  let codeExample: string | null = null;
+  const techniques = module?.theory?.techniques;
+  if (techniques && typeof techniques === 'object') {
+    const firstTechnique = Object.values(techniques).find((val) => typeof val === 'string' && val.trim());
+    if (typeof firstTechnique === 'string') {
+      codeExample = firstTechnique.trim();
+    }
+  }
+
+  return {
+    content: parts.join('\n\n'),
+    code_example: codeExample,
+  };
+}
+
 export class LearningPathService {
   static getCatalog() {
     return LEARNING_PATHS_CATALOG;
@@ -210,16 +239,35 @@ export class LearningPathService {
     return DETAILED_PATHS[pathId] || null;
   }
 
+  static async getCompletedLearningTopics(userId?: string | null): Promise<Record<string, any>> {
+    if (!userId) return {};
+    try {
+      const adminApi = (supabaseAdmin as any)?.auth?.admin;
+      if (!adminApi || typeof adminApi.getUserById !== 'function') return {};
+      const { data, error } = await adminApi.getUserById(userId);
+      if (error || !data?.user?.user_metadata) return {};
+      const completed = data.user.user_metadata.learning_completed_topics;
+      return completed && typeof completed === 'object' && !Array.isArray(completed) ? completed : {};
+    } catch {
+      return {};
+    }
+  }
+
   static async getDsaPathWithProgress(userId?: string | null) {
     const userProgress: Record<string, { solved: boolean }> = {};
+    let completedTopics: Record<string, any> = {};
 
     if (userId) {
-      const { data } = await supabaseAdmin
-        .from("user_progress")
-        .select("problem_id, status")
-        .eq("user_id", userId);
+      const [progressResult, completed] = await Promise.all([
+        supabaseAdmin
+          .from("user_progress")
+          .select("problem_id, status")
+          .eq("user_id", userId),
+        LearningPathService.getCompletedLearningTopics(userId),
+      ]);
+      completedTopics = completed;
 
-      (data || []).forEach((row: any) => {
+      (progressResult?.data || []).forEach((row: any) => {
         userProgress[`problem_${row.problem_id}`] = {
           solved: row.status === "solved",
         };
@@ -228,36 +276,188 @@ export class LearningPathService {
 
     return {
       ...dsaLearningPath,
-      modules: dsaLearningPath.modules.map((module: any) => ({
-        ...module,
-        progress: getModuleProgress(module.slug, userProgress),
-        problems: getModuleProblems(module.slug),
-      })),
+      modules: dsaLearningPath.modules.map((module: any) => {
+        const progress = getModuleProgress(module.slug, userProgress);
+        const problems = getModuleProblems(module.slug);
+        const totalTopics = progress.total || module.topics?.length || module.problemCount || 0;
+        const markedComplete = Boolean(
+          completedTopics[module.slug] || completedTopics[String(module.id)],
+        );
+        const completedCount = markedComplete
+          ? totalTopics
+          : progress.solved || 0;
+
+        return {
+          ...module,
+          progress,
+          problems,
+          completed: markedComplete || (totalTopics > 0 && completedCount >= totalTopics),
+          completed_topics: completedCount,
+          total_topics: totalTopics,
+        };
+      }),
     };
   }
 
   static async getDsaModule(moduleSlug: string, userId?: string | null) {
-    const module = dsaLearningPath.modules.find((m: any) => m.slug === moduleSlug);
+    const normalizedSlug = String(moduleSlug || '').trim();
+    const module: any = dsaLearningPath.modules.find(
+      (m: any) => m.slug === normalizedSlug || String(m.id) === normalizedSlug,
+    );
     if (!module) return null;
 
     const userProgress: Record<string, { solved: boolean }> = {};
+    let completedTopics: Record<string, any> = {};
     if (userId) {
-      const { data } = await supabaseAdmin
-        .from("user_progress")
-        .select("problem_id, status")
-        .eq("user_id", userId);
+      const [progressResult, completed] = await Promise.all([
+        supabaseAdmin
+          .from("user_progress")
+          .select("problem_id, status")
+          .eq("user_id", userId),
+        LearningPathService.getCompletedLearningTopics(userId),
+      ]);
+      completedTopics = completed;
 
-      (data || []).forEach((row: any) => {
+      (progressResult?.data || []).forEach((row: any) => {
         userProgress[`problem_${row.problem_id}`] = {
           solved: row.status === "solved",
         };
       });
     }
 
+    const progress = getModuleProgress(module.slug, userProgress);
+    const totalTopics = progress.total || module.topics?.length || module.problemCount || 0;
+    const markedComplete = Boolean(
+      completedTopics[module.slug] || completedTopics[String(module.id)],
+    );
+    const formatted = formatDsaModuleContent(module);
+
     return {
       ...module,
-      problems: getModuleProblems(moduleSlug),
-      progress: getModuleProgress(moduleSlug, userProgress),
+      content: module.content || formatted.content,
+      code_example: module.code_example || formatted.code_example,
+      problems: getModuleProblems(module.slug),
+      progress,
+      completed: markedComplete || (totalTopics > 0 && (progress.solved || 0) >= totalTopics),
+      completed_topics: markedComplete ? totalTopics : progress.solved || 0,
+      total_topics: totalTopics,
+    };
+  }
+
+  static async getTrackPathWithProgress(trackId: string, userId?: string | null) {
+    const track = getMobileTrack(trackId);
+    if (!track) return null;
+
+    const completedTopics = await LearningPathService.getCompletedLearningTopics(userId);
+    return {
+      id: track.id,
+      title: track.title,
+      modules: track.modules.map((mod: any) => {
+        const completed = Boolean(completedTopics[mod.id]);
+        return {
+          id: mod.id,
+          title: mod.title,
+          description: mod.description,
+          total_topics: mod.total_topics,
+          completed_topics: completed ? mod.total_topics : 0,
+          completed,
+        };
+      }),
+    };
+  }
+
+  static async getTrackModule(trackId: string, topicId: string, userId?: string | null) {
+    const found = findMobileTrackModule(topicId, trackId);
+    if (!found) return null;
+
+    const completedTopics = await LearningPathService.getCompletedLearningTopics(userId);
+    const completed = Boolean(completedTopics[found.module.id]);
+
+    return {
+      ...found.module,
+      trackId: found.trackId,
+      completed,
+      completed_topics: completed ? found.module.total_topics : 0,
+    };
+  }
+
+  static async getTopicProgress(topicId: string, userId?: string | null) {
+    const foundTrackMod = findMobileTrackModule(topicId);
+    if (foundTrackMod) {
+      const completedTopics = await LearningPathService.getCompletedLearningTopics(userId);
+      const completed = Boolean(completedTopics[foundTrackMod.module.id]);
+      return {
+        id: foundTrackMod.module.id,
+        title: foundTrackMod.module.title,
+        completed,
+        completed_topics: completed ? foundTrackMod.module.total_topics : 0,
+        total_topics: foundTrackMod.module.total_topics,
+      };
+    }
+
+    const dsaMod = await LearningPathService.getDsaModule(topicId, userId);
+    if (dsaMod) {
+      return {
+        id: dsaMod.slug || String(dsaMod.id),
+        title: dsaMod.title,
+        completed: Boolean(dsaMod.completed),
+        completed_topics: dsaMod.completed_topics || 0,
+        total_topics: dsaMod.total_topics || 0,
+      };
+    }
+
+    return null;
+  }
+
+  static async markTopicComplete(userId: string, topicId: string) {
+    const normalizedId = String(topicId || '').trim();
+    let canonicalKey: string | null = null;
+    let totalTopics = 1;
+
+    const foundTrackMod = findMobileTrackModule(normalizedId);
+    if (foundTrackMod) {
+      canonicalKey = foundTrackMod.module.id;
+      totalTopics = foundTrackMod.module.total_topics;
+    } else {
+      const dsaMod = dsaLearningPath.modules.find(
+        (m: any) => m.slug === normalizedId || String(m.id) === normalizedId,
+      );
+      if (dsaMod) {
+        canonicalKey = dsaMod.slug || String(dsaMod.id);
+        totalTopics = getModuleProblems(dsaMod.slug).length || dsaMod.topics?.length || dsaMod.problemCount || 1;
+      }
+    }
+
+    if (!canonicalKey) return null;
+
+    const adminApi = (supabaseAdmin as any)?.auth?.admin;
+    if (adminApi && typeof adminApi.getUserById === 'function' && typeof adminApi.updateUserById === 'function') {
+      const { data, error } = await adminApi.getUserById(userId);
+      if (error) throw error;
+      const userMetadata = data?.user?.user_metadata || {};
+      const existingCompleted =
+        userMetadata.learning_completed_topics && typeof userMetadata.learning_completed_topics === 'object'
+          ? userMetadata.learning_completed_topics
+          : {};
+      const nextCompleted = {
+        ...existingCompleted,
+        [canonicalKey]: { completedAt: new Date().toISOString() },
+      };
+      const { error: updateError } = await adminApi.updateUserById(userId, {
+        user_metadata: {
+          ...userMetadata,
+          learning_completed_topics: nextCompleted,
+        },
+      });
+      if (updateError) throw updateError;
+    }
+
+    return {
+      success: true,
+      topicId: canonicalKey,
+      completed: true,
+      completed_topics: totalTopics,
+      total_topics: totalTopics,
     };
   }
 

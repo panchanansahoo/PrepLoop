@@ -24,11 +24,255 @@ const VERBAL_POOL  = flattenBank(verbalQuestions);
 const TECH_POOL    = flattenBank(technicalQuestions);
 const COMPANY_POOL = flattenBank(companyQuestions);
 
+const BEHAVIOURAL_POOL = [
+  {
+    id: 'beh_1',
+    question: 'A teammate misses a critical deadline that delays your part of a client deliverable. What is the most constructive first step?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Escalate directly to senior management in a group email.' },
+      { label: 'B', value: 'Speak privately with the teammate to understand the blocker and plan recovery.' },
+      { label: 'C', value: 'Wait until the client complains so management notices the delay.' },
+      { label: 'D', value: 'Redo their work silently without informing anyone.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Addressing blockers privately first builds trust, surfaces root causes early, and supports collaborative recovery.'
+  },
+  {
+    id: 'beh_2',
+    question: 'During a code review, a senior engineer points out a major flaw in an implementation you spent two days building. How should you respond?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Defend your approach regardless of the evidence because it already passes basic tests.' },
+      { label: 'B', value: 'Thank them, verify the flaw objectively, and collaborate on fixing it.' },
+      { label: 'C', value: 'Ignore the comment and merge the code anyway.' },
+      { label: 'D', value: 'Ask another teammate to approve it instead.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Separating ego from work and welcoming constructive feedback improves quality and team velocity.'
+  },
+  {
+    id: 'beh_3',
+    question: 'You notice an error in a report you already submitted to your manager an hour ago. Nobody has spotted it yet. What should you do?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Wait to see if anyone notices before saying anything.' },
+      { label: 'B', value: 'Blame the raw data source if asked later.' },
+      { label: 'C', value: 'Proactively inform your manager, explain the error, and share the corrected report.' },
+      { label: 'D', value: 'Quietly overwrite the file without telling anyone.' }
+    ],
+    correctAnswer: 'C',
+    explanation: 'Proactive ownership prevents downstream decisions from being made on faulty data and demonstrates integrity.'
+  },
+  {
+    id: 'beh_4',
+    question: 'Two team members disagree strongly on the architecture for a new feature, stalling sprint progress. As a peer, what is the best way to help?',
+    difficulty: 'medium',
+    xp: 15,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Side with whoever has been at the company longer.' },
+      { label: 'B', value: 'Facilitate a structured comparison of trade-offs against project requirements.' },
+      { label: 'C', value: 'Avoid the discussion completely and work on unrelated tasks.' },
+      { label: 'D', value: 'Tell both of them their ideas are wrong and propose a third without discussion.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Grounding technical disagreements in objective requirements and trade-offs resolves conflict constructively.'
+  },
+  {
+    id: 'beh_5',
+    question: 'Your manager assigns you an urgent task with unclear acceptance criteria while they are traveling and hard to reach. What should you do first?',
+    difficulty: 'medium',
+    xp: 15,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Do nothing until they return so you do not risk making an assumption.' },
+      { label: 'B', value: 'Send a concise message listing your assumptions and start on the unambiguous parts while seeking confirmation.' },
+      { label: 'C', value: 'Guess every detail and submit the final deliverable without noting any assumptions.' },
+      { label: 'D', value: 'Reassign the task to a junior colleague.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Making reasonable progress while transparently documenting and confirming assumptions balances initiative with alignment.'
+  },
+  {
+    id: 'beh_6',
+    question: 'A stakeholder asks you to skip mandatory security testing so a feature can launch before a marketing event. What is the right response?',
+    difficulty: 'medium',
+    xp: 15,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Skip the checks quietly to keep the stakeholder happy.' },
+      { label: 'B', value: 'Explain the risk clearly, keep mandatory checks, and look for scope reductions to meet the timeline safely.' },
+      { label: 'C', value: 'Refuse rudely without offering any alternative.' },
+      { label: 'D', value: 'Approve the release and fix security issues next quarter.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Upholding compliance/security standards while offering pragmatic scope trade-offs protects both the business and timeline.'
+  },
+  {
+    id: 'beh_7',
+    question: 'You have three high-priority tasks due on the same day and realize you cannot finish all three at full quality alone. What should you do?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Rush all three and submit incomplete or untested work.' },
+      { label: 'B', value: 'Communicate early with your lead to reprioritize deadlines or redistribute workload.' },
+      { label: 'C', value: 'Work in silence and miss two deadlines unexpectedly.' },
+      { label: 'D', value: 'Pick whichever task is easiest and ignore the rest.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Early communication enables smart prioritization and prevents last-minute surprises for stakeholders.'
+  },
+  {
+    id: 'beh_8',
+    question: 'A new joiner on your team repeatedly asks basic questions about the team workflow, slowing down your morning. How should you handle this?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Tell them to figure it out on their own so they learn faster.' },
+      { label: 'B', value: 'Answer kindly, point them to documentation, and schedule a short onboarding walkthrough.' },
+      { label: 'C', value: 'Ignore their messages until end of week.' },
+      { label: 'D', value: 'Complain to your manager that they are unqualified.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Supporting newcomers with documentation and structured check-ins builds team capability and saves time long-term.'
+  },
+  {
+    id: 'beh_9',
+    question: 'In a client meeting, the client asks a technical question about a feature limitation you are not 100% sure about. What should you say?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Give a confident guess so you do not look unprepared.' },
+      { label: 'B', value: 'Promise the feature works as they hope and verify afterward.' },
+      { label: 'C', value: 'Acknowledge that you want to give an accurate answer and commit to following up by a specific time.' },
+      { label: 'D', value: 'Change the subject to an unrelated feature.' }
+    ],
+    correctAnswer: 'C',
+    explanation: 'Honesty paired with a concrete follow-up commitment maintains client credibility and avoids false promises.'
+  },
+  {
+    id: 'beh_10',
+    question: 'You discover that a colleague has been sharing confidential client data in a public messaging channel to debug an issue faster. What is the best action?',
+    difficulty: 'medium',
+    xp: 15,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Ignore it since they were trying to solve a bug quickly.' },
+      { label: 'B', value: 'Immediately alert them to remove the data and follow company security/incident reporting guidelines.' },
+      { label: 'C', value: 'Screenshot it and share it with friends outside work.' },
+      { label: 'D', value: 'Wait for an annual audit to flag it.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Protecting confidential data requires immediate remediation and adherence to security reporting procedures.'
+  },
+  {
+    id: 'beh_11',
+    question: 'After a project succeeds, your manager publicly praises you for an idea that was originally suggested by a quieter teammate. What should you do?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Accept all the credit because you implemented most of it.' },
+      { label: 'B', value: 'Thank the manager and explicitly credit your teammate for originating the idea.' },
+      { label: 'C', value: 'Say nothing in public and apologize privately later.' },
+      { label: 'D', value: 'Ask the manager to drop the topic.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Sharing credit publicly fosters psychological safety, fairness, and stronger team morale.'
+  },
+  {
+    id: 'beh_12',
+    question: 'Your team adopts a new tool that replaces a workflow you are already very fast at. You find the new tool clunky at first. What is the best mindset?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Continue using the old workflow privately without telling anyone.' },
+      { label: 'B', value: 'Give the new tool a fair trial, learn its shortcuts, and share constructive feedback on real gaps.' },
+      { label: 'C', value: 'Refuse to adopt it until forced.' },
+      { label: 'D', value: 'Discourage teammates from learning it.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Adaptability and constructive feedback help teams transition smoothly while surfacing genuine process improvements.'
+  },
+  {
+    id: 'beh_13',
+    question: 'During a sprint retrospective, a teammate vents frustration about repeated last-minute requirement changes. How can you respond effectively?',
+    difficulty: 'medium',
+    xp: 15,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Dismiss their concern and say change is just part of software.' },
+      { label: 'B', value: 'Validate the impact, analyze why changes arrived late, and propose an intake cutoff or buffer process.' },
+      { label: 'C', value: 'Blame the product team without proposing solutions.' },
+      { label: 'D', value: 'End the retrospective early to avoid tension.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Empathetic listening combined with root-cause analysis turns frustration into actionable process improvement.'
+  },
+  {
+    id: 'beh_14',
+    question: 'You realize a task you estimated would take 2 days will actually take 5 days due to unexpected legacy dependencies. When should you flag this?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'On day 5, once you are sure how long it actually took.' },
+      { label: 'B', value: 'As soon as you uncover the dependency and revised estimate.' },
+      { label: 'C', value: 'Only if someone explicitly asks for a status update.' },
+      { label: 'D', value: 'Never; work overtime silently to hide the estimation gap.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Raising schedule risks immediately gives the team maximum flexibility to adjust dependencies and expectations.'
+  },
+  {
+    id: 'beh_15',
+    question: 'A cross-functional partner sends an angry email blaming your team for a production outage that was actually triggered by their configuration change. How should you reply?',
+    difficulty: 'hard',
+    xp: 20,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Reply with an equally sharp email proving it was their fault.' },
+      { label: 'B', value: 'Respond calmly with factual timeline logs, focus on restoring service together, and suggest a blameless postmortem.' },
+      { label: 'C', value: 'Forward their email to leadership to embarrass them.' },
+      { label: 'D', value: 'Ignore the email and let the outage continue.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Calm, fact-based communication and blameless postmortems resolve incidents faster and preserve cross-team partnerships.'
+  },
+  {
+    id: 'beh_16',
+    question: 'You finish your assigned sprint tasks two days early while another teammate is overloaded with complex bug fixes. What is the best action?',
+    difficulty: 'easy',
+    xp: 10,
+    timeLimit: 60,
+    options: [
+      { label: 'A', value: 'Take the two days off informally without telling anyone.' },
+      { label: 'B', value: 'Offer to take over some bugs, write tests, or help review their fixes.' },
+      { label: 'C', value: 'Start an unrequested rewrite of an unrelated module.' },
+      { label: 'D', value: 'Keep quiet so you are not given extra work.' }
+    ],
+    correctAnswer: 'B',
+    explanation: 'Proactively supporting overloaded teammates reflects strong ownership of shared team goals.'
+  }
+];
+
 /** 
  * Random sample that remembers seen questions via localStorage 
  * so users see all pool questions without repeating until exhausted. 
  */
-const sampleQuestions = (pool, count, poolName = 'default') => {
+const sampleQuestions = (pool, count, poolName = 'default', options = {}) => {
+  const { recordSeen = true } = options;
   let seenIds = [];
   try {
     const stored = localStorage.getItem(`seen_questions_${poolName}`);
@@ -54,12 +298,14 @@ const sampleQuestions = (pool, count, poolName = 'default') => {
 
   const selected = unseenPool.slice(0, Math.min(count, unseenPool.length));
 
-  // Update seen
-  selected.forEach(q => seenIds.push(q.id));
-  try {
-    localStorage.setItem(`seen_questions_${poolName}`, JSON.stringify(seenIds));
-  } catch {
-    // Ignore
+  if (recordSeen) {
+    // Update seen only when questions are actually started/presented
+    selected.forEach(q => seenIds.push(q.id));
+    try {
+      localStorage.setItem(`seen_questions_${poolName}`, JSON.stringify(seenIds));
+    } catch {
+      // Ignore
+    }
   }
 
   return selected;
@@ -131,8 +377,8 @@ export const EXAM_CATALOG = [
         timeLimit: 15,
         marksPerQuestion: 1,
         negativePerWrong: 0,
-        pool: 'verbal', // reuse verbal as proxy
-        description: 'Workplace behavior, communication, ethics, team dynamics (simulated with verbal questions)'
+        pool: 'behavioural',
+        description: 'Workplace behaviour, communication, ethics, accountability, and team dynamics'
       }
     ]
   },
@@ -868,30 +1114,31 @@ const POOL_MAP = {
   reasoning: REASON_POOL,
   technical: TECH_POOL,
   company: COMPANY_POOL,
+  behavioural: BEHAVIOURAL_POOL,
 };
 
 /**
  * Build the questions for an exam section
  * (returns an array of aptitude-style question objects)
  */
-export const getExamSectionQuestions = (examId, sectionId) => {
+export const getExamSectionQuestions = (examId, sectionId, options = {}) => {
   const exam = EXAM_CATALOG.find(e => e.id === examId);
   if (!exam) return [];
   const section = exam.sections.find(s => s.id === sectionId);
   if (!section) return [];
   const pool = POOL_MAP[section.pool] || QUANT_POOL;
-  return sampleQuestions(pool, section.questionCount, section.pool);
+  return sampleQuestions(pool, section.questionCount, section.pool, options);
 };
 
 /**
  * Build ALL questions for an exam (all sections concatenated in order)
  */
-export const getFullExamQuestions = (examId) => {
+export const getFullExamQuestions = (examId, options = {}) => {
   const exam = EXAM_CATALOG.find(e => e.id === examId);
   if (!exam) return { sections: [], questions: [] };
   const sections = exam.sections.map(s => {
     const pool = POOL_MAP[s.pool] || QUANT_POOL;
-    const qs = sampleQuestions(pool, s.questionCount, s.pool);
+    const qs = sampleQuestions(pool, s.questionCount, s.pool, options);
     return { ...s, questions: qs };
   });
   return { exam, sections };

@@ -1,34 +1,36 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
-import { learningApi } from "../../api/learningApi";
+import { learningApi, normalizeLearningModules } from "../../api/learningApi";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 export default function LearningPathScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [pathData, setPathData] = useState([]);
-    
-    // In a real app, this might have a top-tab selector for DSA/System Design. 
-    // Here we focus on DSA primarily as a single scrollable path.
+    const [loadError, setLoadError] = useState(null);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
+            setLoadError(null);
             const data = await learningApi.getDSAPath();
-            // Data shape expected: [{ id, title, description, progress, total_topics }]
-            setPathData(data || []);
+            setPathData(normalizeLearningModules(data));
         } catch (error) {
             console.error("Failed to load learning path:", error);
+            setLoadError(error?.message || "Could not load DSA learning path.");
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    };
-
-    useEffect(() => {
-        loadData();
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData]),
+    );
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -57,7 +59,14 @@ export default function LearningPathScreen({ navigation }) {
                     />
                 }
             >
-                {pathData.length === 0 ? (
+                {loadError && pathData.length === 0 ? (
+                    <View style={styles.errorState}>
+                        <Text style={styles.emptyText}>{loadError}</Text>
+                        <TouchableOpacity style={styles.retryBtn} onPress={loadData}>
+                            <Text style={styles.retryBtnText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : pathData.length === 0 ? (
                     <Text style={styles.emptyText}>No learning path available right now.</Text>
                 ) : (
                     <View style={styles.timeline}>
@@ -69,7 +78,7 @@ export default function LearningPathScreen({ navigation }) {
                             const isCompleted = percent === 100;
 
                             return (
-                                <View key={module.id || index} style={styles.timelineItem}>
+                                <View key={module.slug || module.id || index} style={styles.timelineItem}>
                                     {/* Timeline Line */}
                                     {!isLast && <View style={[styles.timelineLine, isCompleted && styles.timelineLineActive]} />}
                                     
@@ -81,7 +90,11 @@ export default function LearningPathScreen({ navigation }) {
                                     {/* Content Card */}
                                     <TouchableOpacity 
                                         style={styles.card}
-                                        onPress={() => navigation.navigate("TopicLearning", { topicId: module.id, title: module.title })}
+                                        onPress={() => navigation.navigate("TopicLearning", {
+                                            topicId: module.slug || module.id,
+                                            title: module.title,
+                                            pathType: "dsa",
+                                        })}
                                     >
                                         <View style={styles.cardHeader}>
                                             <Text style={styles.cardTitle}>{module.title}</Text>
@@ -111,6 +124,9 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
     scrollContent: { padding: spacing.lg, paddingBottom: 40 },
     emptyText: { color: colors.textSecondary, textAlign: "center", marginTop: spacing.xl },
+    errorState: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xl },
+    retryBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: borderRadius.md },
+    retryBtnText: { color: colors.textInverse, fontWeight: typography.fontWeightBold },
     
     timeline: { paddingLeft: 10 },
     timelineItem: { position: "relative", paddingLeft: 40, marginBottom: spacing.xl },

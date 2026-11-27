@@ -7,11 +7,11 @@
  *   - questions drawn from existing aptitude, reasoning, verbal, and technical banks
  */
 
-import { quantQuestions } from './quantQuestions';
-import { reasoningQuestions } from './reasoningQuestions';
-import { verbalQuestions } from './verbalQuestions';
-import { technicalQuestions } from './technicalQuestions';
-import { companyQuestions } from './companyQuestions';
+import { quantQuestions } from './quantQuestions.js';
+import { reasoningQuestions } from './reasoningQuestions.js';
+import { verbalQuestions } from './verbalQuestions.js';
+import { technicalQuestions } from './technicalQuestions.js';
+import { companyQuestions } from './companyQuestions.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -871,12 +871,25 @@ const POOL_MAP = {
   company: COMPANY_POOL,
 };
 
+// ── Legacy / Alias ID Mapping ───────────────────────────────────────────────
+const EXAM_ID_ALIASES = {
+  'tcs-nqt': 'tcs-nqt-foundation',
+  'infosys': 'infosys-sp',
+};
+
+/** Resolve known legacy/short exam IDs to their canonical EXAM_CATALOG id */
+export const resolveExamId = (id) => {
+  if (typeof id !== 'string') return id;
+  const normalized = id.trim();
+  return EXAM_ID_ALIASES[normalized] || normalized;
+};
+
 /**
  * Build the questions for an exam section
  * (returns an array of aptitude-style question objects)
  */
 export const getExamSectionQuestions = (examId, sectionId) => {
-  const exam = EXAM_CATALOG.find(e => e.id === examId);
+  const exam = getExamById(examId);
   if (!exam) return [];
   const section = exam.sections.find(s => s.id === sectionId);
   if (!section) return [];
@@ -888,8 +901,8 @@ export const getExamSectionQuestions = (examId, sectionId) => {
  * Build ALL questions for an exam (all sections concatenated in order)
  */
 export const getFullExamQuestions = (examId) => {
-  const exam = EXAM_CATALOG.find(e => e.id === examId);
-  if (!exam) return { sections: [], questions: [] };
+  const exam = getExamById(examId);
+  if (!exam) return { exam: null, sections: [], questions: [] };
   const sections = exam.sections.map(s => {
     const pool = POOL_MAP[s.pool] || QUANT_POOL;
     const qs = sampleQuestions(pool, s.questionCount, s.pool);
@@ -899,7 +912,10 @@ export const getFullExamQuestions = (examId) => {
 };
 
 /** Get exam by id */
-export const getExamById = (id) => EXAM_CATALOG.find(e => e.id === id);
+export const getExamById = (id) => {
+  const canonicalId = resolveExamId(id);
+  return EXAM_CATALOG.find(e => e.id === canonicalId);
+};
 
 /** Group catalog by company */
 export const getExamsByCompany = () => {

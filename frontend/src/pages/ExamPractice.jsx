@@ -4,8 +4,22 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap, BookOpen,
 import { getExamById, getFullExamQuestions, getExamSectionQuestions } from '../data/examData';
 import { useTheme } from '../context/ThemeContext';
 
+function roundCalcResult(value) {
+  if (!Number.isFinite(value)) return 'Error';
+  return Number(value.toPrecision(12));
+}
+
+function computeCalc(left, operator, right) {
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return 'Error';
+  if (operator === '+') return roundCalcResult(left + right);
+  if (operator === '-') return roundCalcResult(left - right);
+  if (operator === '×') return roundCalcResult(left * right);
+  if (operator === '÷') return right !== 0 ? roundCalcResult(left / right) : 'Error';
+  return right;
+}
+
 /* ─── Mini Calculator ──────────────────────────────────────────────────── */
-function CalcWidget({ onClose, isLight }) {
+export function CalcWidget({ onClose, isLight }) {
   const [display, setDisplay] = useState('0');
   const [prev, setPrev] = useState(null);
   const [op, setOp] = useState(null);
@@ -13,25 +27,60 @@ function CalcWidget({ onClose, isLight }) {
 
   const press = (val) => {
     if (val === 'C') { setDisplay('0'); setPrev(null); setOp(null); setFresh(true); return; }
-    if (val === '±') { setDisplay(d => String(-parseFloat(d))); return; }
-    if (val === '%') { setDisplay(d => String(parseFloat(d) / 100)); return; }
+    if (val === '±') {
+      setDisplay(d => (d === 'Error' ? '0' : String(roundCalcResult(-parseFloat(d)))));
+      return;
+    }
+    if (val === '%') {
+      setDisplay(d => (d === 'Error' ? '0' : String(roundCalcResult(parseFloat(d) / 100))));
+      return;
+    }
     if (['+', '-', '×', '÷'].includes(val)) {
-      setPrev(parseFloat(display)); setOp(val); setFresh(true); return;
+      if (display === 'Error') {
+        setPrev(null);
+        setOp(null);
+        setFresh(true);
+        return;
+      }
+      const cur = parseFloat(display);
+      if (prev !== null && op && !fresh) {
+        const res = computeCalc(prev, op, cur);
+        if (res === 'Error') {
+          setDisplay('Error');
+          setPrev(null);
+          setOp(null);
+          setFresh(true);
+          return;
+        }
+        setDisplay(String(res));
+        setPrev(res);
+        setOp(val);
+        setFresh(true);
+        return;
+      }
+      setPrev(cur);
+      setOp(val);
+      setFresh(true);
+      return;
     }
     if (val === '=') {
-      if (prev !== null && op) {
+      if (prev !== null && op && display !== 'Error') {
         const cur = parseFloat(display);
-        let res = 0;
-        if (op === '+') res = prev + cur;
-        else if (op === '-') res = prev - cur;
-        else if (op === '×') res = prev * cur;
-        else if (op === '÷') res = cur !== 0 ? prev / cur : 'Error';
-        setDisplay(String(res)); setPrev(null); setOp(null); setFresh(true);
+        const res = computeCalc(prev, op, cur);
+        setDisplay(String(res));
+        setPrev(null);
+        setOp(null);
+        setFresh(true);
       }
       return;
     }
-    if (fresh) { setDisplay(val === '.' ? '0.' : val); setFresh(false); }
-    else { setDisplay(d => d === '0' && val !== '.' ? val : d + val); }
+    if (fresh || display === 'Error') {
+      setDisplay(val === '.' ? '0.' : val);
+      setFresh(false);
+    } else {
+      if (val === '.' && display.includes('.')) return;
+      setDisplay(d => (d === '0' && val !== '.' ? val : d + val));
+    }
   };
   const btns = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '='];
   return (
@@ -45,7 +94,7 @@ function CalcWidget({ onClose, isLight }) {
         <span style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>Calculator</span>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer' }}><X size={14} /></button>
       </div>
-      <div style={{
+      <div data-testid="calc-display" style={{
         background: isLight ? '#f3f4f6' : '#1a1a1a', borderRadius: 8, padding: '12px 16px', marginBottom: 8,
         fontSize: 24, fontWeight: 700, textAlign: 'right', color: isLight ? '#1a1a2e' : '#fff', fontFamily: 'monospace',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -65,7 +114,7 @@ function CalcWidget({ onClose, isLight }) {
 }
 
 /* ─── Results View ─────────────────────────────────────────────────────── */
-function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
+export function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
   const handleRetryExam = () => {
     window.location.reload();
   };
@@ -76,8 +125,12 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
   const totalWrong = sectionResults.reduce((s, r) => s + r.wrong, 0);
   const totalSkipped = sectionResults.reduce((s, r) => s + r.skipped, 0);
   const _totalQs = sectionResults.reduce((s, r) => s + r.total, 0);
-  const percentage = maxMarks > 0 ? Math.round((totalMarks / maxMarks) * 100) : 0;
-  const passed = percentage >= exam.passingPercent;
+  const rawPercentage = maxMarks > 0 ? (totalMarks / maxMarks) * 100 : 0;
+  const passed = maxMarks > 0 && totalMarks * 100 >= exam.passingPercent * maxMarks;
+  let percentage = Number(rawPercentage.toFixed(2));
+  if (!passed && percentage >= exam.passingPercent) {
+    percentage = Math.floor(rawPercentage * 100) / 100;
+  }
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -109,7 +162,7 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 120px), 1fr))', gap: 20, textAlign: 'center' }}>
             {[
-              { label: 'Score', value: `${totalMarks}/${maxMarks}`, color: passed ? '#34d399' : '#f87171', icon: <Star size={18} /> },
+              { label: 'Score', value: `${Number(totalMarks.toFixed(2))}/${maxMarks}`, color: passed ? '#34d399' : '#f87171', icon: <Star size={18} /> },
               { label: 'Percentage', value: `${percentage}%`, color: passed ? '#34d399' : '#f87171', icon: <Target size={18} /> },
               { label: 'Correct', value: totalCorrect, color: '#34d399', icon: <Check size={18} /> },
               { label: 'Wrong', value: totalWrong, color: '#f87171', icon: <X size={18} /> },
@@ -129,7 +182,7 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Section‑wise Breakdown</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 40 }}>
           {sectionResults.map((r, i) => {
-            const secPct = r.maxMarks > 0 ? Math.round((r.scored / r.maxMarks) * 100) : 0;
+            const secPct = r.maxMarks > 0 ? Number(((r.scored / r.maxMarks) * 100).toFixed(2)) : 0;
             return (
               <div key={i} style={{
                 padding: '20px 24px', borderRadius: 14,
@@ -142,13 +195,13 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
                     <span style={{ fontWeight: 600 }}>{r.title}</span>
                   </div>
                   <span style={{ fontWeight: 700, color: secPct >= 60 ? '#34d399' : secPct >= 40 ? '#facc15' : '#f87171' }}>
-                    {r.scored}/{r.maxMarks} ({secPct}%)
+                    {Number(r.scored.toFixed(2))}/{r.maxMarks} ({secPct}%)
                   </span>
                 </div>
                 <div style={{ height: 6, borderRadius: 3, background: isLight ? '#e5e7eb' : '#1a1a1a', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: 3, transition: 'width 0.8s ease',
-                    width: `${secPct}%`,
+                    width: `${Math.min(100, Math.max(0, secPct))}%`,
                     background: secPct >= 60 ? '#34d399' : secPct >= 40 ? '#facc15' : '#f87171'
                   }} />
                 </div>
@@ -199,21 +252,19 @@ export default function ExamPractice() {
   const mode = searchParams.get('mode') || 'full';          // 'full' | 'section'
   const sectionParam = searchParams.get('section') || null;   // specific section id
 
-  // ── Load exam & questions ──────────────────────────────────────────
+  // ── Load exam metadata (defer question sampling/history until Start) ─
   const exam = useMemo(() => getExamById(examId), [examId]);
-  const { sections: loadedSections } = useMemo(() => {
-    if (!exam) return { sections: [] };
+  const previewSections = useMemo(() => {
+    if (!exam) return [];
     if (mode === 'section' && sectionParam) {
       const sec = exam.sections.find(s => s.id === sectionParam);
-      if (sec) {
-        const qs = getExamSectionQuestions(examId, sectionParam);
-        return { sections: [{ ...sec, questions: qs }] };
-      }
+      if (sec) return [sec];
     }
-    return getFullExamQuestions(examId);
-  }, [exam, examId, mode, sectionParam]);
+    return exam.sections;
+  }, [exam, mode, sectionParam]);
 
   // ── State ──────────────────────────────────────────────────────────
+  const [loadedSections, setLoadedSections] = useState([]);
   const [started, setStarted] = useState(false);
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [currentQIdx, setCurrentQIdx] = useState(0);
@@ -224,22 +275,62 @@ export default function ExamPractice() {
   const [showCalc, setShowCalc] = useState(false);
   const [_showSectionNav,_setShowSectionNavv] = useState(false);
   const [sectionTimers, setSectionTimers] = useState({});    // { sectionIdx: secondsRemaining }
+  const [expiredSections, setExpiredSections] = useState(() => new Set());
   const [totalElapsed, setTotalElapsed] = useState(0);
   const timerRef = useRef(null);
+  const currentSectionIdxRef = useRef(0);
+  currentSectionIdxRef.current = currentSectionIdx;
 
-  const sections = loadedSections || [];
+  // Reset session state if route exam/mode/section changes
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    setLoadedSections([]);
+    setStarted(false);
+    setSubmitted(false);
+    setAnswers({});
+    setBookmarks(new Set());
+    setSectionTimers({});
+    setExpiredSections(new Set());
+    setCurrentSectionIdx(0);
+    setCurrentQIdx(0);
+    currentSectionIdxRef.current = 0;
+    setTotalElapsed(0);
+  }, [examId, mode, sectionParam]);
+
+  const sections = loadedSections;
   const currentSection = sections[currentSectionIdx];
   const currentQuestions = currentSection?.questions || [];
   const currentQ = currentQuestions[currentQIdx];
 
-  // ── Initialise section timers ──────────────────────────────────────
-  useEffect(() => {
-    if (sections.length > 0 && Object.keys(sectionTimers).length === 0) {
-      const timers = {};
-      sections.forEach((s, i) => { timers[i] = s.timeLimit * 60; });
-      setSectionTimers(timers);
+  const handleSubmit = useCallback(() => {
+    setSubmitted(true);
+    clearInterval(timerRef.current);
+  }, []);
+
+  const handleStartExam = useCallback(() => {
+    if (!exam) return;
+    let nextSections = [];
+    if (mode === 'section' && sectionParam) {
+      const sec = exam.sections.find(s => s.id === sectionParam);
+      if (sec) {
+        const qs = getExamSectionQuestions(examId, sectionParam);
+        nextSections = [{ ...sec, questions: qs }];
+      }
     }
-  }, [sections]);
+    if (nextSections.length === 0) {
+      nextSections = getFullExamQuestions(examId).sections || [];
+    }
+    const timers = {};
+    nextSections.forEach((s, i) => { timers[i] = s.timeLimit * 60; });
+    setLoadedSections(nextSections);
+    setSectionTimers(timers);
+    setExpiredSections(new Set());
+    setCurrentSectionIdx(0);
+    setCurrentQIdx(0);
+    currentSectionIdxRef.current = 0;
+    setTotalElapsed(0);
+    setStarted(true);
+  }, [exam, examId, mode, sectionParam]);
 
   // ── Timer tick ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -247,27 +338,69 @@ export default function ExamPractice() {
     timerRef.current = setInterval(() => {
       setTotalElapsed(t => t + 1);
       setSectionTimers(prev => {
-        const next = { ...prev };
-        const remaining = next[currentSectionIdx];
-        if (remaining !== undefined && remaining > 0) {
-          next[currentSectionIdx] = remaining - 1;
-        } else if (remaining === 0) {
-          // Auto-advance to next section if time runs out
-          if (currentSectionIdx < sections.length - 1) {
-            setTimeout(() => {
-              setCurrentSectionIdx(i => i + 1);
-              setCurrentQIdx(0);
-            }, 0);
-          } else {
-            // Last section timed out — auto-submit
-            setTimeout(() => handleSubmit(), 0);
-          }
-        }
-        return next;
+        const idx = currentSectionIdxRef.current;
+        const remaining = prev[idx];
+        if (remaining === undefined || remaining <= 0) return prev;
+        return { ...prev, [idx]: remaining - 1 };
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, [started, submitted, currentSectionIdx, sections.length]);
+  }, [started, submitted]);
+
+  // ── Handle section expiration & auto-submit ────────────────────────
+  useEffect(() => {
+    if (!started || submitted || sections.length === 0) return;
+    const remaining = sectionTimers[currentSectionIdx];
+    if (remaining === undefined || remaining > 0) return;
+
+    const nextExpired = new Set(expiredSections);
+    nextExpired.add(currentSectionIdx);
+    if (!expiredSections.has(currentSectionIdx)) {
+      setExpiredSections(nextExpired);
+    }
+
+    let nextIdx = -1;
+    for (let offset = 1; offset < sections.length; offset++) {
+      const candidate = (currentSectionIdx + offset) % sections.length;
+      if (!nextExpired.has(candidate) && (sectionTimers[candidate] ?? 0) > 0) {
+        nextIdx = candidate;
+        break;
+      }
+    }
+
+    if (nextIdx !== -1) {
+      currentSectionIdxRef.current = nextIdx;
+      setCurrentSectionIdx(nextIdx);
+      setCurrentQIdx(0);
+    } else {
+      handleSubmit();
+    }
+  }, [started, submitted, currentSectionIdx, sectionTimers, expiredSections, sections.length, handleSubmit]);
+
+  const isSectionExpired = useCallback((idx) => {
+    return expiredSections.has(idx) || (started && sectionTimers[idx] !== undefined && sectionTimers[idx] <= 0);
+  }, [expiredSections, started, sectionTimers]);
+
+  const navigateToSection = useCallback((secIdx, qIdx = 0) => {
+    if (isSectionExpired(secIdx)) return;
+    currentSectionIdxRef.current = secIdx;
+    setCurrentSectionIdx(secIdx);
+    setCurrentQIdx(qIdx);
+  }, [isSectionExpired]);
+
+  const nextAvailableSectionIdx = useMemo(() => {
+    for (let i = currentSectionIdx + 1; i < sections.length; i++) {
+      if (!isSectionExpired(i)) return i;
+    }
+    return -1;
+  }, [currentSectionIdx, sections.length, isSectionExpired]);
+
+  const prevAvailableSectionIdx = useMemo(() => {
+    for (let i = currentSectionIdx - 1; i >= 0; i--) {
+      if (!isSectionExpired(i)) return i;
+    }
+    return -1;
+  }, [currentSectionIdx, isSectionExpired]);
 
   // ── Handlers ───────────────────────────────────────────────────────
   const selectAnswer = useCallback((qId, ans) => {
@@ -286,24 +419,18 @@ export default function ExamPractice() {
   const goNext = () => {
     if (currentQIdx < currentQuestions.length - 1) {
       setCurrentQIdx(i => i + 1);
-    } else if (currentSectionIdx < sections.length - 1) {
-      setCurrentSectionIdx(i => i + 1);
-      setCurrentQIdx(0);
+    } else if (nextAvailableSectionIdx !== -1) {
+      navigateToSection(nextAvailableSectionIdx, 0);
     }
   };
   const goPrev = () => {
     if (currentQIdx > 0) {
       setCurrentQIdx(i => i - 1);
-    } else if (currentSectionIdx > 0) {
-      setCurrentSectionIdx(i => i - 1);
-      setCurrentQIdx((sections[currentSectionIdx - 1]?.questions?.length || 1) - 1);
+    } else if (prevAvailableSectionIdx !== -1) {
+      const prevLen = sections[prevAvailableSectionIdx]?.questions?.length || 1;
+      navigateToSection(prevAvailableSectionIdx, prevLen - 1);
     }
   };
-
-  const handleSubmit = useCallback(() => {
-    setSubmitted(true);
-    clearInterval(timerRef.current);
-  }, []);
 
   const formatTime = (s) => {
     if (s < 0) s = 0;
@@ -347,9 +474,9 @@ export default function ExamPractice() {
 
   // ── Start Screen ───────────────────────────────────────────────────
   if (!started) {
-    const totalMarks = sections.reduce((s, sec) => s + (sec.questions?.length || sec.questionCount) * sec.marksPerQuestion, 0);
-    const totalQs = sections.reduce((s, sec) => s + (sec.questions?.length || sec.questionCount), 0);
-    const totalTime = sections.reduce((s, sec) => s + sec.timeLimit, 0);
+    const totalMarks = previewSections.reduce((s, sec) => s + sec.questionCount * sec.marksPerQuestion, 0);
+    const totalQs = previewSections.reduce((s, sec) => s + sec.questionCount, 0);
+    const totalTime = previewSections.reduce((s, sec) => s + sec.timeLimit, 0);
 
     return (
       <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -358,7 +485,7 @@ export default function ExamPractice() {
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>{exam.title}</h1>
           <p style={{ color: isLight ? '#6b7280' : '#71717a', marginBottom: 32, fontSize: 15, lineHeight: 1.6 }}>
             {mode === 'section' && sectionParam
-              ? `Section-wise practice: ${currentSection?.title}`
+              ? `Section-wise practice: ${previewSections[0]?.title}`
               : exam.description
             }
           </p>
@@ -377,7 +504,7 @@ export default function ExamPractice() {
                 { label: 'Total Time', value: `${totalTime} mins`, color: '#818cf8' },
                 { label: 'Questions', value: totalQs, color: '#34d399' },
                 { label: 'Total Marks', value: totalMarks, color: '#facc15' },
-                { label: 'Sections', value: sections.length, color: '#f472b6' },
+                { label: 'Sections', value: previewSections.length, color: '#f472b6' },
                 { label: 'Negative Marking', value: exam.negativeMarking ? 'Yes' : 'No', color: exam.negativeMarking ? '#f87171' : '#34d399' },
                 { label: 'Passing', value: `${exam.passingPercent}%`, color: '#a855f7' },
               ].map((item, i) => (
@@ -393,7 +520,7 @@ export default function ExamPractice() {
               Sections
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {sections.map((sec, i) => (
+              {previewSections.map((sec, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 12px', borderRadius: 8,
@@ -404,7 +531,7 @@ export default function ExamPractice() {
                     <span style={{ fontSize: 13, fontWeight: 500 }}>{sec.title}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>
-                    <span style={{ color: sec.color }}>{sec.questions?.length || sec.questionCount} Qs</span>
+                    <span style={{ color: sec.color }}>{sec.questionCount} Qs</span>
                     <span>{sec.timeLimit} min</span>
                     {sec.negativePerWrong > 0 && <span style={{ color: '#f87171' }}>-{sec.negativePerWrong}</span>}
                   </div>
@@ -432,7 +559,7 @@ export default function ExamPractice() {
 
           {/* Start Button */}
           <button
-            onClick={() => setStarted(true)}
+            onClick={handleStartExam}
             style={{
               padding: '16px 48px', borderRadius: 14, fontSize: 18, fontWeight: 700,
               background: exam.gradient, color: '#fff', border: 'none', cursor: 'pointer',
@@ -571,8 +698,15 @@ export default function ExamPractice() {
           const secQs = sec.questions || [];
           const secAnswered = secQs.filter(q => answers[q.id] !== undefined).length;
           const pct = secQs.length > 0 ? (secAnswered / secQs.length) * 100 : 0;
+          const isExpired = isSectionExpired(i);
           return (
-            <div key={i} style={{ flex: 1, cursor: 'pointer' }} onClick={() => { setCurrentSectionIdx(i); setCurrentQIdx(0); }} title={sec.title}>
+            <div
+              key={i}
+              style={{ flex: 1, cursor: isExpired ? 'not-allowed' : 'pointer', opacity: isExpired ? 0.45 : 1 }}
+              onClick={() => navigateToSection(i, 0)}
+              aria-disabled={isExpired}
+              title={isExpired ? `${sec.title} (Timed out)` : sec.title}
+            >
               <div style={{
                 height: 4, borderRadius: 2,
                 background: isLight ? '#e5e7eb' : '#1a1a1a', overflow: 'hidden'
@@ -580,7 +714,7 @@ export default function ExamPractice() {
                 <div style={{
                   height: '100%', borderRadius: 2, transition: 'width 0.3s',
                   width: `${pct}%`,
-                  background: i === currentSectionIdx ? sec.color : `${sec.color}60`
+                  background: isExpired ? '#71717a' : (i === currentSectionIdx ? sec.color : `${sec.color}60`)
                 }} />
               </div>
             </div>
@@ -600,13 +734,18 @@ export default function ExamPractice() {
             maxWidth: 600, width: '90%', maxHeight: '80vh', overflowY: 'auto'
           }} onClick={e => e.stopPropagation()}>
             <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 700 }}>Question Navigator</h3>
-            {sections.map((sec, sIdx) => (
-              <div key={sIdx} style={{ marginBottom: 20 }}>
+            {sections.map((sec, sIdx) => {
+              const isExpired = isSectionExpired(sIdx);
+              return (
+              <div key={sIdx} style={{ marginBottom: 20, opacity: isExpired ? 0.5 : 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, color: sec.color }}>
                   <span>{sec.icon}</span> {sec.title}
                   <span style={{ fontSize: 11, color: isLight ? '#9ca3af' : '#52525b' }}>
                     ({(sec.questions || []).filter(q => answers[q.id] !== undefined).length}/{(sec.questions || []).length} answered)
                   </span>
+                  {isExpired && (
+                    <span style={{ fontSize: 11, color: '#f87171', fontWeight: 600 }}>• Timed out</span>
+                  )}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 5 }}>
                   {(sec.questions || []).map((q, qIdx) => {
@@ -614,12 +753,16 @@ export default function ExamPractice() {
                     const isBm = bookmarks.has(q.id);
                     const isCur = sIdx === currentSectionIdx && qIdx === currentQIdx;
                     return (
-                      <button key={qIdx} onClick={() => { setCurrentSectionIdx(sIdx); setCurrentQIdx(qIdx); setShowGrid(false); }} style={{
+                      <button
+                        key={qIdx}
+                        disabled={isExpired}
+                        onClick={() => { navigateToSection(sIdx, qIdx); setShowGrid(false); }}
+                        style={{
                         width: 34, height: 34, borderRadius: 8,
                         border: isCur ? `2px solid ${sec.color}` : (isLight ? '1px solid #d1d5db' : '1px solid #333'),
                         background: isAns ? `${sec.color}20` : 'transparent',
                         color: isCur ? sec.color : isAns ? (isLight ? '#1a1a2e' : '#fff') : (isLight ? '#9ca3af' : '#52525b'),
-                        cursor: 'pointer', fontSize: 11, fontWeight: 600, position: 'relative'
+                        cursor: isExpired ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600, position: 'relative'
                       }}>
                         {qIdx + 1}
                         {isBm && <div style={{ position: 'absolute', top: -2, right: -2, width: 6, height: 6, borderRadius: '50%', background: '#facc15' }} />}
@@ -628,7 +771,8 @@ export default function ExamPractice() {
                   })}
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>
               <span>⬜ Unanswered</span> <span>🟪 Answered</span> <span>🟡 Bookmarked</span>
             </div>
@@ -764,49 +908,54 @@ export default function ExamPractice() {
         borderTop: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
         zIndex: 40
       }}>
-        <button onClick={goPrev} disabled={currentQIdx === 0 && currentSectionIdx === 0} style={{
+        <button onClick={goPrev} disabled={currentQIdx === 0 && prevAvailableSectionIdx === -1} style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8,
           background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)', border: 'none',
-          color: (currentQIdx === 0 && currentSectionIdx === 0) ? (isLight ? '#d1d5db' : '#333') : (isLight ? '#6b7280' : '#a1a1aa'),
-          cursor: (currentQIdx === 0 && currentSectionIdx === 0) ? 'default' : 'pointer', fontSize: 13, fontWeight: 500
+          color: (currentQIdx === 0 && prevAvailableSectionIdx === -1) ? (isLight ? '#d1d5db' : '#333') : (isLight ? '#6b7280' : '#a1a1aa'),
+          cursor: (currentQIdx === 0 && prevAvailableSectionIdx === -1) ? 'default' : 'pointer', fontSize: 13, fontWeight: 500
         }}>
           <ChevronLeft size={16} /> Previous
         </button>
 
         {/* Section Jump */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {sections.map((sec, i) => (
-            <button key={i} onClick={() => { setCurrentSectionIdx(i); setCurrentQIdx(0); }}
-              title={sec.title}
-              style={{
-                width: 28, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 700,
-                background: i === currentSectionIdx ? `${sec.color}25` : 'transparent',
-                color: i === currentSectionIdx ? sec.color : (isLight ? '#9ca3af' : '#52525b'),
-                transition: 'all 0.2s'
-              }}
-            >
-              {sec.icon}
-            </button>
-          ))}
+          {sections.map((sec, i) => {
+            const isExpired = isSectionExpired(i);
+            return (
+              <button key={i} disabled={isExpired} onClick={() => navigateToSection(i, 0)}
+                title={isExpired ? `${sec.title} (Timed out)` : sec.title}
+                style={{
+                  width: 28, height: 28, borderRadius: 6, border: 'none',
+                  cursor: isExpired ? 'not-allowed' : 'pointer',
+                  opacity: isExpired ? 0.35 : 1,
+                  fontSize: 11, fontWeight: 700,
+                  background: i === currentSectionIdx ? `${sec.color}25` : 'transparent',
+                  color: i === currentSectionIdx ? sec.color : (isLight ? '#9ca3af' : '#52525b'),
+                  transition: 'all 0.2s'
+                }}
+              >
+                {sec.icon}
+              </button>
+            );
+          })}
         </div>
 
         <button
           onClick={goNext}
-          disabled={currentQIdx === currentQuestions.length - 1 && currentSectionIdx === sections.length - 1}
+          disabled={currentQIdx === currentQuestions.length - 1 && nextAvailableSectionIdx === -1}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8,
-            background: (currentQIdx === currentQuestions.length - 1 && currentSectionIdx === sections.length - 1)
+            background: (currentQIdx === currentQuestions.length - 1 && nextAvailableSectionIdx === -1)
               ? (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)')
               : (currentSection?.color || '#818cf8'),
             border: 'none',
-            color: (currentQIdx === currentQuestions.length - 1 && currentSectionIdx === sections.length - 1)
+            color: (currentQIdx === currentQuestions.length - 1 && nextAvailableSectionIdx === -1)
               ? (isLight ? '#d1d5db' : '#333') : '#fff',
-            cursor: (currentQIdx === currentQuestions.length - 1 && currentSectionIdx === sections.length - 1) ? 'default' : 'pointer',
+            cursor: (currentQIdx === currentQuestions.length - 1 && nextAvailableSectionIdx === -1) ? 'default' : 'pointer',
             fontSize: 13, fontWeight: 500
           }}
         >
-          {currentQIdx === currentQuestions.length - 1 && currentSectionIdx < sections.length - 1
+          {currentQIdx === currentQuestions.length - 1 && nextAvailableSectionIdx !== -1
             ? 'Next Section' : 'Next'
           } <ChevronRight size={16} />
         </button>

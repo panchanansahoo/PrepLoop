@@ -6,41 +6,35 @@ import {
     TouchableOpacity,
     ScrollView,
     SafeAreaView,
-    Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { EXAM_CATALOG } from "../../data/examData";
 
-const EXAMS = [
-    {
-        id: "tcs-nqt",
-        title: "TCS NQT Mock Exam",
-        company: "Tata Consultancy Services",
-        duration: "120 mins",
-        questions: 90,
-        tags: ["Cognitive", "IT Programming"],
-        color: "#3b82f6",
-    },
-    {
-        id: "infosys",
-        title: "Infosys Certification",
-        company: "Infosys",
-        duration: "100 mins",
-        questions: 65,
-        tags: ["Reasoning", "Pseudo Code", "Puzzle"],
-        color: "#06b6d4",
-    },
-    {
-        id: "wipro-nlth",
-        title: "Wipro NLTH",
-        company: "Wipro",
-        duration: "140 mins",
-        questions: 100,
-        tags: ["Aptitude", "Coding", "English"],
-        color: "#8b5cf6",
-    },
-];
+const EXAMS = EXAM_CATALOG.map((exam) => {
+    const questionCount =
+        exam.totalQuestions ??
+        (exam.sections || []).reduce(
+            (sum, section) => sum + (section.questionCount || 0),
+            0,
+        );
+    const totalMinutes =
+        exam.totalTime ??
+        (exam.sections || []).reduce(
+            (sum, section) => sum + (section.timeLimit || 0),
+            0,
+        );
+    return {
+        id: exam.id,
+        title: exam.title,
+        company: exam.company,
+        duration: `${totalMinutes} mins`,
+        questions: questionCount,
+        tags: (exam.sections || []).map((section) => section.title),
+        color: exam.color || colors.primary,
+    };
+});
 
 export default function ExamHubScreen({ navigation }) {
     const handleStartExam = (exam) => {
@@ -76,7 +70,7 @@ export default function ExamHubScreen({ navigation }) {
                                 style={styles.card}
                             >
                                 <View style={styles.cardHeader}>
-                                    <View>
+                                    <View style={styles.cardHeaderText}>
                                         <Text style={styles.cardTitle}>{exam.title}</Text>
                                         <Text style={styles.cardCompany}>{exam.company}</Text>
                                     </View>
@@ -187,6 +181,10 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "flex-start",
         marginBottom: spacing.md,
+    },
+    cardHeaderText: {
+        flex: 1,
+        marginRight: spacing.sm,
     },
     cardTitle: {
         color: colors.textPrimary,
