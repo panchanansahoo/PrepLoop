@@ -64,7 +64,7 @@ const query = (result) => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  fixtures.reserveSlug.mockImplementation(async (slug) => slug || 'generated-slug');
+  fixtures.reserveSlug.mockImplementation((slug) => Promise.resolve(slug || 'generated-slug'));
 });
 
 describe('Bug 1 & Bug 12: Portfolio publish visibility and resilient short-link handling', () => {
