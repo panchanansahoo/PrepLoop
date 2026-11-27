@@ -7,6 +7,7 @@ const mockNavigate = vi.fn();
 const mockAuthFetch = vi.fn();
 const mockRefreshBalance = vi.fn();
 const mockRefreshDashboard = vi.fn();
+const mockRefreshSubscription = vi.fn();
 const mockLogout = vi.fn();
 
 const mockUser = {
@@ -28,6 +29,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     user: mockUser,
     logout: mockLogout,
+    refreshSubscription: mockRefreshSubscription,
   }),
 }));
 
@@ -191,5 +193,108 @@ describe('Profile Page bug regressions', () => {
         },
       },
     });
+  });
+
+  it('displays billing period, expiry date, and cancels subscription cleanly from Profile (Bug 4)', async () => {
+    const expiryIso = '2027-03-15T00:00:00.000Z';
+    setupDefaultFetch(
+      {
+        subscriptionTier: 'elite',
+        subscriptionBillingCycle: 'annual',
+        subscriptionStatus: 'active',
+        subscriptionExpiresAt: expiryIso,
+      },
+      {
+        'GET /api/payment/subscription': async () => ({
+          ok: true,
+          json: async () => ({
+            subscription: {
+              tier: 'elite',
+              billingCycle: 'annual',
+              status: 'active',
+              expiresAt: expiryIso,
+              cancelAtPeriodEnd: false,
+              isPaid: true,
+            },
+          }),
+        }),
+        'POST /api/payment/cancel': async () => ({
+          ok: true,
+          json: async () => ({
+            success: true,
+            message: 'Subscription cancelled. You will retain access until the end of your current billing period.',
+            subscription: {
+              tier: 'elite',
+              billingCycle: 'annual',
+              status: 'cancelled',
+              expiresAt: expiryIso,
+              cancelledAt: '2026-11-27T00:00:00.000Z',
+              cancelAtPeriodEnd: true,
+              isPaid: true,
+            },
+          }),
+        }),
+      }
+    );
+
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    expect(await screen.findByText('ELITE')).toBeInTheDocument();
+    expect(screen.getByText('Annual')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Current Period Ends')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Cancel Subscription/i }));
+    expect(screen.getByText(/Cancel your Elite plan\?/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Cancel/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cancelled \(active until period end\)/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Access Ends On/i)).toBeInTheDocument();
+    expect(mockRefreshSubscription).toHaveBeenCalledTimes(1);
+    expect(mockAuthFetch).toHaveBeenCalledWith(
+      '/api/payment/cancel',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
+  it('keeps active subscription intact and shows error when cancellation fails (Bug 4)', async () => {
+    const expiryIso = '2027-03-15T00:00:00.000Z';
+    setupDefaultFetch(
+      {
+        subscriptionTier: 'pro',
+        subscriptionBillingCycle: 'monthly',
+        subscriptionStatus: 'active',
+        subscriptionExpiresAt: expiryIso,
+      },
+      {
+        'GET /api/payment/subscription': async () => ({
+          ok: true,
+          json: async () => ({
+            subscription: {
+              tier: 'pro',
+              billingCycle: 'monthly',
+              status: 'active',
+              expiresAt: expiryIso,
+              cancelAtPeriodEnd: false,
+              isPaid: true,
+            },
+          }),
+        }),
+        'POST /api/payment/cancel': async () => ({
+          ok: false,
+          json: async () => ({ error: 'Cancellation temporarily unavailable' }),
+        }),
+      }
+    );
+
+    render(<MemoryRouter><Profile /></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Cancel Subscription/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirm Cancel/i }));
+
+    expect(await screen.findByText('Cancellation temporarily unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
   });
 });

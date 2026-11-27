@@ -69,7 +69,7 @@ const plans = [
 const faqs = [
   {
     q: 'Can I upgrade or downgrade my plan?',
-    a: 'Yes. You can upgrade your plan anytime for instant access to new features. Downgrades take effect at the end of your current billing cycle.',
+    a: 'You can buy a different plan at any time. The new plan starts when the payment is confirmed. Buying the same plan again adds time to your active access.',
   },
   {
     q: 'Is my payment information secure?',
@@ -89,7 +89,11 @@ const faqs = [
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. No contracts or cancellation fees. Cancel from your profile page and retain access until end of billing period.',
+    a: 'Yes. No contracts or cancellation fees. Cancel anytime from your Profile page and retain access until the end of your current billing period.',
+  },
+  {
+    q: 'What happens when my paid access ends?',
+    a: 'Your account automatically returns to the Free plan when your monthly or annual billing period ends or after cancellation.',
   },
 ];
 
@@ -98,6 +102,8 @@ export default function Pricing() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
   const [isAnnual, setIsAnnual] = useState(false);
+  const activeTier = String(user?.subscriptionTier || user?.subscription_tier || 'free').trim().toLowerCase();
+  const hasPaidPlan = Boolean(user && !user.isGuest && activeTier !== 'free');
 
   const resolveLink = (plan) => {
     if ((plan.name === 'Pro' || plan.name === 'Team') && (!user || user.isGuest)) {
@@ -140,6 +146,15 @@ export default function Pricing() {
             <span className="pricing-billing-save">Save 20%</span>
           </span>
         </div>
+
+        {hasPaidPlan && (
+          <div style={{ marginTop: '14px', fontSize: '14px', color: '#cbd5e1' }}>
+            Active plan: <strong style={{ textTransform: 'capitalize' }}>{activeTier}</strong>.{' '}
+            <Link to="/profile" style={{ color: '#34d399', fontWeight: 600, textDecoration: 'underline' }}>
+              Manage or cancel in Profile
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* ── Plans ── */}
@@ -164,12 +179,12 @@ export default function Pricing() {
                   {plan.price === '₹0'
                     ? '₹0'
                     : isAnnual
-                      ? `₹${(Number(plan.price.replace('₹', '')) * 0.8).toFixed(2)}`
+                      ? `₹${(Math.round(Number(plan.price.replace('₹', '')) * 100 * 12 * 0.8) / 100).toLocaleString('en-IN')}`
                       : plan.price
                   }
                 </span>
                 <span className="pricing-price-period">
-                  {plan.price === '₹0' ? '/ month' : isAnnual ? '/ month, billed annually' : '/ month'}
+                  {plan.price === '₹0' ? '' : isAnnual ? 'for 1 year' : 'for 1 month'}
                 </span>
                 {plan.discount && (
                   <span className="pricing-price-discount">{isAnnual ? '-20% applied' : plan.discount}</span>

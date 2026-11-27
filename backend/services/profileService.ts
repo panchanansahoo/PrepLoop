@@ -1,3 +1,4 @@
+import { effectiveSubscriptionTier, getSubscriptionState } from '../utils/subscriptionTier.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import cacheManager from '../utils/cacheManager.js';
 import { buildAvatarPath, claimCustomUrl, resolveProfileLinkedin } from '../utils/profileUtils.js';
@@ -21,6 +22,10 @@ export interface RawProfile {
   email?: string;
   full_name?: string;
   subscription_tier?: string;
+  subscription_expires_at?: string | null;
+  subscription_billing_cycle?: string | null;
+  subscription_status?: string | null;
+  subscription_cancelled_at?: string | null;
   experience_level?: string;
   experience_summary?: string;
   experience_years?: number | null;
@@ -124,7 +129,8 @@ export const calculateProfileCompletionPercentage = (profile: RawProfile | null 
 export const buildProfileResponse = (reqOrUser: any, profile: RawProfile) => {
   const userContext = reqOrUser && 'user' in reqOrUser ? reqOrUser.user : reqOrUser;
   const fullName = profile?.full_name || userContext?.user_metadata?.full_name || '';
-  const subscriptionTier = profile?.subscription_tier || 'free';
+  const subscriptionState = getSubscriptionState(profile);
+  const subscriptionTier = subscriptionState.tier;
   const experienceLevel = profile?.experience_level || 'beginner';
   const isUserAdmin = userContext?.role === 'admin' || (userContext?.email ? isAdminEmail(userContext.email) : false) || profile?.role === 'admin';
   const role = isUserAdmin ? 'admin' : (profile?.role || userContext?.role || 'user');
@@ -153,6 +159,15 @@ export const buildProfileResponse = (reqOrUser: any, profile: RawProfile) => {
     full_name: fullName,
     subscriptionTier,
     subscription_tier: subscriptionTier,
+    subscriptionExpiresAt: subscriptionState.expiresAt,
+    subscription_expires_at: subscriptionState.expiresAt,
+    subscriptionBillingCycle: subscriptionState.billingCycle,
+    subscription_billing_cycle: subscriptionState.billingCycle,
+    subscriptionStatus: subscriptionState.status,
+    subscription_status: subscriptionState.status,
+    subscriptionCancelledAt: subscriptionState.cancelledAt,
+    subscription_cancelled_at: subscriptionState.cancelledAt,
+    cancelAtPeriodEnd: subscriptionState.cancelAtPeriodEnd,
     experienceLevel,
     experience_level: experienceLevel,
     role,
@@ -706,7 +721,7 @@ export const getUserSettings = async (
     settings: {
       full_name: profile?.full_name || userMetadata?.full_name || '',
       experience_level: experienceLevel,
-      subscription_tier: profile?.subscription_tier || 'free',
+      subscription_tier: effectiveSubscriptionTier(profile),
       ...normalizeUserSettingsPreferences(userMetadata?.settings, experienceLevel),
       ...(authProvider ? { authProvider } : {}),
     },
@@ -890,7 +905,7 @@ export const updateUserSettings = async (
     settings: {
       full_name: profileRow?.full_name || dbUpdates.full_name || userMetadata?.full_name || '',
       experience_level: resolvedExpLevel,
-      subscription_tier: profileRow?.subscription_tier || 'free',
+      subscription_tier: effectiveSubscriptionTier(profileRow),
       ...mergedPrefs,
       ...(authProvider ? { authProvider } : {}),
     },

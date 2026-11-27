@@ -71,8 +71,8 @@ function TxCard({ tx }) {
                         isCredit ? styles.credit : styles.debit,
                     ]}
                 >
-                    {isCredit ? "+" : ""}
-                    {tx.amount} 🪙
+                    {isCredit ? "+" : "−"}
+                    {Math.abs(tx.amount)} 🪙
                 </Text>
             </View>
         </Card>
@@ -94,18 +94,30 @@ export default function CoinWalletScreen({ navigation }) {
             setError("");
             const [balData, txData] = await Promise.allSettled([
                 coinsApi.getBalance(),
-                coinsApi.getTransactions(),
+                coinsApi.getWalletHistory(),
             ]);
             if (balData.status === "fulfilled") {
                 setBalance(balData.value?.balance ?? 0);
-                setTotalEarned(balData.value?.totalEarned ?? null);
-                setTotalSpent(balData.value?.totalSpent ?? null);
             }
             if (txData.status === "fulfilled") {
-                const list = Array.isArray(txData.value)
-                    ? txData.value
-                    : txData.value?.transactions || txData.value?.data || [];
-                setTransactions(list);
+                const { items, summary } = txData.value;
+                const hasSpentSummary =
+                    summary.totalSpent != null || summary.totalRedeemed != null;
+                setTransactions(items);
+                setTotalEarned(summary.totalEarned ?? null);
+                setTotalSpent(
+                    hasSpentSummary
+                        ? (summary.totalSpent ?? 0) +
+                              (summary.totalRedeemed ?? 0)
+                        : null,
+                );
+            }
+            if (balData.status === "rejected" && txData.status === "rejected") {
+                setError("Could not load your wallet.");
+            } else if (balData.status === "rejected") {
+                setError("Could not refresh your coin balance.");
+            } else if (txData.status === "rejected") {
+                setError("Could not refresh coin transactions and totals.");
             }
         } catch (err) {
             setError(err?.response?.data?.message || "Failed to load wallet.");
@@ -166,7 +178,13 @@ export default function CoinWalletScreen({ navigation }) {
                 ListHeaderComponent={
                     <View>
                         {error && (
-                            <ErrorMessage message={error} onRetry={load} />
+                            <ErrorMessage
+                                message={error}
+                                onRetry={() => {
+                                    setRefreshing(true);
+                                    load();
+                                }}
+                            />
                         )}
                         <LinearGradient
                             colors={["rgba(245,158,11,0.15)", "#070709"]}

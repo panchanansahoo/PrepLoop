@@ -1,3 +1,4 @@
+import { getSubscriptionState } from '../../utils/subscriptionTier.js';
 import express from 'express';
 import { LoginRequestSchema } from '@preploop/contracts/auth';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
@@ -84,11 +85,19 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     let shouldBypassVerification = false;
 
     try {
-      const { data: profileData, error: profileError } = await supabaseAdmin
+      let { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('full_name, subscription_tier, experience_level, role, email_verified')
+        .select('full_name, subscription_tier, subscription_expires_at, subscription_billing_cycle, subscription_status, subscription_cancelled_at, experience_level, role, email_verified')
         .eq('id', data.user.id)
         .maybeSingle();
+
+      if (profileError && (String(profileError?.code || '') === '42703' || String(profileError?.message || '').toLowerCase().includes('does not exist'))) {
+        ({ data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name, subscription_tier, experience_level, role, email_verified')
+          .eq('id', data.user.id)
+          .maybeSingle());
+      }
 
       if (profileError) {
         console.warn('Login profile query warning:', profileError);
@@ -108,7 +117,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         const { data: createdProfile, error: createErr } = await supabaseAdmin
           .from('profiles')
           .upsert(newProfile, { onConflict: 'id' })
-          .select('full_name, subscription_tier, experience_level, role, email_verified')
+          .select('full_name, subscription_tier, subscription_expires_at, subscription_billing_cycle, subscription_status, subscription_cancelled_at, experience_level, role, email_verified')
           .maybeSingle();
 
         profile = (!createErr && createdProfile) ? createdProfile : newProfile;
@@ -152,6 +161,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
 
     setSessionCookies(res, data.session);
     const csrfToken = generateCsrfToken(req, res);
+    const subscriptionState = getSubscriptionState(profile);
     res.json({
       message: 'Login successful',
       token: data.session.access_token,
@@ -161,7 +171,12 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         id: data.user.id,
         email: data.user.email,
         fullName: profile?.full_name || data.user.user_metadata?.full_name || normalizedEmail.split('@')[0],
-        subscriptionTier: profile?.subscription_tier || 'free',
+        subscriptionTier: subscriptionState.tier,
+        subscriptionExpiresAt: subscriptionState.expiresAt,
+        subscriptionBillingCycle: subscriptionState.billingCycle,
+        subscriptionStatus: subscriptionState.status,
+        subscriptionCancelledAt: subscriptionState.cancelledAt,
+        cancelAtPeriodEnd: subscriptionState.cancelAtPeriodEnd,
         experienceLevel: profile?.experience_level || 'beginner',
         role: profile?.role || 'user',
         emailVerified: shouldBypassVerification ? true : (profile?.email_verified ?? true)

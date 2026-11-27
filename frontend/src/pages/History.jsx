@@ -1,3 +1,5 @@
+import { useAuth } from '../context/AuthContext';
+import { readInterviewHistory, updateInterviewHistory } from '../utils/accountStorage';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,9 +17,17 @@ const typeConfig = {
 };
 
 export default function History() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const userId = user?.isGuest ? null : user?.id;
+  return <HistoryContent key={userId || 'guest'} userId={userId} />;
+}
+
+function HistoryContent({ userId }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
@@ -25,20 +35,33 @@ export default function History() {
   }, []);
 
   const fetchHistory = async () => {
+    setError('');
+    if (!userId) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     let serverSessions = [];
     try {
       const res = await authFetch(`${API_URL}/api/user/history`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.sessions)) {
-          serverSessions = data.sessions;
-        }
+      if (!res.ok) {
+        throw new Error('Could not load session history.');
       }
-    } catch (err) { console.error(err); }
+      const data = await res.json();
+      if (Array.isArray(data.sessions)) {
+        serverSessions = data.sessions;
+      }
+    } catch (err) {
+      console.error(err);
+      setSessions([]);
+      setError('Could not load session history.');
+      setLoading(false);
+      return;
+    }
 
     let localSessions = [];
     try {
-      const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
+      const local = readInterviewHistory(userId);
       if (Array.isArray(local) && local.length > 0) {
         // Cap localSessions to last 50 entries
         const cappedLocal = local.slice(-50);
@@ -87,11 +110,11 @@ export default function History() {
       completed_at: new Date(Date.now() - 3600000 * 2).toISOString(),
       created_at: new Date(Date.now() - 3600000 * 2).toISOString()
     };
-    try {
-      const historyKey = 'preploop_local_interview_history';
-      const existing = JSON.parse(localStorage.getItem(historyKey) || '[]');
-      localStorage.setItem(historyKey, JSON.stringify([sample, ...existing.filter(s => s.id !== sample.id)]));
-    } catch { /* empty */ }
+    if (!userId) {
+      navigate('/interview-history', { state: { sessionId: sample.id } });
+      return;
+    }
+    updateInterviewHistory(userId, items => [sample, ...items.filter(s => s.id !== sample.id)]);
     fetchHistory();
   };
 
@@ -121,9 +144,10 @@ export default function History() {
         </div>
       </div>
 
+      {error && <p role="alert" style={{ color: '#ef4444', marginBottom: 16 }}>{error}</p>}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Loading history...</div>
-      ) : displaySessions.length === 0 ? (
+      ) : displaySessions.length === 0 ? !error && (
         <div style={{ textAlign: 'center', padding: 60, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
           <Clock size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px auto' }} />
           <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No sessions found</h3>

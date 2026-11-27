@@ -95,11 +95,24 @@ describe('Profile Helpers', () => {
     expect(normalizeLinkedinInput('   ')).toBeNull();
   });
 
-  it('preserves subscriptionTier and maps plan badge metadata', () => {
-    const normalized = normalizeProfileData({ subscription_tier: 'pro', coins: 40 });
-    expect(normalized.subscriptionTier).toBe('pro');
+  it('preserves subscriptionTier, lifecycle fields, and maps plan badge metadata including elite', () => {
+    const normalized = normalizeProfileData({
+      subscription_tier: 'elite',
+      subscription_billing_cycle: 'annual',
+      subscription_status: 'cancelled',
+      subscription_expires_at: '2027-01-01T00:00:00.000Z',
+      subscription_cancelled_at: '2026-06-01T00:00:00.000Z',
+      cancelAtPeriodEnd: true,
+      coins: 40,
+    });
+    expect(normalized.subscriptionTier).toBe('elite');
+    expect(normalized.subscriptionBillingCycle).toBe('annual');
+    expect(normalized.subscriptionStatus).toBe('cancelled');
+    expect(normalized.subscriptionExpiresAt).toBe('2027-01-01T00:00:00.000Z');
+    expect(normalized.cancelAtPeriodEnd).toBe(true);
     expect(normalized.coins).toBe(40);
     expect(getPlanBadgeMeta('pro')).toEqual({ tier: 'pro', label: 'Pro', pill: 'PRO', isPaid: true });
+    expect(getPlanBadgeMeta('elite')).toEqual({ tier: 'elite', label: 'Elite', pill: 'ELITE', isPaid: true });
     expect(getPlanBadgeMeta('premium')).toEqual({ tier: 'premium', label: 'Premium', pill: 'PREMIUM', isPaid: true });
     expect(getPlanBadgeMeta('free')).toEqual({ tier: 'free', label: 'Explorer (Free)', pill: 'FREE', isPaid: false });
   });

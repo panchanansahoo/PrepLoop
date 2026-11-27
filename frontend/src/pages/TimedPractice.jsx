@@ -5,7 +5,7 @@ import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 import {
     Timer, Zap, Clock, Target, Play, Pause, RotateCcw,
-    CheckCircle2, XCircle, ArrowRight, Trophy, Brain
+    CheckCircle2, XCircle, ArrowRight, Trophy, Brain, AlertCircle
 } from 'lucide-react';
 
 const MODES = [
@@ -51,11 +51,13 @@ export default function TimedPractice() {
     const [paused, setPaused] = useState(false);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const timerRef = useRef(null);
 
     // Start session
     const startSession = async (mode) => {
         setLoading(true);
+        setError(null);
         try {
             const res = await authFetch(`${API_URL}/api/practice/timed-session`, {
                 method: 'POST',
@@ -63,10 +65,13 @@ export default function TimedPractice() {
                     difficulty: 'all',
                     duration: mode.time,
                     count: mode.count || 5,
+                    mode: mode.id,
+                    focus: mode.id === 'last-day' ? 'weak-areas' : 'general',
                 }),
             });
             if (!res.ok) {
-                throw new Error('Failed to start timed session');
+                const errPayload = await res.json().catch(() => null);
+                throw new Error(errPayload?.error || 'Failed to start timed session');
             }
             const data = await res.json();
             const questions = Array.isArray(data.questions)
@@ -74,34 +79,25 @@ export default function TimedPractice() {
                 : Array.isArray(data.problems)
                     ? data.problems
                     : [];
+            if (questions.length === 0) {
+                throw new Error('No practice problems are available for this session right now.');
+            }
             const timeMinutes = Number(data.timeMinutes || data.duration || mode.time);
             setSession({ ...data, questions, timeMinutes });
             setTimeLeft(timeMinutes * 60);
             setSelectedMode(mode);
             setCurrentQ(0);
             setAnswers({});
+            setPaused(false);
+            setResults(null);
             setPhase('active');
         } catch (err) {
             console.error(err);
+            setError(err?.message || 'Failed to start timed session. Please try again.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
-
-    // Timer
-    useEffect(() => {
-        if (phase !== 'active' || paused) return;
-        timerRef.current = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 1) {
-                    clearInterval(timerRef.current);
-                    finishSession();
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(timerRef.current);
-    }, [phase, paused]);
 
     const formatTime = (s) => {
         const m = Math.floor(s / 60);
@@ -113,7 +109,7 @@ export default function TimedPractice() {
         setAnswers(prev => ({ ...prev, [qId]: solved }));
     };
 
-    const finishSession = useCallback(async () => {
+    const finishSession = useCallback(async (remainingOverride) => {
         clearInterval(timerRef.current);
         if (!session) return;
         const resultsList = session.questions.map(q => ({
@@ -122,14 +118,33 @@ export default function TimedPractice() {
         }));
         const solved = resultsList.filter(r => r.solved).length;
         const total = resultsList.length;
+        const totalSeconds = (Number(session.timeMinutes) || Number(selectedMode?.time) || 0) * 60;
+        const remainingSeconds = typeof remainingOverride === 'number' ? remainingOverride : timeLeft;
         setResults({
             solved,
             total,
             accuracy: total > 0 ? Math.round((solved / total) * 100) : 0,
-            timeUsed: (selectedMode?.time * 60 || 0) - timeLeft,
+            timeUsed: Math.max(0, totalSeconds - remainingSeconds),
         });
+        setPaused(false);
         setPhase('results');
     }, [session, answers, timeLeft, selectedMode]);
+
+    // Timer countdown
+    useEffect(() => {
+        if (phase !== 'active' || paused) return;
+        timerRef.current = setInterval(() => {
+            setTimeLeft(prev => (prev <= 1 ? 0 : prev - 1));
+        }, 1000);
+        return () => clearInterval(timerRef.current);
+    }, [phase, paused]);
+
+    // Auto-finish when countdown hits 0 using the latest finishSession state
+    useEffect(() => {
+        if (phase === 'active' && session && timeLeft <= 0) {
+            finishSession(0);
+        }
+    }, [phase, session, timeLeft, finishSession]);
 
     const timePercent = session ? ((timeLeft / (session.timeMinutes * 60)) * 100) : 100;
     const isLowTime = timeLeft < 60;
@@ -145,6 +160,27 @@ export default function TimedPractice() {
                         <p className="tp-subtitle">Choose a mode and race against the clock</p>
                     </div>
                 </div>
+                {error && (
+                    <div
+                        role="alert"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px 16px',
+                            marginBottom: '16px',
+                            borderRadius: '10px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            color: '#ef4444',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                        }}
+                    >
+                        <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                        <span>{error}</span>
+                    </div>
+                )}
                 <div className="tp-modes">
                     {MODES.map(mode => {
                         const Icon = mode.icon;
@@ -178,7 +214,27 @@ export default function TimedPractice() {
 
     // Active Session
     if (phase === 'active' && session) {
-        const q = session.questions[currentQ];
+        const q = session.questions?.[currentQ];
+        if (!q) {
+            return (
+                <div className="tp-container">
+                    <div role="alert" className="tp-question-card">
+                        <h2 className="tp-q-title">No practice problems available</h2>
+                        <p className="tp-subtitle">Unable to load questions for this session.</p>
+                        <button
+                            className="tp-btn-primary"
+                            onClick={() => {
+                                setPaused(false);
+                                setSession(null);
+                                setPhase('select');
+                            }}
+                        >
+                            <RotateCcw size={16} /> Back to Modes
+                        </button>
+                    </div>
+                </div>
+            );
+        }
         return (
             <div className="tp-container">
                 {/* Timer bar */}
@@ -198,10 +254,10 @@ export default function TimedPractice() {
                         {currentQ + 1} / {session.questions.length}
                     </div>
                     <div className="tp-active-actions">
-                        <button className="tp-btn-icon" onClick={() => setPaused(p => !p)}>
+                        <button className="tp-btn-icon" aria-label={paused ? 'Resume timer' : 'Pause timer'} onClick={() => setPaused(p => !p)}>
                             {paused ? <Play size={16} /> : <Pause size={16} />}
                         </button>
-                        <button className="tp-btn-finish" onClick={finishSession}>
+                        <button className="tp-btn-finish" onClick={() => finishSession()}>
                             Finish Early
                         </button>
                     </div>
@@ -290,7 +346,16 @@ export default function TimedPractice() {
                     </div>
 
                     <div className="tp-results-actions">
-                        <button className="tp-btn-primary" onClick={() => setPhase('select')}>
+                        <button
+                            className="tp-btn-primary"
+                            onClick={() => {
+                                setPaused(false);
+                                setSession(null);
+                                setResults(null);
+                                setError(null);
+                                setPhase('select');
+                            }}
+                        >
                             <RotateCcw size={16} /> Try Another Session
                         </button>
                         <Link to="/problems" className="tp-btn-secondary">

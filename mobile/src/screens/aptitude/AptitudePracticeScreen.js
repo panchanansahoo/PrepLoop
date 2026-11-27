@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { playHapticFeedback, playHapticNotification } from "../../utils/preferences";
 
 import {
     getCategoryQuestions,
@@ -69,12 +71,17 @@ export default function AptitudePracticeScreen({ route, navigation }) {
         setSelectedAnswer(option);
         setIsAnswered(true);
 
-        if (option === questions[currentIndex]?.correctAnswer) {
+        const isCorrect = option === questions[currentIndex]?.correctAnswer;
+        playHapticNotification(
+            isCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
+        ).catch(() => {});
+        if (isCorrect) {
             setScore((prev) => Math.min(questions.length, prev + 1));
         }
     };
 
     const handleNext = () => {
+        playHapticFeedback().catch(() => {});
         if (currentIndex < questions.length - 1) {
             answeredRef.current = false;
             setCurrentIndex((prev) => prev + 1);

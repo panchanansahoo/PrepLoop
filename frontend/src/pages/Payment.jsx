@@ -132,7 +132,7 @@ export default function Payment() {
         minimumFractionDigits: amountPaise % 100 === 0 ? 0 : 2,
         maximumFractionDigits: 2,
     }).format(amountPaise / 100);
-    const formattedPeriod = isAnnual ? '/ year' : '/ month';
+    const formattedPeriod = isAnnual ? 'for 1 year' : 'for 1 month';
 
     const selectedPlan = {
         name: currentBase.name,
@@ -162,7 +162,13 @@ export default function Payment() {
             const verified = await parseJsonSafely(verifyRes);
             if (verifyRes.ok && verified?.success && !verified.degraded) {
                 try { await refreshSubscription?.(); } catch (error) { console.error('Subscription refresh failed after payment:', error); }
-                setPaymentData({ paymentId: verified.paymentId, plan: verified.plan });
+                setPaymentData({
+                    paymentId: verified.paymentId,
+                    plan: verified.plan,
+                    billingCycle: verified.billingCycle || (isAnnual ? 'annual' : 'monthly'),
+                    subscriptionExpiresAt: verified.subscriptionExpiresAt || null,
+                    subscriptionStatus: verified.subscriptionStatus || 'active',
+                });
                 setIsSuccess(true);
                 setPaymentProof(null);
             } else {
@@ -319,10 +325,22 @@ export default function Payment() {
                         </div>
                         <div className="detail-row">
                             <span className="detail-label">Plan</span>
-                            <span className="detail-value">{selectedPlan.name} Plan {isAnnual ? '(Annual)' : ''}</span>
+                            <span className="detail-value">{selectedPlan.name} Plan ({isAnnual ? 'Annual' : 'Monthly'})</span>
                         </div>
+                        {paymentData?.subscriptionExpiresAt && (
+                            <div className="detail-row">
+                                <span className="detail-label">Access Valid Until</span>
+                                <span className="detail-value">
+                                    {new Date(paymentData.subscriptionExpiresAt).toLocaleDateString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                    })}
+                                </span>
+                            </div>
+                        )}
                     </div>
-                    <p className="redirect-text">Redirecting to your dashboard...</p>
+                    <p className="redirect-text">You can view or cancel your subscription anytime from your Profile. Redirecting to your dashboard...</p>
                 </div>
             </div>
         );
@@ -356,7 +374,9 @@ export default function Payment() {
                             {selectedPlan.name} Plan {isAnnual ? '• Annual (Save 20%)' : ''}
                         </div>
                         <h2 className="plan-title text-gradient">Upgrade to {selectedPlan.name}</h2>
-                        <p className="plan-desc">Unlock premium tools and fast-track your prep.</p>
+                        <p className="plan-desc">
+                            {isAnnual ? 'Annual' : 'Monthly'} billing period — full access for {isAnnual ? 'one year' : 'one month'}. Cancel anytime from your Profile.
+                        </p>
 
                         <div className="price-display">
                             <span className="currency">₹</span>

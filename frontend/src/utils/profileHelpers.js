@@ -8,6 +8,11 @@ export function buildInitialProfile(user) {
     full_name: user?.fullName || '',
     email: user?.email || '',
     subscriptionTier: user?.subscriptionTier || user?.subscription_tier || 'free',
+    subscriptionExpiresAt: user?.subscriptionExpiresAt || user?.subscription_expires_at || null,
+    subscriptionBillingCycle: user?.subscriptionBillingCycle || user?.subscription_billing_cycle || null,
+    subscriptionStatus: user?.subscriptionStatus || user?.subscription_status || 'free',
+    subscriptionCancelledAt: user?.subscriptionCancelledAt || user?.subscription_cancelled_at || null,
+    cancelAtPeriodEnd: Boolean(user?.cancelAtPeriodEnd),
     coins: user?.coins ?? 0,
     bio: '',
     currentRole: '',
@@ -98,6 +103,11 @@ export function normalizeProfileData(data) {
     full_name: merged.full_name ?? merged.fullName ?? '',
     email: merged.email ?? '',
     subscriptionTier: merged.subscriptionTier ?? merged.subscription_tier ?? 'free',
+    subscriptionExpiresAt: merged.subscriptionExpiresAt ?? merged.subscription_expires_at ?? null,
+    subscriptionBillingCycle: merged.subscriptionBillingCycle ?? merged.subscription_billing_cycle ?? null,
+    subscriptionStatus: merged.subscriptionStatus ?? merged.subscription_status ?? null,
+    subscriptionCancelledAt: merged.subscriptionCancelledAt ?? merged.subscription_cancelled_at ?? null,
+    cancelAtPeriodEnd: Boolean(merged.cancelAtPeriodEnd),
     coins: merged.coins ?? 0,
     bio: merged.bio ?? '',
     currentRole: merged.currentRole ?? merged.designation ?? merged.role_title ?? '',
@@ -318,6 +328,9 @@ export function normalizeGithubHandle(rawValue) {
 
 export function getPlanBadgeMeta(subscriptionTier) {
   const tier = String(subscriptionTier || 'free').trim().toLowerCase();
+  if (tier === 'elite') {
+    return { tier: 'elite', label: 'Elite', pill: 'ELITE', isPaid: true };
+  }
   if (tier === 'premium' || tier === 'enterprise') {
     return { tier, label: 'Premium', pill: 'PREMIUM', isPaid: true };
   }

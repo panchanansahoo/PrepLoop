@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -15,7 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { userApi } from "../../api/userApi";
 import { dsaApi } from "../../api/dsaApi";
 import { coinsApi } from "../../api/coinsApi";
-import { cache, CACHE_KEYS, CACHE_TTL } from "../../utils/cache";
+import { cache, CACHE_KEYS, CACHE_TTL, accountCacheKey } from "../../utils/cache";
 import { Card } from "../../components/Card";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import {
@@ -25,7 +25,7 @@ import {
     borderRadius,
     shadows,
 } from "../../utils/theme";
-import * as Haptics from "expo-haptics";
+import { playHapticFeedback } from "../../utils/preferences";
 
 // ── Daily quotes matching the web dashboard ───────────────────────
 const DAILY_QUOTES = [
@@ -270,6 +270,10 @@ const actStyles = StyleSheet.create({
 // ── Main Screen ───────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
     const { user } = useAuth();
+    return <AccountDashboard key={user?.id || "guest"} user={user} navigation={navigation} />;
+}
+
+function AccountDashboard({ user, navigation }) {
     const insets = useSafeAreaInsets();
     const dailyQuote = getDailyQuote();
 
@@ -280,81 +284,53 @@ export default function DashboardScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    async function loadData(mounted) {
-        try {
-            const [statsData, coinsData, challengeData, activityData] =
-                await Promise.allSettled([
-                    cache.fetchWithCache(
-                        CACHE_KEYS.DASHBOARD_STATS,
-                        () => userApi.getDashboardStats(),
-                        CACHE_TTL.MEDIUM,
-                        (fresh) => setStats(fresh),
-                    ),
-                    cache.fetchWithCache(
-                        CACHE_KEYS.COIN_BALANCE,
-                        () => coinsApi.getBalance(),
-                        CACHE_TTL.SHORT,
-                        (fresh) =>
-                            setCoinBalance(fresh?.balance ?? fresh?.coins ?? 0),
-                    ),
-                    cache.fetchWithCache(
-                        `${CACHE_KEYS.DAILY_CHALLENGE}:${user?.id || "guest"}:${new Date().toISOString().slice(0, 10)}`,
-                        () => dsaApi.getDailyChallenge(),
-                        CACHE_TTL.LONG,
-                        (fresh) => setDailyChallenge(fresh),
-                    ),
-                    cache.fetchWithCache(
-                        CACHE_KEYS.ACTIVITY,
-                        () => userApi.getActivity(),
-                        CACHE_TTL.MEDIUM,
-                        (fresh) => {
-                            const arr = Array.isArray(fresh) ? fresh : [];
-                            setActivity(
-                                arr.filter((d) => (d.seconds_active || 0) > 0),
-                            );
-                        },
-                    ),
-                ]);
-            if (!mounted) return;
-            if (statsData.status === "fulfilled") setStats(statsData.value);
-            if (!mounted) return;
-            if (coinsData.status === "fulfilled")
-                setCoinBalance(
-                    coinsData.value?.balance ?? coinsData.value?.coins ?? 0,
-                );
-            if (!mounted) return;
-            if (challengeData.status === "fulfilled")
-                setDailyChallenge(challengeData.value);
-            if (!mounted) return;
-            if (activityData.status === "fulfilled") {
-                const arr = Array.isArray(activityData.value)
-                    ? activityData.value
-                    : [];
-                setActivity(arr.filter((d) => (d.seconds_active || 0) > 0));
-            }
-        } catch {
-            /* partial data is ok */
-        } finally {
-            if (mounted) {
-                setLoading(false);
-                setRefreshing(false);
-            }
-        }
-    }
+    const userId = user?.id;
+    const focused = useRef(false);
+    const request = useRef(0);
 
-    useFocusEffect(
-        useCallback(() => {
-            let mounted = true;
-            setLoading(true);
-            loadData(mounted);
-            return () => {
-                mounted = false;
-            };
-        }, []),
-    );
+    const loadData = useCallback(async (forceRefresh = false) => {
+        const version = ++request.current;
+        const isCurrent = () => focused.current && version === request.current;
+        const load = (key, fetcher, ttl, update) => cache.fetchWithCache(
+            accountCacheKey(userId, key),
+            async () => {
+                const value = await fetcher();
+                if (!isCurrent()) throw new Error("Dashboard request ended");
+                return value;
+            },
+            ttl,
+            value => { if (isCurrent()) update(value); },
+            { forceRefresh },
+        ).then(value => { if (isCurrent()) update(value); });
+
+        if (userId) {
+            await Promise.allSettled([
+                load(CACHE_KEYS.DASHBOARD_STATS, userApi.getDashboardStats, CACHE_TTL.MEDIUM, setStats),
+                load(CACHE_KEYS.COIN_BALANCE, coinsApi.getBalance, CACHE_TTL.SHORT, data => setCoinBalance(data.balance)),
+                load(`${CACHE_KEYS.DAILY_CHALLENGE}:${new Date().toISOString().slice(0, 10)}`, dsaApi.getDailyChallenge, CACHE_TTL.LONG, setDailyChallenge),
+                load(CACHE_KEYS.ACTIVITY, userApi.getActivity, CACHE_TTL.MEDIUM, data => {
+                    setActivity(Array.isArray(data) ? data.filter(day => day.seconds_active > 0) : []);
+                }),
+            ]);
+        }
+        if (isCurrent()) {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [userId]);
+
+    useFocusEffect(useCallback(() => {
+        focused.current = true;
+        setLoading(true);
+        loadData();
+        return () => {
+            focused.current = false;
+            request.current++;
+        };
+    }, [loadData]));
 
     function handleAction(action) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        playHapticFeedback(userId).catch(() => {});
         if (action.screen) {
             navigation.navigate(action.screen);
         } else {
@@ -421,7 +397,7 @@ export default function DashboardScreen({ navigation }) {
                         refreshing={refreshing}
                         onRefresh={() => {
                             setRefreshing(true);
-                            loadData();
+                            loadData(true);
                         }}
                         tintColor={colors.primary}
                         colors={[colors.primary]}
@@ -570,83 +546,96 @@ export default function DashboardScreen({ navigation }) {
                     </View>
 
                     {/* ── Weekly Activity ── */}
-                    {activity.length > 0 && (
-                        <>
-                            <Text style={styles.sectionTitle}>
-                                Weekly Activity
-                            </Text>
-                            <Card elevated style={styles.activityCard}>
-                                <View style={styles.activityBars}>
-                                    {Array.from({ length: 7 }, (_, i) => {
-                                        const date = new Date();
-                                        date.setDate(date.getDate() - (6 - i));
-                                        const dateStr = date
-                                            .toISOString()
-                                            .split("T")[0];
-                                        const dayData = activity.find(
-                                            (d) => d.date === dateStr,
-                                        );
-                                        const seconds =
-                                            dayData?.seconds_active || 0;
-                                        const maxSeconds = 3 * 3600; // 3 hours max
-                                        const heightPct = Math.min(
-                                            seconds / maxSeconds,
-                                            1,
-                                        );
-                                        const dayName = date.toLocaleDateString(
-                                            "en-US",
-                                            { weekday: "short" },
-                                        );
-                                        const isToday = i === 6;
-                                        const barColor = isToday
-                                            ? colors.primary
-                                            : seconds > 0
-                                              ? "#34d399"
-                                              : colors.border;
-                                        return (
-                                            <View
-                                                key={i}
-                                                style={styles.activityBarCol}
-                                            >
+                    {activity.length > 0 && (() => {
+                        const days = Array.from({ length: 7 }, (_, i) => {
+                            const date = new Date(
+                                Date.now() - (6 - i) * 86400000,
+                            );
+                            const dateStr = date.toISOString().split("T")[0];
+                            const dayData = activity.find(
+                                (d) =>
+                                    String(d.date || "").slice(0, 10) ===
+                                    dateStr,
+                            );
+                            return {
+                                dateStr,
+                                dayName: date.toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    timeZone: "UTC",
+                                }),
+                                seconds: dayData?.seconds_active || 0,
+                                isToday: i === 6,
+                            };
+                        });
+                        const activeDaysCount = days.filter(
+                            (d) => d.seconds > 0,
+                        ).length;
+                        return (
+                            <>
+                                <Text style={styles.sectionTitle}>
+                                    Weekly Activity
+                                </Text>
+                                <Card elevated style={styles.activityCard}>
+                                    <View style={styles.activityBars}>
+                                        {days.map((d, i) => {
+                                            const maxSeconds = 3 * 3600; // 3 hours max
+                                            const heightPct = Math.min(
+                                                d.seconds / maxSeconds,
+                                                1,
+                                            );
+                                            const barColor = d.isToday
+                                                ? colors.primary
+                                                : d.seconds > 0
+                                                  ? "#34d399"
+                                                  : colors.border;
+                                            return (
                                                 <View
+                                                    key={d.dateStr || i}
                                                     style={
-                                                        styles.activityBarTrack
+                                                        styles.activityBarCol
                                                     }
                                                 >
                                                     <View
+                                                        style={
+                                                            styles.activityBarTrack
+                                                        }
+                                                    >
+                                                        <View
+                                                            style={[
+                                                                styles.activityBarFill,
+                                                                {
+                                                                    height: `${Math.max(heightPct * 100, d.seconds > 0 ? 8 : 0)}%`,
+                                                                    backgroundColor:
+                                                                        barColor,
+                                                                },
+                                                            ]}
+                                                        />
+                                                    </View>
+                                                    <Text
                                                         style={[
-                                                            styles.activityBarFill,
-                                                            {
-                                                                height: `${Math.max(heightPct * 100, seconds > 0 ? 8 : 0)}%`,
-                                                                backgroundColor:
-                                                                    barColor,
+                                                            styles.activityDayLabel,
+                                                            d.isToday && {
+                                                                color: colors.primary,
+                                                                fontWeight:
+                                                                    typography.fontWeightBold,
                                                             },
                                                         ]}
-                                                    />
+                                                    >
+                                                        {d.dayName}
+                                                    </Text>
                                                 </View>
-                                                <Text
-                                                    style={[
-                                                        styles.activityDayLabel,
-                                                        isToday && {
-                                                            color: colors.primary,
-                                                            fontWeight:
-                                                                typography.fontWeightBold,
-                                                        },
-                                                    ]}
-                                                >
-                                                    {dayName}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                                <Text style={styles.activityFooter}>
-                                    {activity.length} active day
-                                    {activity.length !== 1 ? "s" : ""} this week
-                                </Text>
-                            </Card>
-                        </>
-                    )}
+                                            );
+                                        })}
+                                    </View>
+                                    <Text style={styles.activityFooter}>
+                                        {activeDaysCount} active day
+                                        {activeDaysCount !== 1 ? "s" : ""} this
+                                        week
+                                    </Text>
+                                </Card>
+                            </>
+                        );
+                    })()}
 
                     {/* ── Pro Banner (if subscribed) ── */}
                     {user?.subscriptionTier &&

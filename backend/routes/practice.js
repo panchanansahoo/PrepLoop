@@ -1514,38 +1514,200 @@ router.get('/companies-list', optionalAuth, (req, res) => {
   }
 });
 
+export function selectTimedSessionProblems({
+  problems = [],
+  count = 5,
+  isWeakAreaMode = false,
+  userProgressRows = [],
+  submissionRows = [],
+  randomInt = (max) => crypto.randomInt(max),
+} = {}) {
+  const pool = Array.isArray(problems) ? problems : [];
+  if (pool.length === 0) return [];
+
+  const shuffleInPlace = (items) => {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = randomInt(i + 1);
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
+  if (!isWeakAreaMode) {
+    return shuffleInPlace(pool).slice(0, count);
+  }
+
+  const progressByProblem = new Map();
+  (userProgressRows || []).forEach((row) => {
+    if (!row?.problem_id) return;
+    progressByProblem.set(String(row.problem_id), row);
+  });
+
+  const subStatsByProblem = new Map();
+  (submissionRows || []).forEach((sub) => {
+    if (!sub?.problem_id) return;
+    const key = String(sub.problem_id);
+    const entry = subStatsByProblem.get(key) || { failed: 0, accepted: 0 };
+    if (sub.status === 'accepted') entry.accepted += 1;
+    else entry.failed += 1;
+    subStatsByProblem.set(key, entry);
+  });
+
+  const patternStats = new Map();
+  const problemPatternMap = new Map();
+  pool.forEach((p) => {
+    if (p?.id !== null && p?.id !== undefined && p?.pattern_id !== null && p?.pattern_id !== undefined) {
+      problemPatternMap.set(String(p.id), String(p.pattern_id));
+    }
+  });
+
+  progressByProblem.forEach((row, pid) => {
+    const patternId = problemPatternMap.get(pid);
+    if (!patternId) return;
+    const stat = patternStats.get(patternId) || { weakSignals: 0, solved: 0 };
+    if (row.status === 'solved') {
+      stat.solved += 1;
+    } else {
+      stat.weakSignals += Math.max(1, Number(row.attempts) || 1);
+    }
+    patternStats.set(patternId, stat);
+  });
+
+  subStatsByProblem.forEach((subStat, pid) => {
+    const patternId = problemPatternMap.get(pid);
+    if (!patternId) return;
+    const stat = patternStats.get(patternId) || { weakSignals: 0, solved: 0 };
+    stat.weakSignals += subStat.failed;
+    patternStats.set(patternId, stat);
+  });
+
+  const attemptedOrFailed = [];
+  const weakPatternUnsolved = [];
+  const otherUnsolved = [];
+  const solvedFallback = [];
+
+  shuffleInPlace(pool).forEach((problem) => {
+    const pid = String(problem.id);
+    const progress = progressByProblem.get(pid);
+    const subStat = subStatsByProblem.get(pid) || { failed: 0, accepted: 0 };
+    const isSolved = progress?.status === 'solved';
+    const hasFailedOrAttempted =
+      (!isSolved && progress && progress.status) || (!isSolved && subStat.failed > 0);
+
+    if (hasFailedOrAttempted) {
+      const score = (Number(progress?.attempts) || 0) + subStat.failed * 2;
+      attemptedOrFailed.push({ problem, score });
+      return;
+    }
+
+    if (!isSolved) {
+      const patternId = problem.pattern_id !== null && problem.pattern_id !== undefined
+        ? String(problem.pattern_id)
+        : null;
+      const pStat = patternId ? patternStats.get(patternId) : null;
+      if (pStat && pStat.weakSignals > 0) {
+        weakPatternUnsolved.push({ problem, score: pStat.weakSignals });
+      } else {
+        otherUnsolved.push(problem);
+      }
+      return;
+    }
+
+    const struggleScore = (Number(progress?.attempts) || 1) + subStat.failed * 2;
+    solvedFallback.push({ problem, score: struggleScore });
+  });
+
+  attemptedOrFailed.sort((a, b) => b.score - a.score);
+  weakPatternUnsolved.sort((a, b) => b.score - a.score);
+  solvedFallback.sort((a, b) => b.score - a.score);
+
+  return [
+    ...attemptedOrFailed.map((entry) => entry.problem),
+    ...weakPatternUnsolved.map((entry) => entry.problem),
+    ...otherUnsolved,
+    ...solvedFallback.map((entry) => entry.problem),
+  ].slice(0, count);
+}
+
 // Timed practice session
 router.post('/timed-session', authenticateToken, async (req, res) => {
   try {
-    const { difficulty, duration, count } = req.body;
+    const { difficulty, duration, count, mode, focus } = req.body || {};
     const parsedCount = Math.min(50, Math.max(1, parseInt(count, 10) || 5));
     const parsedDuration = Math.min(180, Math.max(5, parseInt(duration, 10) || 30));
+    const isWeakAreaMode = mode === 'last-day' || focus === 'weak-areas';
 
-    // Fetch random problems matching difficulty
-    let query = supabaseAdmin
-      .from('problems')
-      .select('id, title, difficulty, pattern_id')
-      .order('id');
+    // Fetch problems matching difficulty (include pattern name when relation is available)
+    const runProblemQuery = (withPatternJoin) => {
+      let query = supabaseAdmin
+        .from('problems')
+        .select(withPatternJoin ? 'id, title, difficulty, pattern_id, patterns(name)' : 'id, title, difficulty, pattern_id')
+        .order('id');
 
-    if (difficulty && difficulty !== 'all') {
-      query = query.eq('difficulty', difficulty);
+      if (difficulty && difficulty !== 'all') {
+        query = query.eq('difficulty', difficulty);
+      }
+
+      return query;
+    };
+
+    let { data: problems, error } = await runProblemQuery(true);
+    if (error && isSchemaMissingError(error)) {
+      ({ data: problems, error } = await runProblemQuery(false));
     }
-
-    const { data: problems, error } = await query;
     if (error) throw error;
 
-    // Shuffle and pick requested count
-    const shuffled = [...(problems || [])];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = crypto.randomInt(i + 1);
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const normalizedProblems = (problems || []).map((problem) => ({
+      ...problem,
+      pattern: problem.pattern || problem.patterns?.name || null,
+      patterns: undefined,
+    }));
+
+    let userProgressRows = [];
+    let submissionRows = [];
+    if (isWeakAreaMode && req.user?.id) {
+      const [progressRes, submissionsRes] = await Promise.all([
+        supabaseAdmin
+          .from('user_progress')
+          .select('problem_id, status, attempts, last_attempt')
+          .eq('user_id', req.user.id),
+        supabaseAdmin
+          .from('submissions')
+          .select('problem_id, status')
+          .eq('user_id', req.user.id)
+          .order('submitted_at', { ascending: false })
+          .limit(200),
+      ]);
+      if (!progressRes?.error && Array.isArray(progressRes?.data)) {
+        userProgressRows = progressRes.data;
+      }
+      if (!submissionsRes?.error && Array.isArray(submissionsRes?.data)) {
+        submissionRows = submissionsRes.data;
+      }
     }
-    const selected = shuffled.slice(0, parsedCount);
+
+    const selected = selectTimedSessionProblems({
+      problems: normalizedProblems,
+      count: parsedCount,
+      isWeakAreaMode,
+      userProgressRows,
+      submissionRows,
+    });
+
+    if (selected.length === 0) {
+      return res.status(404).json({
+        error: 'No practice problems are available right now.',
+      });
+    }
 
     res.json({
       sessionId: `timed_${Date.now()}`,
       problems: selected,
       duration: parsedDuration,
+      timeMinutes: parsedDuration,
+      mode: mode || 'custom',
+      selectionStrategy: isWeakAreaMode ? 'weak-areas' : 'random',
       startedAt: new Date().toISOString(),
     });
   } catch (error) {

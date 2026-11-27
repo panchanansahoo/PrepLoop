@@ -1,3 +1,5 @@
+import { useAuth } from "../context/AuthContext";
+import { getAccountStorageKey, readDraft, writeDraft } from "../utils/accountStorage";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import "./CodingPlayground.css";
 import { useNavigate, useParams } from "react-router-dom";
@@ -477,6 +479,13 @@ function formatTime(seconds) {
 
 export default function CodingPlayground({ sidebarCollapsed }) {
   const { problemId } = useParams();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const userId = user?.isGuest ? null : user?.id;
+  return <AccountPlayground key={`${userId || 'guest'}:${problemId || 'scratch'}`} sidebarCollapsed={sidebarCollapsed} userId={userId} problemId={problemId} />;
+}
+
+function AccountPlayground({ sidebarCollapsed, userId, problemId }) {
 
   const navigate = useNavigate();
   const editorRef = useRef(null);
@@ -484,12 +493,22 @@ export default function CodingPlayground({ sidebarCollapsed }) {
 
   // Editor state
   const [language, setLanguage] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedLanguage = !problemId && params.has("code") ? params.get("lang") : null;
+    if (supportedLanguageIds.includes(sharedLanguage)) return sharedLanguage;
     const savedLanguage = localStorage.getItem("playground-lang") || "python";
     return supportedLanguageIds.includes(savedLanguage)
       ? savedLanguage
       : "python";
   });
   const [code, setCode] = useState("");
+  const [loadedDraftKey, setLoadedDraftKey] = useState(null);
+  const incomingCode = useRef(!problemId ? new URLSearchParams(window.location.search).get("code") : null);
+  const draftBase = `playground-code-${problemId || "scratch"}-${language}`;
+  const draftKey = getAccountStorageKey(draftBase, userId) || draftBase;
+  const historyKey = getAccountStorageKey("pg-exec-history", userId) || "pg-exec-history";
+  const unlockBase = getSolutionUnlockKey(problemId);
+  const unlockKey = getAccountStorageKey(unlockBase, userId) || unlockBase;
   const [running, setRunning] = useState(false);
   const [consoleOutput, setConsoleOutput] = useState([]);
   const [copied, setCopied] = useState(false);
@@ -513,7 +532,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   );
   const [execHistory, setExecHistory] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("pg-exec-history") || "[]");
+      return JSON.parse(readDraft(historyKey, userId) || "[]");
     } catch {
       return [];
     }
@@ -564,15 +583,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   const lastVoiceSignatureRef = useRef("");
   const voiceAudioRef = useRef(null);
 
-  const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
-    return localStorage.getItem(getSolutionUnlockKey(problemId)) === "true";
-  });
-
-  useEffect(() => {
-    setSolutionUnlocked(
-      localStorage.getItem(getSolutionUnlockKey(problemId)) === "true",
-    );
-  }, [problemId]);
+  const [solutionUnlocked, setSolutionUnlocked] = useState(() => readDraft(unlockKey, userId) === "true");
 
   const [problem, setProblem] = useState(null);
   const [_loading, setLoading] = useState(false);
@@ -625,7 +636,8 @@ export default function CodingPlayground({ sidebarCollapsed }) {
         const starter = STARTER_CODE[language]
           ? STARTER_CODE[language](found.functionName)
           : "";
-        if (starter) setCode(starter);
+        setCode(readDraft(draftKey, userId) ?? starter);
+        setLoadedDraftKey(draftKey);
         setSidebarTab("problem");
       }
       setLoading(false);
@@ -634,40 +646,28 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     return () => {
       isMounted = false;
     };
-  }, [problemId, language, resolveProblemData]);
+  }, [problemId, language, resolveProblemData, draftKey, userId]);
 
   const voiceFetchAbortRef = useRef(null);
   const attentionAudioContextRef = useRef(null);
   const attentionTimerRef = useRef(null);
   const _lastAttentionSignatureRef = useRef("");
 
-  // ─── Load saved code or default ───
   useEffect(() => {
     if (problemId) return;
-    const saved = localStorage.getItem(`playground-code-${language}`);
-
-    if (saved) {
-      if (language === "python" && isLegacyPythonStarter(saved)) {
-        const nextCode = DEFAULT_CODE.python || "";
-        setCode(nextCode);
-        localStorage.setItem(`playground-code-${language}`, nextCode);
-        return;
-      }
-      setCode(saved);
-      return;
+    let saved = readDraft(draftKey, userId);
+    if (language === "python" && saved && isLegacyPythonStarter(saved)) saved = null;
+    if (incomingCode.current != null) {
+      try { saved = decodeURIComponent(atob(incomingCode.current)); } catch { /* Malformed shared code. */ }
+      incomingCode.current = null;
     }
+    setCode(saved ?? DEFAULT_CODE[language] ?? "");
+    setLoadedDraftKey(draftKey);
+  }, [draftKey, language, problemId, userId]);
 
-    setCode(DEFAULT_CODE[language] || "");
-  }, [language]);
-
-  // ─── Auto-save ───
   useEffect(() => {
-    if (!code) return;
-    const timeout = setTimeout(() => {
-      localStorage.setItem(`playground-code-${language}`, code);
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [code, language]);
+    if (loadedDraftKey === draftKey) writeDraft(draftKey, userId, code);
+  }, [code, draftKey, loadedDraftKey, userId]);
 
   // ─── Timer ───
   useEffect(() => {
@@ -688,19 +688,6 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     setShowLangMenu(false);
     setServerErrors([]);
 
-    if (problem) {
-      const currentCodeTrimmed = code.trim();
-      if (
-        !currentCodeTrimmed ||
-        currentCodeTrimmed.includes("Write your solution here") ||
-        currentCodeTrimmed.length < 50
-      ) {
-        const starter = STARTER_CODE[lang]
-          ? STARTER_CODE[lang](problem.functionName)
-          : "";
-        if (starter) setCode(starter);
-      }
-    }
   };
 
   // ─── Run code ───
@@ -763,7 +750,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
         };
         setExecHistory((prev) => {
           const updated = [histEntry, ...prev].slice(0, 10);
-          localStorage.setItem("pg-exec-history", JSON.stringify(updated));
+          writeDraft(historyKey, userId, JSON.stringify(updated));
           return updated;
         });
         return;
@@ -836,7 +823,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
       };
       setExecHistory((prev) => {
         const updated = [histEntry, ...prev].slice(0, 10);
-        localStorage.setItem("pg-exec-history", JSON.stringify(updated));
+        writeDraft(historyKey, userId, JSON.stringify(updated));
         return updated;
       });
     } catch (err) {
@@ -922,25 +909,6 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     }
   };
 
-  // Load shared code from URL on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedCode = params.get("code");
-    const sharedLang = params.get("lang");
-    if (sharedCode) {
-      try {
-        const decoded = decodeURIComponent(atob(sharedCode));
-        setCode(decoded);
-        if (sharedLang && LANGUAGES.find((l) => l.id === sharedLang)) {
-          setLanguage(sharedLang);
-          localStorage.setItem("playground-lang", sharedLang);
-        }
-      } catch {
-        /* invalid share link */
-      }
-    }
-  }, []);
-
   // ─── Clear console ───
   const clearConsole = () => setConsoleOutput([]);
 
@@ -972,8 +940,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
 
   // ─── Reset code ───
   const handleReset = () => {
-    setCode(DEFAULT_CODE[language] || "");
-    localStorage.removeItem(`playground-code-${language}`);
+    setCode(problem ? (STARTER_CODE[language]?.(problem.functionName) ?? "") : (DEFAULT_CODE[language] ?? ""));
   };
 
   // ─── AI Assistant handler ───
@@ -2247,7 +2214,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
                   solutionUnlocked={solutionUnlocked}
                   setSolutionUnlocked={(val) => {
                     setSolutionUnlocked(val);
-                    localStorage.setItem(getSolutionUnlockKey(problemId), val);
+                    writeDraft(unlockKey, userId, String(val));
                   }}
                 />
               </div>

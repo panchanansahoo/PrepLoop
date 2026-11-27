@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { useAuth } from '../context/AuthContext';
+import { getAccountStorageKey, readDraft, writeDraft } from '../utils/accountStorage';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { Bookmark, Search, Tag, Filter, Plus, Trash2, Edit3, Save, X, Hash, ListFilter, StickyNote } from 'lucide-react';
@@ -18,9 +20,29 @@ const PRESET_TAGS = [
     'System Design', 'Aptitude', 'Important', 'Revision', 'Weak'
 ];
 
+const buildNotesApiUrl = path => buildApiUrl(path, { rawBaseUrl: import.meta.env.VITE_API_URL || '', apiPrefix: '/api' });
+
+async function notesRequest(path, options) {
+    const response = await authFetch(buildNotesApiUrl(path), options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'The request failed. Please try again.');
+    return data;
+}
+
 export default function NotesBookmarks() {
-    const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-    const buildNotesApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+    const { user, loading } = useAuth();
+    if (loading) return null;
+    const userId = user?.isGuest ? null : user?.id;
+    return <AccountNotesBookmarks key={userId || 'guest'} userId={userId} />;
+}
+
+function AccountNotesBookmarks({ userId }) {
+    const cacheKey = getAccountStorageKey('notes', userId);
+    const requestVersion = useRef(0);
+    const mounted = useRef(false);
+    const [loadError, setLoadError] = useState('');
+    const [actionError, setActionError] = useState('');
+    const [saving, setSaving] = useState(false);
     const [bookmarks, setBookmarks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -32,100 +54,117 @@ export default function NotesBookmarks() {
     const [showAddForm, setShowAddForm] = useState(false);
     const [newBookmark, setNewBookmark] = useState({ title: '', type: 'custom', tags: [], note: '' });
 
-    // Fetch bookmarks
     const fetchBookmarks = useCallback(async () => {
-        try {
-            const params = new URLSearchParams();
-            if (typeFilter !== 'all') params.append('type', typeFilter);
-            if (search) params.append('search', search);
-            if (tagFilter !== 'all') params.append('tag', tagFilter);
-
-            const res = await authFetch(`${buildNotesApiUrl('/notes/bookmarks')}?${params}`);
-            const data = await res.json();
-            setBookmarks(data.bookmarks || []);
-        } catch (err) {
-            console.error(err);
-            // Fallback to localStorage
-            const saved = JSON.parse(localStorage.getItem('preploop_bookmarks') || '[]');
-            setBookmarks(saved);
+        const version = ++requestVersion.current;
+        if (!userId) {
+            setLoading(false);
+            setLoadError('Sign in to load your notes.');
+            return;
         }
-        setLoading(false);
-    }, [typeFilter, search, tagFilter]);
+        setLoadError('');
+        setLoading(prev => bookmarks.length === 0 ? true : prev);
+        try {
+            const items = [];
+            let page = 1;
+            let hasMore;
+            do {
+                const data = await notesRequest(`/notes/bookmarks?page=${page}&limit=100`);
+                if (version !== requestVersion.current) return;
+                if (!Array.isArray(data.bookmarks)) throw new Error('Invalid bookmarks response');
+                items.push(...data.bookmarks);
+                hasMore = data.pagination?.hasMore && data.bookmarks.length > 0 && page < 100;
+                page++;
+            } while (hasMore);
+            const seenIds = new Set();
+            const uniqueItems = items.filter(item => {
+                if (item?.id == null || seenIds.has(item.id)) return false;
+                seenIds.add(item.id);
+                return true;
+            });
+            setBookmarks(uniqueItems);
+            writeDraft(cacheKey, userId, JSON.stringify(uniqueItems));
+        } catch {
+            if (version !== requestVersion.current) return;
+            let saved = [];
+            try {
+                const data = JSON.parse(readDraft(cacheKey, userId) || '[]');
+                if (Array.isArray(data)) saved = data;
+            } catch { /* The list can be loaded again. */ }
+            setBookmarks(saved);
+            setLoadError(saved.length ? 'Could not refresh notes. Showing your last saved list.' : 'Could not load your notes.');
+        } finally {
+            if (version === requestVersion.current) setLoading(false);
+        }
+    }, [cacheKey, userId]);
 
     useEffect(() => {
+        mounted.current = true;
         fetchBookmarks();
+        return () => {
+            mounted.current = false;
+            requestVersion.current++;
+        };
     }, [fetchBookmarks]);
 
-    // Add bookmark
-    const addBookmark = async () => {
-        if (!newBookmark.title.trim()) return;
+    const saveChange = async (request, onSuccess) => {
+        if (saving) return;
+        setSaving(true);
+        setActionError('');
         try {
-            const res = await authFetch(buildNotesApiUrl('/notes/bookmark'), {
-                method: 'POST',
-                body: JSON.stringify({
-                    questionId: `custom_${Date.now()}`,
-                    questionTitle: newBookmark.title,
-                    questionType: newBookmark.type,
-                    tags: newBookmark.tags,
-                    note: newBookmark.note,
-                }),
-            });
-            if (res.ok) {
-                await fetchBookmarks();
-                setNewBookmark({ title: '', type: 'custom', tags: [], note: '' });
-                setShowAddForm(false);
-            }
-        } catch {
-            // Fallback: save to localStorage
-            const saved = JSON.parse(localStorage.getItem('preploop_bookmarks') || '[]');
-            const newEntry = {
-                id: Date.now(),
-                question_title: newBookmark.title,
-                question_type: newBookmark.type,
+            const data = await request();
+            if (mounted.current) onSuccess(data);
+        } catch (error) {
+            if (mounted.current) setActionError(error.message || 'Could not save your change. Please try again.');
+        } finally {
+            if (mounted.current) setSaving(false);
+        }
+    };
+
+    const commitBookmarks = next => {
+        requestVersion.current++;
+        setBookmarks(next);
+        setLoading(false);
+        writeDraft(cacheKey, userId, JSON.stringify(next));
+    };
+
+    const addBookmark = () => {
+        if (!newBookmark.title.trim()) return;
+        saveChange(() => notesRequest('/notes/bookmark', {
+            method: 'POST',
+            body: JSON.stringify({
+                questionTitle: newBookmark.title.trim(),
+                questionType: newBookmark.type,
                 tags: newBookmark.tags,
                 note: newBookmark.note,
-                created_at: new Date().toISOString(),
-            };
-            saved.unshift(newEntry);
-            localStorage.setItem('preploop_bookmarks', JSON.stringify(saved));
-            setBookmarks(saved);
+            }),
+        }), ({ bookmark }) => {
+            commitBookmarks([bookmark, ...bookmarks.filter(item => item.id !== bookmark.id)]);
             setNewBookmark({ title: '', type: 'custom', tags: [], note: '' });
             setShowAddForm(false);
-        }
+        });
     };
 
-    // Update note
-    const updateNote = async (id) => {
-        try {
-            await authFetch(buildNotesApiUrl(`/notes/bookmark/${id}/note`), {
-                method: 'PUT',
-                body: JSON.stringify({ note: editNote, tags: editTags }),
-            });
-            await fetchBookmarks();
-        } catch (err) {
-            console.error(err);
-        }
+    const updateNote = id => saveChange(() => notesRequest(`/notes/bookmark/${id}/note`, {
+        method: 'PUT',
+        body: JSON.stringify({ note: editNote, tags: editTags }),
+    }), ({ bookmark }) => {
+        commitBookmarks(bookmarks.map(item => item.id === id ? bookmark : item));
         setEditingId(null);
-    };
+    });
 
-    // Delete bookmark
-    const deleteBookmark = async (id) => {
-        try {
-            await authFetch(buildNotesApiUrl(`/notes/bookmark/${id}`), {
-                method: 'DELETE',
-            });
-            await fetchBookmarks();
-        } catch {
-            // Fallback
-            const saved = JSON.parse(localStorage.getItem('preploop_bookmarks') || '[]');
-            localStorage.setItem('preploop_bookmarks', JSON.stringify(saved.filter(b => b.id !== id)));
-            setBookmarks(prev => prev.filter(b => b.id !== id));
+    const deleteBookmark = id => saveChange(
+        () => notesRequest(`/notes/bookmark/${id}`, { method: 'DELETE' }),
+        () => {
+            if (editingId === id) setEditingId(null);
+            commitBookmarks(bookmarks.filter(item => item.id !== id));
         }
-    };
+    );
 
     const allTags = [...new Set(bookmarks.flatMap(b => b.tags || []))];
 
     const filteredBookmarks = bookmarks.filter(b => {
+        if (typeFilter !== 'all' && b.question_type !== typeFilter) return false;
+        if (tagFilter !== 'all' && !b.tags?.includes(tagFilter)) return false;
         if (search) {
             const s = search.toLowerCase();
             if (!b.question_title?.toLowerCase().includes(s) && !b.note?.toLowerCase().includes(s)) return false;
@@ -144,13 +183,16 @@ export default function NotesBookmarks() {
                     <Bookmark size={28} style={{ color: 'var(--accent)' }} />
                     <div>
                         <h1>Notes & Bookmarks</h1>
-                        <p>{bookmarks.length} items saved</p>
+                        {(bookmarks.length > 0 || (!loading && !loadError)) && <p>{bookmarks.length} items saved</p>}
                     </div>
                 </div>
-                <button className="nb-add-btn" onClick={() => setShowAddForm(true)}>
+                <button className="nb-add-btn" disabled={!userId || loading} onClick={() => setShowAddForm(true)}>
                     <Plus size={16} /> Add Note
                 </button>
             </div>
+
+            {loadError && <p role="alert">{loadError} {userId && <button onClick={fetchBookmarks}>Try again</button>}</p>}
+            {actionError && <p role="alert">{actionError}</p>}
 
             {/* Add Form */}
             {showAddForm && (
@@ -190,7 +232,7 @@ export default function NotesBookmarks() {
                         rows={3}
                     />
                     <div className="nb-form-actions">
-                        <button className="nb-save-btn" onClick={addBookmark}>
+                        <button className="nb-save-btn" disabled={saving} onClick={addBookmark}>
                             <Save size={14} /> Save
                         </button>
                         <button className="nb-cancel-btn" onClick={() => setShowAddForm(false)}>
@@ -243,7 +285,7 @@ export default function NotesBookmarks() {
             {/* Bookmarks List */}
             {loading ? (
                 <div className="nb-loading">Loading...</div>
-            ) : filteredBookmarks.length === 0 ? (
+            ) : filteredBookmarks.length === 0 ? !loadError && (
                 <div className="nb-empty">
                     <StickyNote size={40} style={{ color: 'rgba(255,255,255,0.15)' }} />
                     <p>No bookmarks yet. Start saving questions!</p>
@@ -258,7 +300,7 @@ export default function NotesBookmarks() {
                                     <button onClick={() => { setEditingId(bm.id); setEditNote(bm.note || ''); setEditTags(bm.tags || []); }}>
                                         <Edit3 size={14} />
                                     </button>
-                                    <button onClick={() => deleteBookmark(bm.id)}>
+                                    <button disabled={saving} onClick={() => deleteBookmark(bm.id)}>
                                         <Trash2 size={14} />
                                     </button>
                                 </div>
@@ -294,7 +336,7 @@ export default function NotesBookmarks() {
                                         ))}
                                     </div>
                                     <div className="nb-form-actions">
-                                        <button className="nb-save-btn" onClick={() => updateNote(bm.id)}>
+                                        <button className="nb-save-btn" disabled={saving} onClick={() => updateNote(bm.id)}>
                                             <Save size={14} /> Update
                                         </button>
                                         <button className="nb-cancel-btn" onClick={() => setEditingId(null)}>

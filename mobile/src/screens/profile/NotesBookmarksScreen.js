@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -22,6 +22,7 @@ export default function NotesBookmarksScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [bookmarks, setBookmarks] = useState([]);
+    const [loadError, setLoadError] = useState(false);
     const [activeTab, setActiveTab] = useState("bookmarks"); // 'bookmarks' | 'notes'
 
     // Tag filtering
@@ -36,19 +37,29 @@ export default function NotesBookmarksScreen({ navigation }) {
 
     const loadData = async () => {
         try {
+            setLoadError(false);
             const data = await notesApi.getBookmarks();
             setBookmarks(data || []);
-        } catch (error) {
-            console.error("Failed to load bookmarks:", error);
+        } catch {
+            setLoadError(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     };
 
+    const mountedRef = useRef(false);
+
     useEffect(() => {
         loadData();
-    }, []);
+        const unsubscribe = navigation?.addListener?.("focus", () => {
+            if (mountedRef.current) {
+                loadData();
+            }
+            mountedRef.current = true;
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -67,7 +78,9 @@ export default function NotesBookmarksScreen({ navigation }) {
                     onPress: async () => {
                         try {
                             await notesApi.removeBookmark(id);
-                            setBookmarks(bookmarks.filter((b) => b.id !== id));
+                            setBookmarks((prev) =>
+                                prev.filter((b) => b.id !== id),
+                            );
                         } catch (e) {
                             Alert.alert("Error", "Failed to delete.");
                         }
@@ -96,8 +109,8 @@ export default function NotesBookmarksScreen({ navigation }) {
                 note: editNote,
                 tags: tagsArray,
             });
-            setBookmarks(
-                bookmarks.map((b) =>
+            setBookmarks((prev) =>
+                prev.map((b) =>
                     b.id === editingItem.id
                         ? { ...b, note: editNote, tags: tagsArray }
                         : b,
@@ -129,7 +142,7 @@ export default function NotesBookmarksScreen({ navigation }) {
                 .filter(
                     (b) =>
                         activeTab === "bookmarks" ||
-                        (activeTab === "notes" && b.note),
+                        (activeTab === "notes" && b.note && b.note.trim() !== ""),
                 )
                 .flatMap((b) => b.tags || []),
         ),
@@ -238,7 +251,12 @@ export default function NotesBookmarksScreen({ navigation }) {
                     />
                 }
             >
-                {filteredItems.length === 0 ? (
+                {loadError && (
+                    <TouchableOpacity onPress={loadData}>
+                        <Text style={{ color: colors.error, padding: spacing.md }}>Could not load saved items. Tap to retry.</Text>
+                    </TouchableOpacity>
+                )}
+                {filteredItems.length === 0 ? !loadError && (
                     <EmptyState
                         icon={activeTab === "bookmarks" ? "🔖" : "📝"}
                         title={`No ${activeTab === "bookmarks" ? "Bookmarks" : "Notes"} Found`}

@@ -1,3 +1,4 @@
+import { deleteSavedInterview } from '../../services/deleteSavedInterview.js';
 import express from 'express';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
@@ -552,6 +553,7 @@ router.get('/history', authenticateToken, async (req, res) => {
       .from('mock_interviews')
       .select('id, interview_type, difficulty, duration, overall_score, completed_at, company, role')
       .eq('user_id', req.user.id)
+      .is('source_interview_session_id', null)
       .order('completed_at', { ascending: false })
       .limit(limit);
 
@@ -794,18 +796,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-    if (isUuid) {
-      await supabaseAdmin.from('interview_sessions').delete().eq('id', id).eq('user_id', userId);
-    } else {
-      await supabaseAdmin.from('interview_sessions').delete().eq('session_id', id).eq('user_id', userId);
-    }
-
-    const numericId = Number(id);
-    if (Number.isInteger(numericId) && numericId > 0) {
-      await supabaseAdmin.from('mock_interviews').delete().eq('id', numericId).eq('user_id', userId);
-    }
+    await deleteSavedInterview(supabaseAdmin, userId, id);
 
     res.json({ success: true, deleted: true });
   } catch (error) {

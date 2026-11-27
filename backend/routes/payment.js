@@ -12,6 +12,8 @@ import { authenticateToken } from '../middleware/auth.ts';
 import { createLogger } from '../utils/structuredLogger.js';
 import cacheManager from '../utils/cacheManager.js';
 import { invalidateCache } from '../middleware/apiCache.js';
+import { invalidateUsageQuotaPlanCache } from '../middleware/usageQuota.ts';
+import { getSubscriptionState } from '../utils/subscriptionTier.js';
 import { DEFAULT_FEATURE_GATES, getUserTier } from '../services/featureGateService.ts';
 
 const router = express.Router();
@@ -157,6 +159,7 @@ async function activateCapturedPayment(payment, signature = null) {
     if (error) throw error;
     if (data) {
         await cacheManager.delete(`profile:${data.userId}`).catch(() => {});
+        invalidateUsageQuotaPlanCache(data.userId);
         invalidateCache('/api/user');
         invalidateCache('/api/payment');
     }
@@ -194,15 +197,22 @@ router.get('/health', authenticateToken, async (req, res) => {
     }
 
     try {
-        const { error } = await supabaseAdmin
-            .from('payments')
-            .select('id, billing_cycle, activated_at')
-            .limit(1);
+        const [{ error }, { error: profileSchemaError }] = await Promise.all([
+            supabaseAdmin
+                .from('payments')
+                .select('id, billing_cycle, activated_at')
+                .limit(1),
+            supabaseAdmin
+                .from('profiles')
+                .select('subscription_expires_at, subscription_billing_cycle, subscription_status, subscription_cancelled_at')
+                .limit(1),
+        ]);
 
-        if (error) {
+        const dbError = error || profileSchemaError;
+        if (dbError) {
             logger.error('Payment health DB error', {
-                code: error.code,
-                message: error.message,
+                code: dbError.code,
+                message: dbError.message,
             });
             return res.status(503).json({
                 ...response,
@@ -277,7 +287,7 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
         // SECURITY: Prevent duplicate pending orders (anti-abuse)
         const { data: existingOrders, error: existingOrdersError } = await supabaseAdmin
             .from('payments')
-            .select('id, billing_cycle, activated_at')
+            .select('id, billing_cycle')
             .eq('user_id', user.id)
             .eq('status', 'created')
             .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // Last 30 min
@@ -344,6 +354,7 @@ router.post('/create-order', paymentLimiter, authenticateToken, async (req, res)
             currency: planConfig.currency,
             keyId: razorpayConfig.keyId,
             planName: planConfig.name,
+            billingCycle: sanitizedBillingCycle,
         });
     } catch (err) {
         const mapped = mapCreateOrderError(err);
@@ -434,7 +445,14 @@ router.post('/verify', paymentLimiter, authenticateToken, async (req, res) => {
 
         const activated = await activateCapturedPayment(payment, razorpay_signature);
         if (!activated) return res.status(404).json({ error: 'Payment record not found' });
-        return res.json({ success: true, plan: activated.plan, paymentId: activated.paymentId });
+        return res.json({
+            success: true,
+            plan: activated.plan,
+            paymentId: activated.paymentId,
+            ...(activated.subscriptionExpiresAt !== undefined ? { subscriptionExpiresAt: activated.subscriptionExpiresAt } : {}),
+            ...(activated.billingCycle ? { billingCycle: activated.billingCycle } : {}),
+            ...(activated.subscriptionStatus ? { subscriptionStatus: activated.subscriptionStatus } : {}),
+        });
     } catch (err) {
         logger.error('Verify payment error', { error: err.message });
         if (err?.code === '22023') {
@@ -520,6 +538,172 @@ router.post('/webhook', async (req, res) => {
     }
 });
 
+function isMissingSubscriptionSchemaError(error) {
+    const code = String(error?.code || '').toUpperCase();
+    const message = String(error?.message || '').toLowerCase();
+    return code === '42703' || message.includes('does not exist') || message.includes('could not find');
+}
+
+async function fetchUserSubscriptionProfile(userId) {
+    let { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('id, subscription_tier, subscription_expires_at, subscription_billing_cycle, subscription_status, subscription_cancelled_at')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error && isMissingSubscriptionSchemaError(error)) {
+        ({ data, error } = await supabaseAdmin
+            .from('profiles')
+            .select('id, subscription_tier')
+            .eq('id', userId)
+            .maybeSingle());
+    }
+
+    if (error) throw error;
+    return data;
+}
+
+// ─────────────────────────────────────────────
+// GET /api/payment/subscription
+// Returns the authenticated user's current subscription lifecycle state
+// ─────────────────────────────────────────────
+router.get('/subscription', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Authentication required', errorCode: 'AUTH_REQUIRED' });
+        }
+
+        const profile = await fetchUserSubscriptionProfile(userId);
+        if (!profile) {
+            return res.json({ subscription: getSubscriptionState({ subscription_tier: 'free' }) });
+        }
+
+        const enrichedProfile = { ...profile };
+        if (!enrichedProfile.subscription_billing_cycle) {
+            const { data: latestPaid } = await supabaseAdmin
+                .from('payments')
+                .select('plan, billing_cycle, paid_at')
+                .eq('user_id', userId)
+                .eq('status', 'paid')
+                .order('paid_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (latestPaid?.billing_cycle && latestPaid.plan === enrichedProfile.subscription_tier) {
+                enrichedProfile.subscription_billing_cycle = latestPaid.billing_cycle;
+            }
+        }
+
+        return res.json({ subscription: getSubscriptionState(enrichedProfile) });
+    } catch (err) {
+        logger.error('Fetch subscription error', { error: err?.message });
+        return res.status(500).json({ error: 'Failed to load subscription details' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/payment/cancel
+// Cancels the authenticated user's active paid subscription
+// Retains access until subscription_expires_at unless immediate=true or no expiry exists
+// ─────────────────────────────────────────────
+router.post('/cancel', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Authentication required', errorCode: 'AUTH_REQUIRED' });
+        }
+
+        const profile = await fetchUserSubscriptionProfile(userId);
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        const current = getSubscriptionState(profile);
+        if (!current.isPaid) {
+            return res.status(400).json({
+                error: current.status === 'expired'
+                    ? 'Your subscription has already expired.'
+                    : 'No active paid subscription to cancel.',
+            });
+        }
+
+        if (current.status === 'cancelled' && current.cancelAtPeriodEnd && !req.body?.immediate) {
+            return res.json({
+                success: true,
+                alreadyCancelled: true,
+                message: 'Your subscription is already cancelled and remains active until the end of your billing period.',
+                subscription: current,
+            });
+        }
+
+        const nowIso = new Date().toISOString();
+        const immediate = Boolean(req.body?.immediate);
+        const hasFutureExpiry = Boolean(current.expiresAt && Date.parse(current.expiresAt) > Date.now());
+        const downgradeNow = immediate || !hasFutureExpiry;
+
+        const updatePayload = downgradeNow
+            ? {
+                subscription_tier: 'free',
+                subscription_status: 'cancelled',
+                subscription_cancelled_at: nowIso,
+                subscription_expires_at: hasFutureExpiry ? nowIso : current.expiresAt,
+                updated_at: nowIso,
+            }
+            : {
+                subscription_status: 'cancelled',
+                subscription_cancelled_at: nowIso,
+                updated_at: nowIso,
+            };
+
+        let { data: updatedProfile, error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', userId)
+            .select('id, subscription_tier, subscription_expires_at, subscription_billing_cycle, subscription_status, subscription_cancelled_at')
+            .maybeSingle();
+
+        if (updateError && isMissingSubscriptionSchemaError(updateError)) {
+            const fallbackPayload = { subscription_tier: 'free', updated_at: nowIso };
+            ({ data: updatedProfile, error: updateError } = await supabaseAdmin
+                .from('profiles')
+                .update(fallbackPayload)
+                .eq('id', userId)
+                .select('id, subscription_tier')
+                .maybeSingle());
+            if (!updateError && updatedProfile) {
+                updatedProfile = {
+                    ...updatedProfile,
+                    subscription_status: 'cancelled',
+                    subscription_cancelled_at: nowIso,
+                };
+            }
+        }
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        await cacheManager.delete(`profile:${userId}`).catch(() => {});
+        invalidateUsageQuotaPlanCache(userId);
+        invalidateCache('/api/user');
+        invalidateCache('/api/payment');
+
+        const nextState = getSubscriptionState(updatedProfile || { ...profile, ...updatePayload });
+
+        return res.json({
+            success: true,
+            message: downgradeNow
+                ? 'Subscription cancelled and returned to the Free plan.'
+                : 'Subscription cancelled. You will retain access until the end of your current billing period.',
+            subscription: nextState,
+        });
+    } catch (err) {
+        logger.error('Cancel subscription error', { error: err?.message });
+        return res.status(500).json({ error: 'Failed to cancel subscription' });
+    }
+});
+
 // ─────────────────────────────────────────────
 // GET /api/payment/history
 // Returns payment history for the logged-in user
@@ -528,12 +712,21 @@ router.get('/history', authenticateToken, async (req, res) => {
     try {
         const user = req.user;
 
-        const { data, error } = await supabaseAdmin
+        let { data, error } = await supabaseAdmin
             .from('payments')
-            .select('id, plan, amount, currency, status, created_at, paid_at')
+            .select('id, plan, billing_cycle, amount, currency, status, created_at, paid_at, activated_at')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(50);
+
+        if (error && isMissingSubscriptionSchemaError(error)) {
+            ({ data, error } = await supabaseAdmin
+                .from('payments')
+                .select('id, plan, amount, currency, status, created_at, paid_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(50));
+        }
 
         if (error) {
             return res.status(500).json({ error: 'Failed to fetch payment history' });

@@ -263,6 +263,7 @@ export async function getComprehensiveUserStats(userId) {
     supabaseAdmin
       .from('mock_interviews')
       .select('id, interview_type, overall_score, communication_score, technical_score, problem_solving_score, started_at, completed_at')
+      .is('source_interview_session_id', null)
       .eq('user_id', userId)
       .order('started_at', { ascending: false }),
     supabaseAdmin

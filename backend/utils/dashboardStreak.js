@@ -8,11 +8,11 @@ const toDateKey = (value) => {
     if (!trimmed) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
-    const fromIso = trimmed.split('T')[0];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(fromIso)) return fromIso;
-
     const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+
+    const fromIso = trimmed.split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fromIso)) return fromIso;
     return null;
   }
 
@@ -22,12 +22,15 @@ const toDateKey = (value) => {
 };
 
 export const calculateDashboardStreak = ({ submissionDateKeys = [], activityDateValues = [] } = {}) => {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - DAY_MS).toISOString().split('T')[0];
+
   const normalizedSubmissionDates = submissionDateKeys
     .map((value) => toDateKey(value))
-    .filter(Boolean);
+    .filter((dateKey) => dateKey && dateKey <= today);
   const normalizedActivityDates = activityDateValues
     .map((value) => toDateKey(value))
-    .filter(Boolean);
+    .filter((dateKey) => dateKey && dateKey <= today);
 
   const allActivityDates = [...new Set([...normalizedSubmissionDates, ...normalizedActivityDates])]
     .sort()
@@ -38,9 +41,6 @@ export const calculateDashboardStreak = ({ submissionDateKeys = [], activityDate
   const weekProgress = [false, false, false, false, false, false, false];
 
   if (allActivityDates.length > 0) {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - DAY_MS).toISOString().split('T')[0];
-
     if (allActivityDates[0] === today || allActivityDates[0] === yesterday) {
       currentStreak = 1;
       for (let i = 1; i < allActivityDates.length; i += 1) {

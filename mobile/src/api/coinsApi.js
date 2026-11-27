@@ -10,6 +10,9 @@ export const coinsApi = {
         const res = await apiClient.get("/api/coins/balance");
         // Backend returns { coins: N }
         const data = res.data;
+        if (!data || typeof data !== "object" || data.degraded) {
+            throw new Error("Coin balance unavailable");
+        }
         return {
             balance: data?.coins ?? data?.balance ?? 0,
             totalEarned: data?.totalEarned ?? null,
@@ -30,6 +33,16 @@ export const coinsApi = {
         return Array.isArray(data)
             ? data
             : data.items || data.transactions || data.data || [];
+    },
+
+    async getWalletHistory(page = 1, limit = 30) {
+        const { data } = await apiClient.get("/api/coins/history", {
+            params: { detailed: 1, page, limit },
+        });
+        if (!Array.isArray(data?.items) || !data.summary || typeof data.summary !== "object") {
+            throw new Error("Invalid wallet history");
+        }
+        return data;
     },
 
     /**

@@ -1,3 +1,4 @@
+import { updateInterviewHistory } from '../utils/accountStorage';
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Play, ChevronRight, Trophy, Star, BarChart3, CheckCircle, Clock, ArrowRight, RotateCcw, Zap, Code2, Users, Brain, Briefcase, Award, Target, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
 import {  COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
@@ -429,8 +430,6 @@ export default function MultiRoundInterview() {
         const overallScore = Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / (results.length || 1));
         const localSessionId = sessionId || saveIdempotencyKeyRef.current || `multi-${Date.now()}`;
         try {
-            const historyKey = "preploop_local_interview_history";
-            const existing = JSON.parse(localStorage.getItem(historyKey) || "[]");
             const newLocal = {
                 id: localSessionId,
                 session_id: localSessionId,
@@ -444,7 +443,7 @@ export default function MultiRoundInterview() {
                 rounds: results,
                 completed_at: new Date().toISOString()
             };
-            localStorage.setItem(historyKey, JSON.stringify([newLocal, ...existing.filter(s => s.id !== localSessionId)].slice(0, 50)));
+            updateInterviewHistory(user?.isGuest ? null : user?.id, items => [newLocal, ...items.filter(s => s.id !== localSessionId)]);
         } catch { /* empty */ }
         try {
             await authFetch(`${API_URL}/api/company-interview/save-session`, {

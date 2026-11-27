@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, typography, spacing, borderRadius } from "../utils/theme";
+import { playHapticFeedback } from "../utils/preferences";
 
 export function Button({
     title,
@@ -30,6 +31,11 @@ export function Button({
     textStyle,
 }) {
     const isDisabled = disabled || loading;
+
+    const handlePress = (...args) => {
+        playHapticFeedback().catch(() => {});
+        onPress?.(...args);
+    };
 
     const sizeMap = {
         sm: {
@@ -58,7 +64,7 @@ export function Button({
     if (variant === "primary") {
         return (
             <TouchableOpacity
-                onPress={onPress}
+                onPress={handlePress}
                 disabled={isDisabled}
                 style={[fullWidth && styles.fullWidth, style]}
                 activeOpacity={0.85}
@@ -155,7 +161,7 @@ export function Button({
 
     return (
         <TouchableOpacity
-            onPress={onPress}
+            onPress={handlePress}
             disabled={isDisabled}
             activeOpacity={0.75}
             style={[

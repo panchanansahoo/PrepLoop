@@ -1,3 +1,5 @@
+import { useAuth } from '../context/AuthContext';
+import { getAccountStorageKey, readDraft, writeDraft } from '../utils/accountStorage';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
@@ -72,6 +74,14 @@ function formatTime(seconds) {
 
 export default function DSACodeEditor() {
   const { problemId } = useParams();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const userId = user?.isGuest ? null : user?.id;
+  return <DSACodeEditorContent key={`${userId || 'guest'}:${problemId}`} userId={userId} />;
+}
+
+function DSACodeEditorContent({ userId }) {
+  const { problemId } = useParams();
   const navigate = useNavigate();
   const editorRef = useRef(null);
   const testCaseRef = useRef(null);
@@ -82,15 +92,19 @@ export default function DSACodeEditor() {
   const [loading, setLoading] = useState(true);
 
   // Editor state
+  const langKey = getAccountStorageKey('dsa-editor-lang', userId) || 'dsa-editor-lang';
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('dsa-editor-lang') || 'python';
+    return readDraft(langKey, userId) || 'python';
   });
+  const [loadedDraftKey, setLoadedDraftKey] = useState(null);
+  const initialStarterRef = useRef({ key: null, starter: '' });
+  const hasSavedDraftRef = useRef(false);
   const [code, setCode] = useState('');
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
-    return localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true';
+    return readDraft(getAccountStorageKey(getSolutionUnlockKey(problemId), userId) || getSolutionUnlockKey(problemId), userId) === 'true';
   });
 
   // UI state
@@ -153,10 +167,6 @@ export default function DSACodeEditor() {
       });
       setLoading(false);
     }
-  }, [problemId]);
-
-  useEffect(() => {
-    setSolutionUnlocked(localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true');
   }, [problemId]);
 
   // ─── Fetch DB problem for examples/constraints ───
@@ -331,39 +341,43 @@ export default function DSACodeEditor() {
     }
   }, [dbProblem]);
 
+  const draftBase = problem ? `dsa-code-${problem.id}-${language}` : null;
+  const draftKey = draftBase && (getAccountStorageKey(draftBase, userId) || draftBase);
   // ─── Load saved code or starter code ───
   useEffect(() => {
     if (!problem) return;
-    const saved = localStorage.getItem(`dsa-code-${problem.id}-${language}`);
-    if (saved) {
+    const saved = readDraft(draftKey, userId);
+    hasSavedDraftRef.current = saved !== null;
+    setLoadedDraftKey(draftKey);
+    if (saved !== null) {
+      initialStarterRef.current = { key: draftKey, starter: '' };
       setCode(saved);
     } else {
       // Prefer DB starter code (has proper function signatures and params)
       const dbStarter = dbProblem?.starter_code?.[language];
-      if (dbStarter) {
-        setCode(dbStarter);
-      } else {
-        const funcName = problem.title
-          ? problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-          : 'solve';
-        setCode(STARTER_CODE[language]?.(funcName) || '');
-      }
+      const funcName = problem.title
+        ? problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+        : 'solve';
+      const starter = dbStarter || STARTER_CODE[language]?.(funcName) || '';
+      initialStarterRef.current = { key: draftKey, starter };
+      setCode(starter);
     }
-  }, [problem, dbProblem, language]);
+  }, [problem, dbProblem, language, draftKey, userId]);
 
   // ─── Auto-save code ───
   useEffect(() => {
-    if (!problem || !code) return;
-    const timeout = setTimeout(() => {
-      localStorage.setItem(`dsa-code-${problem.id}-${language}`, code);
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [code, problem, language]);
+    if (!draftKey || loadedDraftKey !== draftKey) return;
+    if (!hasSavedDraftRef.current && initialStarterRef.current.key === draftKey && code === initialStarterRef.current.starter) {
+      return;
+    }
+    hasSavedDraftRef.current = true;
+    writeDraft(draftKey, userId, code);
+  }, [code, draftKey, loadedDraftKey, userId]);
 
   // ─── Save language preference ───
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
-    localStorage.setItem('dsa-editor-lang', lang);
+    writeDraft(langKey, userId, lang);
   };
 
   // ─── Insert template ───
@@ -451,7 +465,7 @@ export default function DSACodeEditor() {
       if (accepted) {
         const unlockKey = getSolutionUnlockKey(resolvedProblemId);
         setSolutionUnlocked(true);
-        localStorage.setItem(unlockKey, 'true');
+        writeDraft(getAccountStorageKey(unlockKey, userId) || unlockKey, userId, 'true');
 
         setFeedback({
           timeComplexity: 'Submitted',

@@ -11,7 +11,9 @@ import {
 } from "react-native";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { getFullExamQuestions } from "../../data/examData";
+import { playHapticNotification } from "../../utils/preferences";
 
 export default function ExamPracticeScreen({ route, navigation }) {
     const { title, examId } = route.params || {};
@@ -24,6 +26,7 @@ export default function ExamPracticeScreen({ route, navigation }) {
     const [timeLeft, setTimeLeft] = useState(120 * 60);
 
     const handleSubmit = useCallback(() => {
+        playHapticNotification(Haptics.NotificationFeedbackType.Success).catch(() => {});
         const correctCount = Object.entries(answers).filter(([qId, ans]) => {
             const q = examData?.questions?.find((q) => String(q.id) === String(qId));
             return q && ans === q.correctAnswer;

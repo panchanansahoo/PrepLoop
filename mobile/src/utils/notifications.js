@@ -26,9 +26,10 @@ const isExpoGo =
 // Configure how notifications appear when app is in foreground
 if (!isExpoGo) {
     Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
+        handleNotification: async ({ request }) => ({
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: request.content.data?.playSound !== false,
             shouldSetBadge: true,
         }),
     });
@@ -132,6 +133,7 @@ async function scheduleLocal(
     triggerSeconds = 0,
     data = {},
     channelId = "default",
+    playSound = true,
 ) {
     try {
         const trigger =
@@ -141,8 +143,8 @@ async function scheduleLocal(
             content: {
                 title,
                 body,
-                data,
-                sound: "default",
+                data: { ...data, playSound },
+                sound: playSound ? "default" : false,
                 ...(Platform.OS === "android" ? { channelId } : {}),
             },
             trigger,
@@ -157,7 +159,7 @@ async function scheduleLocal(
  * @param {number} hour — hour in 24h format (default 20 = 8pm)
  * @param {number} minute — minute (default 0)
  */
-async function scheduleDailyReminder(hour = 20, minute = 0) {
+async function scheduleDailyReminder(hour = 20, minute = 0, playSound = true) {
     try {
         // Cancel existing streak reminders first
         await cancelByTag("streak_reminder");
@@ -166,8 +168,8 @@ async function scheduleDailyReminder(hour = 20, minute = 0) {
             content: {
                 title: "🔥 Keep Your Streak Alive!",
                 body: "Don't break your coding streak — solve at least one problem today.",
-                data: { type: "streak_reminder" },
-                sound: "default",
+                data: { type: "streak_reminder", playSound },
+                sound: playSound ? "default" : false,
                 ...(Platform.OS === "android"
                     ? { channelId: "streaks" }
                     : {}),
@@ -252,7 +254,72 @@ function addResponseListener(callback) {
     return () => subscription.remove();
 }
 
+async function preferenceChannel(playSound) {
+    const channelId = playSound ? "reminders-audible-v2" : "reminders-quiet-v2";
+    if (Platform.OS === "android") {
+        await Notifications.setNotificationChannelAsync(channelId, {
+            name: playSound ? "PrepLoop reminders with sound" : "PrepLoop quiet reminders",
+            importance: Notifications.AndroidImportance.DEFAULT,
+            sound: playSound ? "default" : null,
+        });
+    }
+    return channelId;
+}
+
+async function ensurePermission({ request = false, playSound = false } = {}) {
+    await preferenceChannel(playSound);
+    let permission = await Notifications.getPermissionsAsync();
+    const isGranted = p => Boolean(p?.granted || p?.status === "granted");
+    if (!isGranted(permission) && request && permission?.canAskAgain !== false) {
+        permission = await Notifications.requestPermissionsAsync();
+    }
+    return isGranted(permission);
+}
+
+async function replacePracticeReminders(preferences) {
+    const playSound = preferences?.notificationSound === true;
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const item of scheduled) {
+        if (item.content?.data?.practiceReminder || item.content?.data?.type === "streak_reminder") {
+            await Notifications.cancelScheduledNotificationAsync(item.identifier);
+        }
+    }
+    if (!preferences?.streakReminders && !preferences?.dailyChallenge) return;
+    if (!await ensurePermission({ playSound })) return;
+
+    const channelId = await preferenceChannel(playSound);
+    const dailyTriggerType = Notifications.SchedulableTriggerInputTypes?.DAILY ?? "daily";
+    const reminders = [
+        { enabled: preferences.dailyChallenge, type: "daily_challenge", hour: 9, title: "Daily challenge", body: "Your daily practice challenge is ready." },
+        { enabled: preferences.streakReminders, type: "streak_reminder", hour: 20, title: "Keep your streak going", body: "Solve a problem today to keep your streak active." },
+    ];
+    for (const { enabled, type, hour, title, body } of reminders) {
+        if (!enabled) continue;
+        await Notifications.scheduleNotificationAsync({
+            content: { title, body, sound: playSound ? "default" : false, data: { type, playSound, practiceReminder: true } },
+            trigger: { type: dailyTriggerType, hour, minute: 0, channelId },
+        });
+    }
+}
+
+async function showInterviewResult(playSound) {
+    if (!await ensurePermission({ playSound })) return;
+    const channelId = await preferenceChannel(playSound);
+    await Notifications.scheduleNotificationAsync({
+        content: {
+            title: "Interview results ready",
+            body: "Open PrepLoop to review your interview feedback.",
+            sound: playSound ? "default" : false,
+            data: { type: "interview_result", playSound },
+        },
+        trigger: Platform.OS === "android" ? { channelId } : null,
+    });
+}
+
 export const notifications = {
+    ensurePermission,
+    replacePracticeReminders,
+    showInterviewResult,
     register,
     scheduleLocal,
     scheduleDailyReminder,

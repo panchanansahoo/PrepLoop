@@ -9,13 +9,18 @@ import {
     StatusBar,
     Alert,
     Linking,
+    Modal,
+    TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { changePreference, clearPreferences, playHapticFeedback, readPreferences } from "../../utils/preferences";
+import { clearRoundProgress } from "../../utils/multiRoundProgress";
+import { cache } from "../../utils/cache";
+import { userApi } from "../../api/userApi";
+import { Button } from "../../components/Button";
 import { useAuth } from "../../context/AuthContext";
 import { Card } from "../../components/Card";
-import { notifications } from "../../utils/notifications";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 function SettingRow({ emoji, label, value, onPress, rightElement }) {
@@ -40,7 +45,7 @@ function SettingRow({ emoji, label, value, onPress, rightElement }) {
     );
 }
 
-function SettingToggle({ emoji, label, value, onValueChange }) {
+function SettingToggle({ emoji, label, value, onValueChange, disabled }) {
     return (
         <View style={s.row}>
             <View style={s.rowLeft}>
@@ -48,6 +53,7 @@ function SettingToggle({ emoji, label, value, onValueChange }) {
                 <Text style={s.rowLabel}>{label}</Text>
             </View>
             <Switch
+                disabled={disabled}
                 value={value}
                 onValueChange={onValueChange}
                 trackColor={{ false: colors.border, true: "#7c3aed" }}
@@ -64,43 +70,38 @@ function SectionHeader({ title }) {
 export default function SettingsScreen({ navigation }) {
     const { user, logout } = useAuth();
     const insets = useSafeAreaInsets();
-    const [streakReminders, setStreakReminders] = useState(true);
-    const [dailyChallenge, setDailyChallenge] = useState(true);
-    const [interviewResults, setInterviewResults] = useState(true);
-    const [soundEffects, setSoundEffects] = useState(false);
-    const [hapticFeedback, setHapticFeedback] = useState(true);
+    const userId = user?.id;
+    const [preferences, setPreferences] = useState(null);
+    const [updating, setUpdating] = useState(false);
+    const [deleteVisible, setDeleteVisible] = useState(false);
+    const [confirmation, setConfirmation] = useState("");
+    const [deleteError, setDeleteError] = useState("");
+    const [deleting, setDeleting] = useState(false);
 
-    // Load persisted notification/preference toggles on mount
     useEffect(() => {
-        async function loadPrefs() {
-            try {
-                const keys = [
-                    "pref_streakReminders",
-                    "pref_dailyChallenge",
-                    "pref_interviewResults",
-                    "pref_soundEffects",
-                    "pref_hapticFeedback",
-                ];
-                const pairs = await AsyncStorage.multiGet(keys);
-                pairs.forEach(([key, value]) => {
-                    if (value === null) return; // never saved — keep default
-                    const bool = value === "true";
-                    if (key === "pref_streakReminders")
-                        setStreakReminders(bool);
-                    else if (key === "pref_dailyChallenge")
-                        setDailyChallenge(bool);
-                    else if (key === "pref_interviewResults")
-                        setInterviewResults(bool);
-                    else if (key === "pref_soundEffects") setSoundEffects(bool);
-                    else if (key === "pref_hapticFeedback")
-                        setHapticFeedback(bool);
-                });
-            } catch (e) {
-                console.warn("Failed to load preferences:", e);
+        let active = true;
+        setPreferences(null);
+        readPreferences(userId)
+            .then(value => { if (active) setPreferences(value); })
+            .catch(() => { if (active) Alert.alert("Could not load preferences"); });
+        return () => { active = false; };
+    }, [userId]);
+
+    async function updatePreference(name, value) {
+        if (updating || !userId) return;
+        setUpdating(true);
+        try {
+            const next = await changePreference(userId, name, value);
+            setPreferences(next);
+            if (next.hapticFeedback) {
+                playHapticFeedback(userId).catch(() => {});
             }
+        } catch (error) {
+            Alert.alert("Preference unavailable", error.message || "Try again.");
+        } finally {
+            setUpdating(false);
         }
-        loadPrefs();
-    }, []);
+    }
 
     const appVersion = Constants.expoConfig?.version || "1.0.0";
     const tier = user?.subscriptionTier || user?.subscription_tier || "free";
@@ -113,22 +114,29 @@ export default function SettingsScreen({ navigation }) {
     }
 
     function confirmDeleteAccount() {
-        Alert.alert(
-            "Delete Account",
-            "This is irreversible. All data will be permanently deleted.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: () =>
-                        Alert.alert(
-                            "Not Available",
-                            "Account deletion requires email verification. Contact support@preploop.com.",
-                        ),
-                },
-            ],
-        );
+        setConfirmation("");
+        setDeleteError("");
+        setDeleteVisible(true);
+    }
+
+    async function deleteAccount() {
+        if (deleting || confirmation.trim() !== "DELETE") return;
+        setDeleting(true);
+        setDeleteError("");
+        try {
+            await userApi.deleteAccount(confirmation.trim());
+            setDeleteVisible(false);
+            await Promise.allSettled([
+                cache.clear(),
+                clearPreferences(userId),
+                clearRoundProgress(userId),
+            ]);
+            await logout();
+        } catch (error) {
+            setDeleteError(error.response?.data?.error || error.message || "Could not delete your account.");
+        } finally {
+            setDeleting(false);
+        }
     }
 
     const Div = () => <View style={s.divider} />;
@@ -193,51 +201,25 @@ export default function SettingsScreen({ navigation }) {
                     <SettingToggle
                         emoji="🔥"
                         label="Streak Reminders"
-                        value={streakReminders}
-                        onValueChange={(val) => {
-                            setStreakReminders(val);
-                            AsyncStorage.setItem(
-                                "pref_streakReminders",
-                                String(val),
-                            ).catch(() => {});
-                            try {
-                                if (val) {
-                                    notifications.scheduleDailyReminder(20, 0);
-                                } else {
-                                    notifications.cancelByTag(
-                                        "streak_reminder",
-                                    );
-                                }
-                            } catch {
-                                console.log("Notification preference saved");
-                            }
-                        }}
+                        value={Boolean(preferences?.streakReminders)}
+                        disabled={!preferences || updating || !userId}
+                        onValueChange={value => updatePreference("streakReminders", value)}
                     />
                     <Div />
                     <SettingToggle
                         emoji="⚡"
                         label="Daily Challenge"
-                        value={dailyChallenge}
-                        onValueChange={(val) => {
-                            setDailyChallenge(val);
-                            AsyncStorage.setItem(
-                                "pref_dailyChallenge",
-                                String(val),
-                            ).catch(() => {});
-                        }}
+                        value={Boolean(preferences?.dailyChallenge)}
+                        disabled={!preferences || updating || !userId}
+                        onValueChange={value => updatePreference("dailyChallenge", value)}
                     />
                     <Div />
                     <SettingToggle
                         emoji="📊"
                         label="Interview Results"
-                        value={interviewResults}
-                        onValueChange={(val) => {
-                            setInterviewResults(val);
-                            AsyncStorage.setItem(
-                                "pref_interviewResults",
-                                String(val),
-                            ).catch(() => {});
-                        }}
+                        value={Boolean(preferences?.interviewResults)}
+                        disabled={!preferences || updating || !userId}
+                        onValueChange={value => updatePreference("interviewResults", value)}
                     />
                 </Card>
 
@@ -245,28 +227,18 @@ export default function SettingsScreen({ navigation }) {
                 <Card style={s.card}>
                     <SettingToggle
                         emoji="🔊"
-                        label="Sound Effects"
-                        value={soundEffects}
-                        onValueChange={(val) => {
-                            setSoundEffects(val);
-                            AsyncStorage.setItem(
-                                "pref_soundEffects",
-                                String(val),
-                            ).catch(() => {});
-                        }}
+                        label="Notification Sound"
+                        value={Boolean(preferences?.notificationSound)}
+                        disabled={!preferences || updating || !userId}
+                        onValueChange={value => updatePreference("notificationSound", value)}
                     />
                     <Div />
                     <SettingToggle
                         emoji="📳"
                         label="Haptic Feedback"
-                        value={hapticFeedback}
-                        onValueChange={(val) => {
-                            setHapticFeedback(val);
-                            AsyncStorage.setItem(
-                                "pref_hapticFeedback",
-                                String(val),
-                            ).catch(() => {});
-                        }}
+                        value={Boolean(preferences?.hapticFeedback)}
+                        disabled={!preferences || updating || !userId}
+                        onValueChange={value => updatePreference("hapticFeedback", value)}
                     />
                 </Card>
 
@@ -355,6 +327,27 @@ export default function SettingsScreen({ navigation }) {
                     <Text style={s.versionSub}>Made with 💜 for engineers</Text>
                 </View>
             </ScrollView>
+            <Modal visible={deleteVisible} transparent animationType="fade" onRequestClose={() => { if (!deleting) setDeleteVisible(false); }}>
+                <View style={s.modalBackdrop}>
+                    <Card style={s.deleteDialog}>
+                        <Text style={s.headerTitle}>Delete account</Text>
+                        <Text style={s.rowLabel}>This permanently deletes your account and its data. Type DELETE to confirm.</Text>
+                        <TextInput
+                            accessibilityLabel="Type DELETE to confirm"
+                            style={s.confirmInput}
+                            value={confirmation}
+                            onChangeText={setConfirmation}
+                            editable={!deleting}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                            maxLength={10}
+                        />
+                        {deleteError ? <Text accessibilityRole="alert" style={s.dangerLabel}>{deleteError}</Text> : null}
+                        <Button title="Delete account" onPress={deleteAccount} loading={deleting} disabled={!userId || deleting || confirmation.trim() !== "DELETE"} />
+                        <Button title="Cancel" variant="outline" onPress={() => { setDeleteError(""); setDeleteVisible(false); }} disabled={deleting} />
+                    </Card>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -415,6 +408,9 @@ const s = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.06)",
         marginHorizontal: spacing.md,
     },
+    modalBackdrop: { flex: 1, justifyContent: "center", padding: spacing.lg, backgroundColor: "rgba(0,0,0,0.65)" },
+    deleteDialog: { gap: spacing.md },
+    confirmInput: { color: colors.textPrimary, borderColor: colors.border, borderWidth: 1, borderRadius: borderRadius.md, padding: spacing.md },
     dangerCard: { borderColor: "rgba(239,68,68,0.25)" },
     dangerRow: {
         flexDirection: "row",

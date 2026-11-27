@@ -1,3 +1,4 @@
+import { getAccountStorageKey, readDraft, removeDraft, updateInterviewHistory, writeDraft } from '../utils/accountStorage';
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { authFetch } from "../utils/authFetch";
 import { useVoiceAI } from "./useVoiceAI";
@@ -140,6 +141,7 @@ export function useInterviewSession(options = {}) {
   const wrapUpTimerRef = useRef(null);
   const recentOpenersRef = useRef([]);
   const { user: _user, loading: authLoading, getAuthHeaders: authHeadersFn } = useAuth();
+  const accountUserId = _user?.isGuest ? null : (_user?.id || null);
   const getAuthHeaders = useCallback((extra = {}) => {
     if (typeof authHeadersFn === 'function') {
       return authHeadersFn(extra);
@@ -185,27 +187,21 @@ export function useInterviewSession(options = {}) {
     const fromParam = searchParams?.get("company");
     if (fromParam) return fromParam;
     if (multiRoundCtx?.company) return multiRoundCtx.company;
-    try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const stored = localStorage.getItem("preploop_last_company");
-        if (stored) return stored;
-      }
-    } catch {}
+    const key = getAccountStorageKey("last-company", accountUserId);
+    const stored = key ? readDraft(key, accountUserId) : null;
+    if (stored) return stored;
     return "";
-  }, [searchParams, multiRoundCtx]);
+  }, [searchParams, multiRoundCtx, accountUserId]);
 
   const initialRole = useMemo(() => {
     const fromParam = searchParams?.get("role");
     if (fromParam) return fromParam;
     if (multiRoundCtx?.role) return multiRoundCtx.role;
-    try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const stored = localStorage.getItem("preploop_last_role");
-        if (stored) return stored;
-      }
-    } catch {}
+    const key = getAccountStorageKey("last-role", accountUserId);
+    const stored = key ? readDraft(key, accountUserId) : null;
+    if (stored) return stored;
     return "";
-  }, [searchParams, multiRoundCtx]);
+  }, [searchParams, multiRoundCtx, accountUserId]);
 
   const initialExperience = useMemo(() => {
     const diff = searchParams?.get("difficulty") || multiRoundCtx?.difficulty;
@@ -1054,22 +1050,18 @@ export function useInterviewSession(options = {}) {
 
 
   useEffect(() => {
-    let storedKey = null;
-    try {
-      storedKey = window.localStorage.getItem(`${AI_INTERVIEW_SESSION_KEY}:key`);
-    } catch { /* storage may be blocked */ }
+    const checkpointIdKey = getAccountStorageKey("interview-session:key", accountUserId) || `${AI_INTERVIEW_SESSION_KEY}:key`;
+    const storedKey = readDraft(checkpointIdKey, accountUserId);
     const generatedKey = storedKey || (
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `interview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
     checkpointKeyRef.current = generatedKey;
-    try {
-      window.localStorage.setItem(`${AI_INTERVIEW_SESSION_KEY}:key`, generatedKey);
-    } catch { /* storage may be blocked */ }
+    writeDraft(checkpointIdKey, accountUserId, generatedKey);
 
     let cancelled = false;
-    if (_user?.id) {
+    if (accountUserId) {
       authFetch(`/api/company-interview/checkpoints/${generatedKey}`)
         .then((response) => response.ok ? response.json() : null)
         .then((data) => {
@@ -1089,7 +1081,7 @@ export function useInterviewSession(options = {}) {
       cancelled = true;
       if (checkpointTimerRef.current) clearTimeout(checkpointTimerRef.current);
     };
-  }, [_user?.id]);
+  }, [accountUserId]);
 
   // ─── SessionStorage State Recovery: Preserves active attemptId, questionIndex, and reconnects on refresh ───
   useEffect(() => {
@@ -1107,7 +1099,7 @@ export function useInterviewSession(options = {}) {
         const active = JSON.parse(raw);
         const isFresh = Boolean(active && active.timestamp && (Date.now() - active.timestamp < 3 * 60 * 60 * 1000));
         const matchesInterview = (active?.questionSetCode || null) === (questionSetCode || null);
-        const matchesOwner = active?.userId === undefined || active.userId === (_user?.id || null);
+        const matchesOwner = active?.userId === undefined || active.userId === (accountUserId || null);
         if (active && active.isActive && isFresh && matchesInterview && matchesOwner) {
           sessionRecoveredRef.current = true;
           setIsSessionRecovered(true);
@@ -1175,8 +1167,10 @@ export function useInterviewSession(options = {}) {
   }, [_user?.id, authLoading, questionSetCode, restoreCandidateTurn, updateLifecycle]);
 
   useEffect(() => {
+    const checkpointDraftKey = getAccountStorageKey("interview-session:draft", accountUserId) || AI_INTERVIEW_SESSION_KEY;
+    setSavedSession(null);
     try {
-      const raw = window.localStorage.getItem(AI_INTERVIEW_SESSION_KEY);
+      const raw = readDraft(checkpointDraftKey, accountUserId);
       if (raw) {
         const session = JSON.parse(raw);
         if (
@@ -1185,15 +1179,13 @@ export function useInterviewSession(options = {}) {
         ) {
           setSavedSession(session);
         } else {
-          window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
+          removeDraft(checkpointDraftKey, accountUserId);
         }
       }
     } catch {
-      try {
-        window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
-      } catch { /* empty */ }
+      removeDraft(checkpointDraftKey, accountUserId);
     }
-  }, []);
+  }, [accountUserId]);
 
   useEffect(() => {
     if (phase !== "interview" || conversation.length === 0) return;
@@ -1204,8 +1196,10 @@ export function useInterviewSession(options = {}) {
         ? conversation.slice(-MAX_CHECKPOINT_TURNS)
         : conversation;
 
-      window.localStorage.setItem(
-        AI_INTERVIEW_SESSION_KEY,
+      const checkpointDraftKey = getAccountStorageKey("interview-session:draft", accountUserId) || AI_INTERVIEW_SESSION_KEY;
+      writeDraft(
+        checkpointDraftKey,
+        accountUserId,
         JSON.stringify({
           conversation: checkpointConversation,
           questionIndex,
@@ -1309,6 +1303,8 @@ export function useInterviewSession(options = {}) {
   const clearSavedSession = useCallback(() => {
     setSavedSession(null);
     try {
+      removeDraft(getAccountStorageKey("interview-session:draft", accountUserId) || AI_INTERVIEW_SESSION_KEY, accountUserId);
+      removeDraft(getAccountStorageKey("interview-session:key", accountUserId) || `${AI_INTERVIEW_SESSION_KEY}:key`, accountUserId);
       window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
       window.localStorage.removeItem(`${AI_INTERVIEW_SESSION_KEY}:key`);
       window.sessionStorage.removeItem("preploop_active_transcript");
@@ -1317,13 +1313,13 @@ export function useInterviewSession(options = {}) {
         window.sessionStorage.removeItem(`${AI_ACTIVE_SESSION_STORAGE_KEY}_${questionSetCode}`);
       }
       if (checkpointTimerRef.current) clearTimeout(checkpointTimerRef.current);
-      if (_user?.id && checkpointKeyRef.current) {
+      if (accountUserId && checkpointKeyRef.current) {
         authFetch(`/api/company-interview/checkpoints/${checkpointKeyRef.current}`, {
           method: "DELETE",
         }).catch(() => {});
       }
     } catch { /* empty */ }
-  }, [_user?.id, questionSetCode]);
+  }, [accountUserId, questionSetCode]);
 
   const handleSessionErrorAction = useCallback((actionType) => {
     if (actionType === "reconnect") {
@@ -1387,26 +1383,24 @@ export function useInterviewSession(options = {}) {
   const updateTargetRole = useCallback((val) => {
     setTargetRole((prev) => {
       const next = typeof val === "function" ? val(prev) : val;
-      try {
-        if (typeof window !== "undefined" && window.localStorage && next) {
-          localStorage.setItem("preploop_last_role", next);
-        }
-      } catch {}
+      if (next) {
+        const key = getAccountStorageKey("last-role", accountUserId);
+        if (key) writeDraft(key, accountUserId, next);
+      }
       return next;
     });
-  }, []);
+  }, [accountUserId]);
 
   const updateTargetCompany = useCallback((val) => {
     setTargetCompany((prev) => {
       const next = typeof val === "function" ? val(prev) : val;
-      try {
-        if (typeof window !== "undefined" && window.localStorage && next) {
-          localStorage.setItem("preploop_last_company", next);
-        }
-      } catch {}
+      if (next) {
+        const key = getAccountStorageKey("last-company", accountUserId);
+        if (key) writeDraft(key, accountUserId, next);
+      }
       return next;
     });
-  }, []);
+  }, [accountUserId]);
   const [companySearch, setCompanySearch] = useState("");
   const [companyTab, setCompanyTab] = useState("all");
   const [resumeFile, setResumeFile] = useState(null);
@@ -1814,11 +1808,11 @@ export function useInterviewSession(options = {}) {
     };
 
     setAnalysisResult(resultObj);
-    try {
-      window.localStorage.setItem("preploop_last_interview_analysis", JSON.stringify(resultObj));
-    } catch { /* storage safe */ }
+    const analysisKey = getAccountStorageKey("last-interview-analysis", accountUserId);
+    if (analysisKey) writeDraft(analysisKey, accountUserId, JSON.stringify(resultObj));
     setAnalysisLoading(false);
   }, [
+    accountUserId,
     conversation,
     elapsed,
     lineCount,
@@ -2026,10 +2020,7 @@ export function useInterviewSession(options = {}) {
 
     // Save locally immediately so history is guaranteed available
     try {
-      const historyKey = "preploop_local_interview_history";
-      const existing = JSON.parse(localStorage.getItem(historyKey) || "[]");
-      const updated = [newEntry, ...existing.filter((s) => s.id !== localSessionId)].slice(0, 50);
-      localStorage.setItem(historyKey, JSON.stringify(updated));
+      updateInterviewHistory(_user?.isGuest ? null : _user?.id, items => [newEntry, ...items.filter((s) => s.id !== localSessionId)]);
     } catch { /* empty */ }
 
     authFetch("/api/company-interview/save-session", {

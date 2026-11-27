@@ -1,9 +1,11 @@
 import React, { useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import * as Haptics from "expo-haptics";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import apiClient from "../../api/apiClient";
 import { technicalQuestions } from "../../data/technicalQuestions";
 import { getRandomQuestions } from "../../data/aptitudeData";
+import { playHapticFeedback, playHapticNotification } from "../../utils/preferences";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 
 export default function QuizArenaScreen({ navigation }) {
@@ -79,12 +81,17 @@ export default function QuizArenaScreen({ navigation }) {
         setSelectedAnswer(index);
         setIsAnswered(true);
         
-        if (index === questions[currentQuestion].correct) {
+        const isCorrect = index === questions[currentQuestion].correct;
+        playHapticNotification(
+            isCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
+        ).catch(() => {});
+        if (isCorrect) {
             setScore(previous => previous + 1);
         }
     };
 
     const handleNext = () => {
+        playHapticFeedback().catch(() => {});
         if (currentQuestion < questions.length - 1) {
             answered.current = false;
             setCurrentQuestion(currentQuestion + 1);

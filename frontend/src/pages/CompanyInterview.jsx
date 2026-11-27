@@ -1,3 +1,4 @@
+import { updateInterviewHistory } from '../utils/accountStorage';
 import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import './CompanyInterview.css';
 import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, Send, Clock, Users, Sparkles, ChevronRight, ChevronLeft, Star, TrendingUp, CheckCircle, AlertCircle, BarChart3, RefreshCw, ArrowLeft, Volume2, X, Monitor, MoreVertical, Hand, SmilePlus, Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield, Bookmark, Settings } from 'lucide-react';
@@ -1648,10 +1649,7 @@ export default function CompanyInterview() {
         };
 
         try {
-            const historyKey = 'preploop_local_interview_history';
-            const existing = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            const updated = [newLocalSession, ...existing.filter(s => s.id !== localSessionId)].slice(0, 50);
-            localStorage.setItem(historyKey, JSON.stringify(updated));
+            updateInterviewHistory(user?.isGuest ? null : user?.id, items => [newLocalSession, ...items.filter(s => s.id !== localSessionId)]);
         } catch { /* empty */ }
 
         try {

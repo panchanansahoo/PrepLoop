@@ -158,6 +158,28 @@ async function remove(key) {
 }
 
 /**
+ * Clear all cached entries scoped to a specific account.
+ * @param {string|number} userId
+ */
+async function clearAccount(userId) {
+    if (userId == null || userId === "") return;
+    const accountPrefix = `account:${encodeURIComponent(String(userId))}:`;
+    for (const key of Array.from(memoryCache.keys())) {
+        if (key.startsWith(accountPrefix)) {
+            memoryCache.delete(key);
+        }
+    }
+    try {
+        const keys = await AsyncStorage.getAllKeys();
+        const fullPrefix = CACHE_PREFIX + accountPrefix;
+        const accountKeys = keys.filter((k) => k.startsWith(fullPrefix));
+        if (accountKeys.length > 0) {
+            await AsyncStorage.multiRemove(accountKeys);
+        }
+    } catch {}
+}
+
+/**
  * Clear all PrepLoop cache entries (preserves auth/other keys).
  */
 async function clear() {
@@ -288,6 +310,7 @@ export const cache = {
     remove,
     invalidate: remove,
     clear,
+    clearAccount,
     pruneExpired,
     fetchWithCache,
     getMemorySize: () => memoryCache.size,
@@ -317,3 +340,11 @@ export const CACHE_TTL = {
     VERY_LONG: 3600, // 1 hour — for rarely changing data (patterns, curriculum)
     OFFLINE_PERSISTENT: 604800, // 7 days — offline question and curriculum browsing
 };
+
+export function accountCacheKey(userId, key) {
+    const scope =
+        userId != null && userId !== ""
+            ? encodeURIComponent(String(userId))
+            : "guest";
+    return `account:${scope}:${key}`;
+}

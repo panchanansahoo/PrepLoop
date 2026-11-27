@@ -1,11 +1,10 @@
 import { useMemo, useEffect, useState } from 'react';
-import { TrendingUp, Target, BarChart3, PieChart, Clock, CheckCircle2, Activity, Brain, Shield, Award, Zap, ChevronRight, Layers, Flame, Code2 } from 'lucide-react';
-import { TOPICS, PROBLEMS, getDifficultyCounts } from '../data/problemsDatabase';
+import { TrendingUp, Target, BarChart3, PieChart, Clock, CheckCircle2, Activity, Brain, Award, Zap, ChevronRight, Layers, Flame, Code2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import useDashboardData from '../hooks/useDashboardData';
 
 function DonutChart({ data, size = 160, strokeWidth = 20, isLight = false }) {
-  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  const total = data.reduce((s, d) => s + d.value, 0);
   let angle = -90;
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
@@ -24,9 +23,10 @@ function DonutChart({ data, size = 160, strokeWidth = 20, isLight = false }) {
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ position: 'relative', zIndex: 1, filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))' }}>
           <circle cx={size / 2} cy={size / 2} r={(size - strokeWidth) / 2} fill="none" stroke={isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'} strokeWidth={strokeWidth} />
           {data.map((d, i) => {
-            const sweep = (d.value / total) * 360;
+            const sweep = (d.value / (total || 1)) * 360;
             const start = angle;
             angle += sweep;
+            if (d.value <= 0) return null;
             return (
               <circle
                 key={i}
@@ -44,7 +44,7 @@ function DonutChart({ data, size = 160, strokeWidth = 20, isLight = false }) {
             );
           })}
           <text x="50%" y="48%" textAnchor="middle" fill={isLight ? '#0f172a' : '#f8fafc'} fontWeight="800" fontSize="26" letterSpacing="-1px">{total}</text>
-          <text x="50%" y="60%" textAnchor="middle" fill={isLight ? '#64748b' : '#94a3b8'} fontSize="12" fontWeight="600">Problems</text>
+          <text x="50%" y="60%" textAnchor="middle" fill={isLight ? '#64748b' : '#94a3b8'} fontSize="12" fontWeight="600">Accepted</text>
         </svg>
     </div>
   );
@@ -52,7 +52,6 @@ function DonutChart({ data, size = 160, strokeWidth = 20, isLight = false }) {
 
 export default function Analytics() {
   const { data: dashboardData } = useDashboardData();
-  const diffCounts = getDifficultyCounts();
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const [mounted, setMounted] = useState(false);
@@ -70,22 +69,26 @@ export default function Analytics() {
     const days = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
-      d.setDate(d.getDate() - i);
+      d.setUTCDate(d.getUTCDate() - i);
+      const entry = dashboardData?.heatmapData?.[d.toISOString().slice(0, 10)];
+      const value = typeof entry === 'number' ? entry : (entry?.solved ?? 0);
       days.push({
-        label: d.toLocaleDateString('en-US', { weekday: 'short' }),
-        value: solvedTotal > 0 ? Math.max(0, Math.round((solvedTotal / 7) * (0.6 + (i / 20)))) : 0
+        label: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+        value
       });
     }
     return days;
-  }, [solvedTotal]);
+  }, [dashboardData?.heatmapData]);
 
   const diffData = [
-    { label: 'Easy', value: easySolved, color: '#10b981', total: diffCounts.Easy },
-    { label: 'Medium', value: mediumSolved, color: '#3b82f6', total: diffCounts.Medium },
-    { label: 'Hard', value: hardSolved, color: '#f43f5e', total: diffCounts.Hard },
+    { label: 'Easy', value: easySolved, color: '#10b981' },
+    { label: 'Medium', value: mediumSolved, color: '#3b82f6' },
+    { label: 'Hard', value: hardSolved, color: '#f43f5e' },
   ];
 
-  const avgSolveTime = solvedTotal > 0 ? Math.round(15 + (dashboardData?.stats?.mockInterviews || 0)) : 0;
+  const rawAvgSolveTime = dashboardData?.stats?.avgSolveTimeMinutes;
+  const avgSolveTimeDisplay = Number.isFinite(rawAvgSolveTime) ? `${Math.round(rawAvgSolveTime)}m` : 'N/A';
+  const peakDailyAccepted = Math.max(1, ...weeklyProgress.map(day => day.value));
 
   const c = {
     bg: isLight ? '#f8fafc' : '#0f1014',
@@ -129,7 +132,7 @@ export default function Analytics() {
                 </div>
                 <p style={{ color: c.muted, fontSize: 16, fontWeight: 500, margin: 0 }}>Deep dive into your technical competencies and readiness.</p>
             </div>
-            <button style={{
+            <button onClick={() => window.print()} style={{
                 background: 'linear-gradient(135deg, #0f172a, #1e293b)',
                 color: 'white', border: 'none', padding: '12px 24px',
                 borderRadius: 12, fontSize: 14, fontWeight: 600,
@@ -150,9 +153,8 @@ export default function Analytics() {
         }}>
           {[
             { label: 'Total Solved', value: solvedTotal, icon: CheckCircle2, color: '#10b981' },
-            { label: 'Avg Solve Time', value: `${avgSolveTime}m`, icon: Clock, color: '#f59e0b' },
-            { label: 'Longest Streak', value: `${dashboardData?.bestStreak || 12}d`, icon: Flame, color: '#f43f5e' },
-            { label: 'Code Quality Rating', value: 'A-', icon: Shield, color: '#3b82f6' },
+            { label: 'Avg Solve Time', value: avgSolveTimeDisplay, icon: Clock, color: '#f59e0b' },
+            { label: 'Longest Streak', value: `${dashboardData?.bestStreak ?? 0}d`, icon: Flame, color: '#f43f5e' },
             { label: 'Mock Interviews', value: dashboardData?.stats?.mockInterviews ?? 0, icon: Activity, color: '#8b5cf6' },
           ].map((stat, i) => {
               const Icon = stat.icon;
@@ -189,7 +191,7 @@ export default function Analytics() {
             display: 'flex', flexDirection: 'column'
           }}>
             <h3 style={{ margin: '0 0 24px', fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <PieChart size={18} color={c.highlight} /> Problem Difficulty
+              <PieChart size={18} color={c.highlight} /> Accepted This Week
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center', gap: 32 }}>
@@ -202,10 +204,7 @@ export default function Analytics() {
                       <div style={{ width: 12, height: 12, borderRadius: 4, background: d.color, boxShadow: `0 0 8px ${d.color}60` }} />
                       <span style={{ fontSize: 14, fontWeight: 700, color: c.title }}>{d.label}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: c.title }}>{d.value}</span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: c.muted }}>/ {d.total}</span>
-                    </div>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: c.title }}>{d.value}</span>
                   </div>
                 ))}
               </div>
@@ -220,11 +219,8 @@ export default function Analytics() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <TrendingUp size={18} color="#10b981" /> Activity Volume (Past 7 Days)
+                <TrendingUp size={18} color="#10b981" /> Accepted Submissions (Past 7 Days)
                 </h3>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: 8 }}>
-                    +12% vs last week
-                </div>
             </div>
             
             <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, height: 240, position: 'relative' }}>
@@ -241,7 +237,7 @@ export default function Analytics() {
                     <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%', padding: '0 10%' }}>
                         <div style={{ 
                             width: '100%', 
-                            height: mounted ? `${Math.max(10, d.value * 12)}%` : '0%', 
+                            height: mounted ? `${(d.value / peakDailyAccepted) * 100}%` : '0%',
                             background: isLight ? 'linear-gradient(180deg, #4f46e5, #818cf8)' : 'linear-gradient(180deg, #6366f1, #4f46e5)',
                             borderRadius: '12px 12px 4px 4px',
                             transition: 'height 1s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -278,17 +274,16 @@ export default function Analytics() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 20 }}>
-            {TOPICS.slice(0, 12).map((topic, i) => {
-              const topicProblems = PROBLEMS.filter(p => p.topics.includes(topic));
-              const solved = solvedTotal > 0 ? Math.min(topicProblems.length, Math.floor((solvedTotal / Math.max(TOPICS.length, 1)) * (1 + ((i % 5) / 10)))) : 0;
-              const pct = topicProblems.length > 0 ? Math.round((solved / topicProblems.length) * 100) : 0;
+            {(dashboardData?.topicProgress || []).map(({ name, topic, solved, total }, i) => {
+              const displayName = name || topic || 'Topic';
+              const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
               
               let barColor = '#f43f5e';
               if (pct >= 70) barColor = '#10b981';
               else if (pct >= 40) barColor = '#f59e0b';
 
               return (
-                <div key={i} style={{ 
+                <div key={displayName} style={{
                     padding: 20, borderRadius: 16, 
                     background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.15)', 
                     border: isLight ? '1px solid rgba(0,0,0,0.04)' : '1px solid rgba(255,255,255,0.02)',
@@ -307,7 +302,7 @@ export default function Analytics() {
                 }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: c.title }}>{topic}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: c.title }}>{displayName}</span>
                     <span style={{ fontSize: 18, color: barColor, fontWeight: 800 }}>{pct}%</span>
                   </div>
                   
@@ -324,7 +319,7 @@ export default function Analytics() {
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: c.muted, fontWeight: 600 }}>
-                        {solved} / {topicProblems.length} solved
+                        {solved} / {total} solved
                     </span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: barColor, background: `${barColor}15`, padding: '2px 8px', borderRadius: 4 }}>
                         {pct >= 70 ? 'Expert' : pct >= 40 ? 'Familiar' : 'Novice'}

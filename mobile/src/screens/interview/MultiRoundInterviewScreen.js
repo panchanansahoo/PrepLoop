@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     View,
     Text,
@@ -11,39 +11,61 @@ import { ScreenHeader } from "../../components/ScreenHeader";
 import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "../../context/AuthContext";
+import { readCurrentRound, ROUND_COUNT, ROUND_PASS_SCORE } from "../../utils/multiRoundProgress";
+import { playHapticFeedback } from "../../utils/preferences";
+
 const ROUNDS = [
     {
         id: 1,
         title: "Screening",
         duration: "30 mins",
         type: "HR & Behavioral",
-        status: "completed",
+        interviewType: "behavioral",
     },
     {
         id: 2,
         title: "Technical Round 1",
         duration: "45 mins",
         type: "DSA & Problem Solving",
-        status: "locked",
+        interviewType: "technical",
     },
     {
         id: 3,
         title: "Technical Round 2",
         duration: "60 mins",
         type: "System Design",
-        status: "locked",
+        interviewType: "system-design",
     },
     {
         id: 4,
         title: "Hiring Manager",
         duration: "30 mins",
         type: "Cultural Fit & Vision",
-        status: "locked",
+        interviewType: "behavioral",
     },
 ];
 
 export default function MultiRoundInterviewScreen({ navigation }) {
-    const [currentRound, setCurrentRound] = useState(2); // Mock: round 2 is unlocked next
+    const { user } = useAuth();
+    return <AccountMultiRound key={user?.id || "guest"} userId={user?.id} navigation={navigation} />;
+}
+
+function AccountMultiRound({ userId, navigation }) {
+    const [currentRound, setCurrentRound] = useState(null);
+    const [loadError, setLoadError] = useState(false);
+    const [retry, setRetry] = useState(0);
+
+    useFocusEffect(useCallback(() => {
+        let active = true;
+        setLoadError(false);
+        setCurrentRound(null);
+        readCurrentRound(userId)
+            .then(round => { if (active) setCurrentRound(round); })
+            .catch(() => { if (active) setLoadError(true); });
+        return () => { active = false; };
+    }, [userId, retry]));
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -68,11 +90,16 @@ export default function MultiRoundInterviewScreen({ navigation }) {
                     </Text>
                 </View>
 
+                {loadError && (
+                    <TouchableOpacity onPress={() => setRetry(value => value + 1)}>
+                        <Text style={styles.disclaimerText}>Could not load your rounds. Tap to retry.</Text>
+                    </TouchableOpacity>
+                )}
                 <View style={styles.roundsContainer}>
                     {ROUNDS.map((round, index) => {
-                        const isUnlocked = round.id <= currentRound;
+                        const isUnlocked = Boolean(userId) && currentRound !== null && round.id <= currentRound;
                         const isCurrent = round.id === currentRound;
-                        const isCompleted = round.id < currentRound;
+                        const isCompleted = currentRound !== null && round.id < currentRound;
 
                         return (
                             <View
@@ -97,11 +124,13 @@ export default function MultiRoundInterviewScreen({ navigation }) {
                                     ]}
                                     activeOpacity={0.8}
                                     disabled={!isUnlocked}
-                                    onPress={() =>
+                                    onPress={() => {
+                                        playHapticFeedback(userId).catch(() => {});
                                         navigation.navigate("AIInterview", {
-                                            interviewType: round,
-                                        })
-                                    }
+                                            interviewType: { id: round.interviewType, title: round.title },
+                                            multiRound: round.id,
+                                        });
+                                    }}
                                 >
                                     <View style={styles.roundHeader}>
                                         <View style={styles.roundIconContainer}>
@@ -176,7 +205,9 @@ export default function MultiRoundInterviewScreen({ navigation }) {
                         color={colors.textSecondary}
                     />
                     <Text style={styles.disclaimerText}>
-                        You must pass each round to unlock the next one.
+                        {currentRound === ROUND_COUNT + 1
+                            ? "You passed all four rounds."
+                            : `Score at least ${ROUND_PASS_SCORE} in each round to advance.`}
                     </Text>
                 </View>
             </ScrollView>

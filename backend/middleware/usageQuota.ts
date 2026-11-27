@@ -1,3 +1,4 @@
+import { effectiveSubscriptionTier } from '../utils/subscriptionTier.js';
 import type { Request, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/structuredLogger.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
@@ -99,7 +100,7 @@ const planLimits: Record<string, QuotaLimits> = {
     voice_stt: Number.parseInt(process.env.PRO_VOICE_STT_DAILY_REQUEST_LIMIT || '1000', 10),
     voice_tts: Number.parseInt(process.env.PRO_VOICE_TTS_DAILY_REQUEST_LIMIT || '5000', 10),
   },
-  premium: {
+  elite: {
     ai: Number.parseInt(process.env.PREMIUM_AI_DAILY_REQUEST_LIMIT || '2000', 10),
     voice: Number.parseInt(process.env.PREMIUM_VOICE_DAILY_REQUEST_LIMIT || '5000', 10),
     voice_stt: Number.parseInt(process.env.PREMIUM_VOICE_STT_DAILY_REQUEST_LIMIT || '3000', 10),
@@ -107,16 +108,75 @@ const planLimits: Record<string, QuotaLimits> = {
   },
 };
 
-const planCache = new BoundedTtlStore<{ plan: string }>(2000);
+interface CachedPlanEntry {
+  plan: string;
+  subscription_tier?: string | null;
+  subscription_expires_at?: string | null;
+  subscription_status?: string | null;
+  subscription_cancelled_at?: string | null;
+}
+
+const planCache = new BoundedTtlStore<CachedPlanEntry>(2000);
 const PLAN_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const getPlanLimit = async (userId: string, category: string, client: any): Promise<number> => {
+export const invalidateUsageQuotaPlanCache = (userId?: string): void => {
+  if (userId) {
+    planCache.delete(userId);
+    return;
+  }
+  planCache.clear();
+};
+
+const isMissingColumnError = (error: any): boolean => {
+  const code = String(error?.code || '').toUpperCase();
+  const msg = String(error?.message || '').toLowerCase();
+  return code === '42703' || msg.includes('does not exist') || msg.includes('could not find');
+};
+
+const getPlanLimit = async (
+  userId: string,
+  category: string,
+  client: any,
+  now: number = Date.now()
+): Promise<number> => {
   const cached = planCache.get(userId);
-  if (cached?.plan) return planLimits[cached.plan]?.[category] || limits[category] || 100;
+  if (cached?.plan) {
+    const cachedTier = cached.subscription_tier !== undefined
+      ? effectiveSubscriptionTier(cached, now).toLowerCase()
+      : cached.plan;
+    const cachedPlan = cachedTier === 'premium' ? 'elite' : cachedTier;
+    return planLimits[cachedPlan]?.[category] || limits[category] || 100;
+  }
   try {
-    const { data, error } = await client.from('profiles').select('subscription_tier').eq('id', userId).maybeSingle();
-    const plan = !error && data?.subscription_tier ? String(data.subscription_tier).toLowerCase() : 'free';
-    planCache.set(userId, { plan }, PLAN_CACHE_TTL_MS);
+    let { data, error } = await client
+      .from('profiles')
+      .select('subscription_tier, subscription_expires_at, subscription_status, subscription_cancelled_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error && isMissingColumnError(error)) {
+      ({ data, error } = await client
+        .from('profiles')
+        .select('subscription_tier, subscription_expires_at')
+        .eq('id', userId)
+        .maybeSingle());
+    }
+
+    const tier = effectiveSubscriptionTier(error ? null : data, now).toLowerCase();
+    const plan = tier === 'premium' ? 'elite' : tier;
+    const remainingMs = data?.subscription_expires_at ? Date.parse(data.subscription_expires_at) - now : Infinity;
+    const ttl = plan === 'free'
+      ? PLAN_CACHE_TTL_MS
+      : (Number.isFinite(remainingMs) ? Math.min(PLAN_CACHE_TTL_MS, remainingMs) : PLAN_CACHE_TTL_MS);
+    if (!error && ttl > 0) {
+      planCache.set(userId, {
+        plan,
+        subscription_tier: data?.subscription_tier ?? 'free',
+        subscription_expires_at: data?.subscription_expires_at ?? null,
+        subscription_status: data?.subscription_status ?? null,
+        subscription_cancelled_at: data?.subscription_cancelled_at ?? null,
+      }, ttl);
+    }
     return planLimits[plan]?.[category] || limits[category] || 100;
   } catch {
     return limits[category] || 100;
@@ -151,11 +211,11 @@ export const usageQuota = (category: string, options: UsageQuotaOptions = {}) =>
   const quotaClient = options.client || supabaseAdmin;
 
   return async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+    const now = nowProvider();
     const limit = req.user?.id && (!options.limit || !Number.isFinite(options.limit))
-      ? await getPlanLimit(req.user.id, category, quotaClient)
+      ? await getPlanLimit(req.user.id, category, quotaClient, now)
       : configuredLimit;
     const key = getClientKey(req, category);
-    const now = nowProvider();
 
     // 1. Distributed Redis quota
     const redis = getRedisClient();

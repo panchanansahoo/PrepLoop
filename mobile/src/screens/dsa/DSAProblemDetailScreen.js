@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -37,12 +37,22 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
     const problem = initialProblem || fetchedProblem;
     const insets = useSafeAreaInsets();
     const [note, setNote] = useState("");
+    const [savedNote, setSavedNote] = useState("");
+    const [loadingNote, setLoadingNote] = useState(true);
+    const [noteError, setNoteError] = useState(false);
+    const [noteRetry, setNoteRetry] = useState(0);
+    const currentProblemId = problem?.id;
     const [savingNote, setSavingNote] = useState(false);
     const [noteSaved, setNoteSaved] = useState(false);
+    const savedTimerRef = useRef(null);
 
     useEffect(() => {
-        setNote("");
-        setNoteSaved(false);
+        return () => {
+            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
         if (initialProblem || !resolvedProblemId) {
             setLoading(false);
             return;
@@ -56,6 +66,25 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
             .finally(() => { if (active) setLoading(false); });
         return () => { active = false; };
     }, [initialProblem, resolvedProblemId, retry]);
+
+    useEffect(() => {
+        let active = true;
+        setNote("");
+        setSavedNote("");
+        setNoteSaved(false);
+        setNoteError(false);
+        if (!currentProblemId) return;
+        setLoadingNote(true);
+        dsaApi.getNotes(currentProblemId)
+            .then(([bookmark]) => {
+                if (!active) return;
+                setNote(bookmark?.note || "");
+                setSavedNote(bookmark?.note || "");
+            })
+            .catch(() => { if (active) setNoteError(true); })
+            .finally(() => { if (active) setLoadingNote(false); });
+        return () => { active = false; };
+    }, [currentProblemId, noteRetry]);
 
     if (loading) {
         return <LoadingSpinner fullScreen message="Loading problem..." />;
@@ -76,12 +105,14 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
     }
 
     async function handleSaveNote() {
-        if (!note.trim()) return;
+        if (loadingNote || noteError || note.trim() === savedNote) return;
         setSavingNote(true);
         try {
-            await dsaApi.saveNote(problem.id, note.trim());
+            await dsaApi.saveNote(problem.id, note.trim(), problem.title);
+            setSavedNote(note.trim());
             setNoteSaved(true);
-            setTimeout(() => setNoteSaved(false), 3000);
+            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+            savedTimerRef.current = setTimeout(() => setNoteSaved(false), 3000);
         } catch {
             Alert.alert("Error", "Could not save note. Please try again.");
         } finally {
@@ -239,9 +270,11 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
                         placeholderTextColor={colors.textMuted}
                         value={note}
                         onChangeText={setNote}
+                        editable={!loadingNote && !noteError && !savingNote}
                         multiline
                         textAlignVertical="top"
                     />
+                    {noteError && <Button title="Retry loading note" onPress={() => setNoteRetry(value => value + 1)} />}
                     <View style={styles.noteBtnRow}>
                         {noteSaved && (
                             <Text style={styles.savedText}>✅ Saved!</Text>
@@ -250,7 +283,7 @@ export default function DSAProblemDetailScreen({ route, navigation }) {
                             title="Save Note"
                             onPress={handleSaveNote}
                             loading={savingNote}
-                            disabled={!note.trim()}
+                            disabled={loadingNote || noteError || note.trim() === savedNote}
                             variant="outline"
                             size="sm"
                         />

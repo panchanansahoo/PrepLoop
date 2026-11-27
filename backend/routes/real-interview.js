@@ -1,3 +1,4 @@
+import { effectiveSubscriptionTier } from '../utils/subscriptionTier.js';
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.ts';
@@ -60,11 +61,11 @@ router.post('/book', authenticateToken, async (req, res) => {
     // Check if user is premium
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('subscription_tier')
+      .select('subscription_tier, subscription_expires_at')
       .eq('id', req.user.id)
       .single();
 
-    if (!profile || profile.subscription_tier === 'free') {
+    if (effectiveSubscriptionTier(profile) === 'free') {
       return res.status(403).json({ error: 'Premium subscription required to book real interviews' });
     }
 

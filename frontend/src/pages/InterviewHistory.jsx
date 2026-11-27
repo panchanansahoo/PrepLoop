@@ -1,3 +1,4 @@
+import { readInterviewHistory, updateInterviewHistory } from '../utils/accountStorage';
 import { useState, useEffect } from 'react';
 import {
     Clock, Star, ChevronRight, ArrowLeft, Briefcase, Code2, Brain, Users,
@@ -102,7 +103,14 @@ export const DEMO_INTERVIEW_SESSION = {
 };
 
 export default function InterviewHistory() {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+    if (loading) return null;
+    const userId = user?.isGuest ? null : user?.id;
+    return <InterviewHistoryContent key={userId || 'guest'} user={user} />;
+}
+
+function InterviewHistoryContent({ user }) {
+    const userId = user?.isGuest ? null : user?.id;
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const [sessions, setSessions] = useState([]);
@@ -113,6 +121,8 @@ export default function InterviewHistory() {
     const [sortBy, setSortBy] = useState('newest');
     const [searchQuery, setSearchQuery] = useState('');
     const [copied, setCopied] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [deleteError, setDeleteError] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Practice Question Modal State
@@ -219,19 +229,30 @@ export default function InterviewHistory() {
 
     const fetchSessions = async () => {
         setLoading(true);
+        setLoadError('');
+        if (!userId) {
+            setSessions([]);
+            setLoading(false);
+            return;
+        }
         let serverSessions = [];
         try {
             let url = buildInterviewHistoryApiUrl('/company-interview/sessions?limit=50');
             if (filterCompany) url += `&company=${encodeURIComponent(filterCompany)}`;
             const res = await authFetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    serverSessions = data;
-                }
+            if (!res.ok) {
+                throw new Error('Could not load interview history.');
+            }
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                serverSessions = data;
             }
         } catch (e) {
             console.error('Error fetching sessions:', e);
+            setSessions([]);
+            setLoadError('Could not load interview history.');
+            setLoading(false);
+            return;
         }
 
         const MAX_HISTORY_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
@@ -240,26 +261,15 @@ export default function InterviewHistory() {
             return !time || (Date.now() - time < MAX_HISTORY_AGE_MS);
         };
 
-        let localSessions = [];
-        try {
-            const raw = localStorage.getItem('preploop_local_interview_history');
-            if (raw) {
-                const local = JSON.parse(raw);
-                if (Array.isArray(local)) {
-                    localSessions = local.filter(isRecent).slice(0, 50);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to parse local interview history:', err);
-        }
+        const localSessions = readInterviewHistory(userId).filter(isRecent).slice(0, 50);
 
         // Merge server and local history without duplicates
         const seen = new Set();
         const combined = [];
         for (const s of [...serverSessions, ...localSessions]) {
-            const key = String(s.id || s.session_id || '');
-            if (key && !seen.has(key)) {
-                seen.add(key);
+            const keys = [s.id, s.session_id].filter(id => id != null).map(String);
+            if (keys.length && keys.every(key => !seen.has(key))) {
+                keys.forEach(key => seen.add(key));
                 combined.push(s);
             }
         }
@@ -269,6 +279,8 @@ export default function InterviewHistory() {
     };
 
     const fetchSessionDetail = async (id) => {
+        setDeleteError('');
+        setLoadError('');
         const cleanId = String(id || '').replace(/^(interview_session_|mock_interview_)/, '');
 
         if (cleanId === DEMO_INTERVIEW_SESSION.id || id === DEMO_INTERVIEW_SESSION.id) {
@@ -276,51 +288,32 @@ export default function InterviewHistory() {
             return;
         }
 
-        const inMemory = sessions.find(s => s.id === id || s.session_id === id || s.id === cleanId || s.session_id === cleanId);
-        if (inMemory && inMemory.conversation && inMemory.conversation.length > 0) {
-            setSelectedSession(inMemory);
+        if (!userId) {
+            setSelectedSession(null);
+            setLoadError('Sign in to view interview transcripts.');
+            return;
         }
 
         try {
-            const res = await authFetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${id}`));
-            if (res.ok) {
-                const data = await res.json();
-                if (data && (data.id || data.session_id)) {
-                    setSelectedSession(data);
-                    return;
-                }
+            const res = await authFetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${encodeURIComponent(cleanId)}`));
+            if (!res.ok) {
+                throw new Error('Could not load interview transcript.');
             }
+            const data = await res.json();
+            if (data && (data.id || data.session_id)) {
+                setSelectedSession(data);
+                return;
+            }
+            throw new Error('Could not load interview transcript.');
         } catch (e) {
             console.error('Error fetching session detail:', e);
-        }
-
-        try {
-            const raw = localStorage.getItem('preploop_local_interview_history');
-            if (raw) {
-                const local = JSON.parse(raw);
-                if (Array.isArray(local)) {
-                    const found = local.find(s => s.id === id || s.session_id === id || s.id === cleanId || s.session_id === cleanId);
-                    if (found) {
-                        setSelectedSession(found);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to parse local session detail:', err);
+            setSelectedSession(null);
+            setLoadError(e.message || 'Could not load interview transcript.');
         }
     };
 
     const handleLoadDemoSession = () => {
-        try {
-            const historyKey = 'preploop_local_interview_history';
-            const raw = localStorage.getItem(historyKey);
-            const existing = raw ? JSON.parse(raw) : [];
-            const safeExisting = Array.isArray(existing) ? existing : [];
-            const updated = [DEMO_INTERVIEW_SESSION, ...safeExisting.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)].slice(0, 50);
-            localStorage.setItem(historyKey, JSON.stringify(updated));
-        } catch (err) {
-            console.error('Failed to store demo session in local history:', err);
-        }
+        updateInterviewHistory(userId, items => [DEMO_INTERVIEW_SESSION, ...items.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)]);
         setSessions(prev => [DEMO_INTERVIEW_SESSION, ...prev.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)]);
         setSelectedSession(DEMO_INTERVIEW_SESSION);
     };
@@ -436,32 +429,28 @@ export default function InterviewHistory() {
         if (!confirmed) return;
 
         setIsDeleting(true);
+        setDeleteError('');
         const targetId = selectedSession.id || selectedSession.session_id;
-
+        const targetIds = new Set([selectedSession.id, selectedSession.session_id].filter(id => id != null).map(String));
+        const keepSession = session => ![session.id, session.session_id].some(id => targetIds.has(String(id)));
         try {
-            await authFetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${targetId}`), {
-                method: 'DELETE'
-            });
-        } catch (e) {
-            console.warn('Backend delete request error:', e);
-        }
-
-        // Clean local cache
-        try {
-            const raw = localStorage.getItem('preploop_local_interview_history');
-            const local = raw ? JSON.parse(raw) : [];
-            if (Array.isArray(local)) {
-                const updated = local.filter(s => s.id !== targetId && s.session_id !== targetId).slice(0, 50);
-                localStorage.setItem('preploop_local_interview_history', JSON.stringify(updated));
+            if (!selectedSession.is_demo && targetId !== DEMO_INTERVIEW_SESSION.id && userId) {
+                const response = await authFetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${encodeURIComponent(targetId)}`), {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    const failure = await response.json().catch(() => ({}));
+                    throw new Error(failure.error || 'Could not delete the interview.');
+                }
             }
-        } catch (err) {
-            console.error('Failed to update local interview history after delete:', err);
+            updateInterviewHistory(userId, items => items.filter(keepSession));
+            setSessions(items => items.filter(keepSession));
+            setSelectedSession(null);
+        } catch (error) {
+            setDeleteError(error.message || 'Could not delete the interview.');
+        } finally {
+            setIsDeleting(false);
         }
-
-        // Update in-memory sessions list and close details
-        setSessions(prev => prev.filter(s => s.id !== targetId && s.session_id !== targetId));
-        setSelectedSession(null);
-        setIsDeleting(false);
     };
 
     const openPracticeModal = (question, previousAnswer = '') => {
@@ -563,7 +552,7 @@ export default function InterviewHistory() {
                         marginBottom: 20
                     }}>
                         <button
-                            onClick={() => setSelectedSession(null)}
+                            onClick={() => { setSelectedSession(null); setDeleteError(''); setLoadError(''); }}
                             style={{
                                 background: 'none', border: 'none', color: 'var(--text-muted)',
                                 display: 'flex', alignItems: 'center', gap: 6,
@@ -663,6 +652,7 @@ export default function InterviewHistory() {
                                 <Trash2 size={13} />
                                 {isDeleting ? 'Deleting...' : 'Delete'}
                             </button>
+                            {deleteError && <p role="alert">{deleteError}</p>}
                         </div>
                     </div>
 
@@ -1256,12 +1246,22 @@ export default function InterviewHistory() {
                 </div>
 
                 {/* Sessions List */}
+                {loadError && (
+                    <p role="alert" style={{ color: '#ef4444', marginBottom: 16 }}>
+                        {loadError}{' '}
+                        {userId && (
+                            <button type="button" onClick={fetchSessions} style={{ textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>
+                                Try again
+                            </button>
+                        )}
+                    </p>
+                )}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 60 }}>
                         <Loader2 size={26} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6', margin: '0 auto' }} />
                         <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>Loading your interviews...</div>
                     </div>
-                ) : filteredSessions.length === 0 ? (
+                ) : filteredSessions.length === 0 ? !loadError && (
                     <div style={{
                         textAlign: 'center', padding: 60,
                         background: 'var(--bg-card)',

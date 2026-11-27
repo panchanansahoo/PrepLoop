@@ -22,6 +22,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../api/apiClient";
+import { useAuth } from "../../context/AuthContext";
+import { recordPassedRound, ROUND_PASS_SCORE } from "../../utils/multiRoundProgress";
+import { notifyInterviewResult } from "../../utils/preferences";
 // ────────────────────────────────────────────────
 // Chat message types
 // ────────────────────────────────────────────────
@@ -66,7 +69,7 @@ function ChatBubble({ msg }) {
 // Feedback screen after interview ends
 // ────────────────────────────────────────────────
 
-function FeedbackScreen({ result, interviewType, onDone }) {
+function FeedbackScreen({ result, interviewType, multiRound, onDone }) {
     const insets = useSafeAreaInsets();
     const scores = result?.scores || {};
     const overall = scores.overall ?? null;
@@ -104,6 +107,9 @@ function FeedbackScreen({ result, interviewType, onDone }) {
                 <Text style={styles.feedbackSubtitle}>
                     {interviewType?.title || "Interview"} ·{" "}
                     {interviewType?.difficulty || "Medium"}
+                    {multiRound && overall != null
+                        ? overall >= ROUND_PASS_SCORE ? " · Round passed" : ` · Pass score ${ROUND_PASS_SCORE}`
+                        : ""}
                 </Text>
 
                 {overall != null ? (
@@ -194,7 +200,9 @@ function FeedbackScreen({ result, interviewType, onDone }) {
 // ────────────────────────────────────────────────
 
 export default function AIInterviewScreen({ route, navigation }) {
-    const { interviewType } = route.params || {};
+    const { interviewType, multiRound } = route.params || {};
+    const { user } = useAuth();
+    const roundSavePending = useRef(false);
     const insets = useSafeAreaInsets();
 
     const [phase, setPhase] = useState("starting");
@@ -420,6 +428,7 @@ export default function AIInterviewScreen({ route, navigation }) {
     }
 
     async function doEnd() {
+        if (ending) return;
         setEnding(true);
         setPhase("ending");
         try {
@@ -432,16 +441,19 @@ export default function AIInterviewScreen({ route, navigation }) {
                 durationSeconds,
                 responses,
             );
+            if (multiRound && responses.length > 0) {
+                try {
+                    await recordPassedRound(user?.id, multiRound, result);
+                } catch {
+                    roundSavePending.current = true;
+                }
+            }
+            notifyInterviewResult(user?.id, result).catch(() => {});
             setFeedbackResult(result);
             setPhase("feedback");
-        } catch (err) {
-            // Show minimal feedback even if API fails
-            setFeedbackResult({
-                scores: {
-                    overall: Math.min(100, 40 + responses.length * 10),
-                },
-            });
-            setPhase("feedback");
+        } catch {
+            setPhase("chat");
+            Alert.alert("Results unavailable", "Your answers are still here. Try ending the interview again.");
         } finally {
             setEnding(false);
         }
@@ -579,7 +591,19 @@ export default function AIInterviewScreen({ route, navigation }) {
             <FeedbackScreen
                 result={feedbackResult}
                 interviewType={interviewType}
-                onDone={() => navigation.goBack()}
+                multiRound={multiRound}
+                onDone={async () => {
+                    if (roundSavePending.current) {
+                        try {
+                            await recordPassedRound(user?.id, multiRound, feedbackResult);
+                            roundSavePending.current = false;
+                        } catch {
+                            Alert.alert("Progress unavailable", "Could not save round progress. Tap Done to try again.");
+                            return;
+                        }
+                    }
+                    navigation.goBack();
+                }}
             />
         );
     }

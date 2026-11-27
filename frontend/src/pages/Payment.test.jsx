@@ -64,7 +64,7 @@ describe('Pricing & Payment checkout flows (Bugs 1, 2, 3)', () => {
     document.getElementById('razorpay-script')?.remove();
   });
 
-  it('Pricing annual toggle displays discounted monthly rate and links to annual checkout', () => {
+  it('Pricing annual toggle displays the one-time annual price, links to annual checkout, and matches Profile cancellation copy', () => {
     render(
       <MemoryRouter>
         <Pricing />
@@ -74,12 +74,26 @@ describe('Pricing & Payment checkout flows (Bugs 1, 2, 3)', () => {
     const toggle = screen.getByRole('button', { name: /toggle billing period/i });
     fireEvent.click(toggle);
 
-    expect(screen.getByText('₹79.20')).toBeInTheDocument();
-    expect(screen.getByText('₹239.20')).toBeInTheDocument();
+    expect(screen.getByText('₹950.4')).toBeInTheDocument();
+    expect(screen.getByText('₹2,870.4')).toBeInTheDocument();
 
     const ctaLinks = screen.getAllByRole('link', { name: /get started/i });
     expect(ctaLinks[1]).toHaveAttribute('href', '/payment?plan=pro&billingCycle=annual');
     expect(ctaLinks[2]).toHaveAttribute('href', '/payment?plan=elite&billingCycle=annual');
+
+    expect(screen.getByRole('button', { name: /Can I cancel anytime\?/i })).toBeInTheDocument();
+  });
+
+  it('Pricing links paid users to Profile to manage or cancel their subscription', () => {
+    authMock.user = { id: 'user-1', email: 'alex@example.com', fullName: 'Alex Doe', subscriptionTier: 'pro' };
+    render(
+      <MemoryRouter>
+        <Pricing />
+      </MemoryRouter>
+    );
+
+    const manageLink = screen.getByRole('link', { name: /Manage or cancel in Profile/i });
+    expect(manageLink).toHaveAttribute('href', '/profile');
   });
 
   it('Bug 1: Payment displays ₹950.40 for annual Pro, creates annual order, and rejects mismatched order amounts', async () => {
@@ -187,7 +201,14 @@ describe('Pricing & Payment checkout flows (Bugs 1, 2, 3)', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ success: true, plan: 'elite', paymentId: 'pay_elite_1' }),
+        json: async () => ({
+          success: true,
+          plan: 'elite',
+          paymentId: 'pay_elite_1',
+          billingCycle: 'annual',
+          subscriptionExpiresAt: '2027-06-15T00:00:00.000Z',
+          subscriptionStatus: 'active',
+        }),
       });
 
     renderPayment('/payment?plan=elite&billingCycle=annual');
@@ -208,6 +229,7 @@ describe('Pricing & Payment checkout flows (Bugs 1, 2, 3)', () => {
     expect(screen.getByText(/Payment Successful!/i)).toBeInTheDocument();
     expect(screen.getByText(/Your active plan is Elite\./i)).toBeInTheDocument();
     expect(screen.getByText('pay_elite_1')).toBeInTheDocument();
+    expect(screen.getByText(/Access Valid Until/i)).toBeInTheDocument();
     expect(authMock.refreshSubscription).toHaveBeenCalledTimes(1);
 
     await act(async () => {

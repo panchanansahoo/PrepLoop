@@ -533,14 +533,27 @@ router.get('/history', authenticateToken, async (req, res) => {
       return res.json(items);
     }
 
-    // Fetch transactions for summary computation only when detailed is requested (bounded to 1000)
-    const { data: allRows } = await supabaseAdmin
-      .from('coin_transactions')
-      .select('amount, type, description')
-      .eq('user_id', req.user.id)
-      .limit(1000);
-
-    const summary = summarizeTransactions(allRows || []);
+    const summary = { totalEarned: 0, totalSpent: 0, totalRedeemed: 0 };
+    const batchSize = 500;
+    let beforeId;
+    for (;;) {
+      let query = supabaseAdmin.from('coin_transactions')
+        .select('id, amount, type, description')
+        .eq('user_id', req.user.id)
+        .order('id', { ascending: false })
+        .limit(batchSize);
+      if (beforeId !== undefined && beforeId !== null) query = query.lt('id', beforeId);
+      const { data: rows, error: summaryError } = await query;
+      if (summaryError) throw summaryError;
+      const batch = summarizeTransactions(rows || []);
+      summary.totalEarned += batch.totalEarned;
+      summary.totalSpent += batch.totalSpent;
+      summary.totalRedeemed += batch.totalRedeemed;
+      if (!rows || rows.length < batchSize) break;
+      const nextBeforeId = rows[rows.length - 1]?.id;
+      if (nextBeforeId === undefined || nextBeforeId === null || nextBeforeId === beforeId) break;
+      beforeId = nextBeforeId;
+    }
 
     res.json({
       items,

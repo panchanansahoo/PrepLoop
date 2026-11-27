@@ -55,17 +55,31 @@ router.get('/stats', communityFeedLimiter, async (req, res) => {
   }
 });
 
+const postFields = '*, community_replies(count), profiles!community_posts_user_id_fkey(full_name)';
+
+function formatPost(p) {
+  return {
+      id: p.id,
+      user_id: p.user_id,
+      title: p.title,
+      content: p.content,
+      tags: p.tags || [],
+      likes: p.likes || 0,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      author_name: p.profiles?.full_name || 'Anonymous',
+      reply_count: p.community_replies?.[0]?.count ?? (typeof p.replies === 'number' ? p.replies : 0),
+  };
+}
+
+
 router.get('/posts', communityFeedLimiter, optionalAuth, async (req, res) => {
   try {
     const { filter = 'trending' } = req.query;
 
     let query = supabaseAdmin
       .from('community_posts')
-      .select(`
-        *,
-        community_replies(count),
-        profiles!community_posts_user_id_fkey(full_name)
-      `)
+      .select(postFields)
       .limit(50);
 
     if (filter === 'popular') {
@@ -79,23 +93,30 @@ router.get('/posts', communityFeedLimiter, optionalAuth, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    const posts = (data || []).map(p => ({
-      id: p.id,
-      user_id: p.user_id,
-      title: p.title,
-      content: p.content,
-      tags: p.tags || [],
-      likes: p.likes || 0,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
-      author_name: p.profiles?.full_name || 'Anonymous',
-      reply_count: p.community_replies?.[0]?.count ?? (typeof p.replies === 'number' ? p.replies : 0),
-    }));
-
+    const posts = (data || []).map(formatPost);
     res.json({ posts });
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
+router.get('/posts/:id', communityFeedLimiter, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('community_posts')
+      .select(postFields)
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (error?.code === '22P02' || (!data && !error)) {
+      return res.status(404).json({ error: 'Discussion not found' });
+    }
+    if (error) throw error;
+    res.json({ post: formatPost(data) });
+  } catch (error) {
+    console.error('Error fetching discussion:', error);
+    res.status(500).json({ error: 'Failed to fetch discussion' });
   }
 });
 
@@ -122,11 +143,11 @@ router.post('/posts', authenticateToken, communityMutationLimiter, async (req, r
         likes: 0,
         replies: 0
       })
-      .select()
+      .select(postFields)
       .single();
 
     if (error) throw error;
-    res.json({ post: data });
+    res.json({ post: formatPost(data) });
   } catch (error) {
     console.error('Error creating post:', error);
     res.status(500).json({ error: 'Failed to create post' });
@@ -307,15 +328,22 @@ router.post('/posts/:id/reply', authenticateToken, communityMutationLimiter, asy
       return res.status(400).json({ error: 'Reply content is required' });
     }
 
-    const { error: replyError } = await supabaseAdmin
+    const { data: reply, error: replyError } = await supabaseAdmin
       .from('community_replies')
       .insert({
         post_id: id,
         user_id: req.user.id,
         content
-      });
+      })
+      .select('*, profiles(full_name)')
+      .single();
 
-    if (replyError) throw replyError;
+    if (replyError) {
+      if (replyError.code === '22P02' || replyError.code === '23503') {
+        return res.status(404).json({ error: 'Discussion not found' });
+      }
+      throw replyError;
+    }
 
     // Atomic increment via raw SQL to prevent race conditions
     const { error: updateError } = await supabaseAdmin.rpc('increment_field', {
@@ -337,14 +365,14 @@ router.post('/posts/:id/reply', authenticateToken, communityMutationLimiter, asy
         .eq('id', id);
     }
 
-    res.json({ success: true });
+    res.json({ success: true, reply: { ...reply, author_name: reply.profiles?.full_name || 'Anonymous', profiles: undefined } });
   } catch (error) {
     console.error('Error submitting reply:', error);
     res.status(500).json({ error: 'Failed to submit reply' });
   }
 });
 
-router.get('/posts/:id/replies', async (req, res) => {
+router.get('/posts/:id/replies', communityFeedLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -355,7 +383,12 @@ router.get('/posts/:id/replies', async (req, res) => {
       .order('created_at', { ascending: true })
       .limit(100);
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '22P02') {
+        return res.status(404).json({ error: 'Discussion not found' });
+      }
+      throw error;
+    }
 
     const replies = (data || []).map(r => ({
       ...r,

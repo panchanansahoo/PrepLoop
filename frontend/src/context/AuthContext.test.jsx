@@ -5,6 +5,11 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import apiClient from '../utils/apiClient';
 import { authFetch } from '../utils/authFetch';
+import {
+  getAccountStorageKey,
+  readInterviewHistory,
+  updateInterviewHistory,
+} from '../utils/accountStorage';
 
 vi.mock('../lib/supabase', () => ({ supabase: null }));
 vi.mock('../utils/apiClient', () => ({
@@ -191,5 +196,40 @@ describe('AuthContext auth flows', () => {
     expect(persisted.subscriptionTier).toBe('pro');
     expect(persisted.subscription_tier).toBe('pro');
     expect(persisted.access_token).toBeUndefined();
+  });
+
+  it('clears account-scoped interview history, code drafts, and notes caches on logout', async () => {
+    localStorage.setItem('token', 'tok-a');
+    localStorage.setItem('user', JSON.stringify({ id: 'user-a', email: 'a@example.com' }));
+    updateInterviewHistory('user-a', () => [{ id: 'sess-a' }]);
+    localStorage.setItem(getAccountStorageKey('sql-code-1', 'user-a'), 'SELECT 1;');
+    localStorage.setItem(getAccountStorageKey('dsa-code-1-python', 'user-a'), 'def s(): pass');
+    localStorage.setItem(getAccountStorageKey('notes', 'user-a'), '[{"id":99}]');
+    localStorage.setItem('preploop_local_interview_history', '[{"id":"legacy"}]');
+    localStorage.setItem('preploop_bookmarks', '[{"id":"legacy-bm"}]');
+    authFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+
+    function LogoutButton() {
+      const { logout } = useAuth();
+      return <button type="button" onClick={logout}>logout</button>;
+    }
+
+    render(
+      <AuthProvider>
+        <LogoutButton />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'logout' }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem('token')).toBeNull();
+    });
+    expect(readInterviewHistory('user-a')).toEqual([]);
+    expect(localStorage.getItem(getAccountStorageKey('sql-code-1', 'user-a'))).toBeNull();
+    expect(localStorage.getItem(getAccountStorageKey('dsa-code-1-python', 'user-a'))).toBeNull();
+    expect(localStorage.getItem(getAccountStorageKey('notes', 'user-a'))).toBeNull();
+    expect(localStorage.getItem('preploop_local_interview_history')).toBeNull();
+    expect(localStorage.getItem('preploop_bookmarks')).toBeNull();
   });
 });

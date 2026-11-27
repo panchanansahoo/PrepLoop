@@ -14,8 +14,22 @@ const MODE_CONFIG = {
     speed: { label: 'Speed', color: '#facc15', timer: true, showAnswer: false, icon: <Zap size={14} />, perQ: 30 }
 };
 
+function roundCalcResult(value) {
+    if (!Number.isFinite(value)) return 'Error';
+    return Number(value.toPrecision(12));
+}
+
+function computeCalc(left, operator, right) {
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return 'Error';
+    if (operator === '+') return roundCalcResult(left + right);
+    if (operator === '-') return roundCalcResult(left - right);
+    if (operator === '×') return roundCalcResult(left * right);
+    if (operator === '÷') return right !== 0 ? roundCalcResult(left / right) : 'Error';
+    return right;
+}
+
 // Simple Calculator Component
-function CalcWidget({ onClose, isLight }) {
+export function CalcWidget({ onClose, isLight }) {
     const [display, setDisplay] = useState('0');
     const [prev, setPrev] = useState(null);
     const [op, setOp] = useState(null);
@@ -23,28 +37,73 @@ function CalcWidget({ onClose, isLight }) {
 
     const press = (val) => {
         if (val === 'C') { setDisplay('0'); setPrev(null); setOp(null); setFresh(true); return; }
-        if (val === '±') { setDisplay(d => String(-parseFloat(d))); return; }
-        if (val === '%') { setDisplay(d => String(parseFloat(d) / 100)); return; }
-        if (val === '√') { setDisplay(d => String(Math.sqrt(parseFloat(d)))); return; }
-        if (val === 'x²') { setDisplay(d => String(Math.pow(parseFloat(d), 2))); return; }
+        if (val === '±') {
+            setDisplay(d => (d === 'Error' ? '0' : String(roundCalcResult(-parseFloat(d)))));
+            return;
+        }
+        if (val === '%') {
+            setDisplay(d => (d === 'Error' ? '0' : String(roundCalcResult(parseFloat(d) / 100))));
+            return;
+        }
+        if (val === '√') {
+            setDisplay(d => {
+                if (d === 'Error') return 'Error';
+                const n = parseFloat(d);
+                return n < 0 ? 'Error' : String(roundCalcResult(Math.sqrt(n)));
+            });
+            return;
+        }
+        if (val === 'x²') {
+            setDisplay(d => (d === 'Error' ? '0' : String(roundCalcResult(Math.pow(parseFloat(d), 2)))));
+            return;
+        }
         if (['+', '-', '×', '÷'].includes(val)) {
-            setPrev(parseFloat(display)); setOp(val); setFresh(true); return;
+            if (display === 'Error') {
+                setPrev(null);
+                setOp(null);
+                setFresh(true);
+                return;
+            }
+            const cur = parseFloat(display);
+            if (prev !== null && op && !fresh) {
+                const res = computeCalc(prev, op, cur);
+                if (res === 'Error') {
+                    setDisplay('Error');
+                    setPrev(null);
+                    setOp(null);
+                    setFresh(true);
+                    return;
+                }
+                setDisplay(String(res));
+                setPrev(res);
+                setOp(val);
+                setFresh(true);
+                return;
+            }
+            setPrev(cur);
+            setOp(val);
+            setFresh(true);
+            return;
         }
         if (val === '=') {
-            if (prev !== null && op) {
+            if (prev !== null && op && display !== 'Error') {
                 const cur = parseFloat(display);
-                let res = 0;
-                if (op === '+') res = prev + cur;
-                else if (op === '-') res = prev - cur;
-                else if (op === '×') res = prev * cur;
-                else if (op === '÷') res = cur !== 0 ? prev / cur : 'Error';
-                setDisplay(String(res)); setPrev(null); setOp(null); setFresh(true);
+                const res = computeCalc(prev, op, cur);
+                setDisplay(String(res));
+                setPrev(null);
+                setOp(null);
+                setFresh(true);
             }
             return;
         }
         // Number or decimal
-        if (fresh) { setDisplay(val === '.' ? '0.' : val); setFresh(false); }
-        else { setDisplay(d => d === '0' && val !== '.' ? val : d + val); }
+        if (fresh || display === 'Error') {
+            setDisplay(val === '.' ? '0.' : val);
+            setFresh(false);
+        } else {
+            if (val === '.' && display.includes('.')) return;
+            setDisplay(d => (d === '0' && val !== '.' ? val : d + val));
+        }
     };
 
     const btns = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '√', '='];
@@ -58,7 +117,7 @@ function CalcWidget({ onClose, isLight }) {
                 <span style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>Calculator</span>
                 <button onClick={onClose} style={{ background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer' }}><X size={14} /></button>
             </div>
-            <div style={{
+            <div data-testid="calc-display" style={{
                 background: isLight ? '#f3f4f6' : '#1a1a1a', borderRadius: 8, padding: '12px 16px', marginBottom: 8,
                 fontSize: 24, fontWeight: 700, textAlign: 'right', color: isLight ? '#1a1a2e' : '#fff', fontFamily: 'monospace',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'

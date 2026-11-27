@@ -1,3 +1,4 @@
+import { notesApi } from "./notesApi";
 import apiClient from "./apiClient";
 
 export const dsaApi = {
@@ -108,31 +109,33 @@ export const dsaApi = {
      * GET /api/notes/bookmarks returns { bookmarks: [...] }
      */
     async getNotes(problemId) {
-        const res = await apiClient.get("/api/notes/bookmarks", {
-            params: { type: "dsa" },
-        });
-        const bookmarks = res.data?.bookmarks || res.data || [];
-        // Filter to the specific problem if provided
-        if (problemId) {
-            return bookmarks.filter(
-                (b) =>
-                    b.question_id === problemId || b.questionId === problemId,
-            );
-        }
-        return bookmarks;
+        return notesApi.getBookmarks(problemId == null ? {} : { type: "dsa", questionId: problemId });
     },
 
-    /**
-     * Save a note for a problem (stored as a bookmark).
-     * POST /api/notes/bookmark — requires { questionId, questionTitle, questionType, note }
-     */
-    async saveNote(problemId, content) {
-        const res = await apiClient.post("/api/notes/bookmark", {
-            questionId: problemId,
-            questionTitle: `Problem ${problemId}`,
-            questionType: "dsa",
-            note: content,
-        });
-        return res.data;
+    async saveNote(problemId, content, title) {
+        if (problemId == null || problemId === "") {
+            throw new Error("Problem ID is required");
+        }
+        const updateExisting = async () => {
+            const [existing] = await this.getNotes(problemId);
+            return existing?.id != null
+                ? notesApi.updateBookmarkNote(existing.id, { note: content })
+                : null;
+        };
+        const updated = await updateExisting();
+        if (updated) return updated;
+        try {
+            return await notesApi.addBookmark({
+                questionId: problemId,
+                questionTitle: title || `Problem ${problemId}`,
+                questionType: "dsa",
+                note: content,
+            });
+        } catch (error) {
+            if (error.response?.data?.error !== "Already bookmarked") throw error;
+            const retry = await updateExisting();
+            if (retry) return retry;
+            throw error;
+        }
     },
 };

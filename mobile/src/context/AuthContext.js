@@ -9,6 +9,8 @@ import React, {
 import { authApi } from "../api/authApi";
 import { userApi } from "../api/userApi";
 import { storage } from "../utils/storage";
+import { cache } from "../utils/cache";
+import { syncAccountReminders } from "../utils/preferences";
 import apiClient, { authEvents } from "../api/apiClient";
 
 const AuthContext = createContext(null);
@@ -47,6 +49,7 @@ export function AuthProvider({ children }) {
         })();
         authEvents.onLogout = () => {
             storage.clearAuth();
+            cache.clear().catch(() => {});
             setUser(null);
         };
         return () => {
@@ -56,8 +59,14 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = useCallback(async (email, password) => {
+        const previousUser = await storage.getUser();
         const data = await authApi.login(email, password);
         const { token, refreshToken, user: userData } = data;
+        if (previousUser?.id && previousUser.id !== userData?.id) {
+            await cache.clearAccount(previousUser.id);
+        } else if (!previousUser?.id) {
+            await cache.clear();
+        }
         await storage.saveToken(token);
         await storage.saveRefreshToken(refreshToken);
         await storage.saveUser(userData);
@@ -67,9 +76,15 @@ export function AuthProvider({ children }) {
     }, []);
 
     const signup = useCallback(async (email, password, fullName) => {
+        const previousUser = await storage.getUser();
         const data = await authApi.signup(email, password, fullName);
         const { token, refreshToken, user: userData } = data;
         if (token) {
+            if (previousUser?.id && previousUser.id !== userData?.id) {
+                await cache.clearAccount(previousUser.id);
+            } else if (!previousUser?.id) {
+                await cache.clear();
+            }
             await storage.saveToken(token);
             if (refreshToken) await storage.saveRefreshToken(refreshToken);
             await storage.saveUser(userData);
@@ -87,6 +102,7 @@ export function AuthProvider({ children }) {
             /* best-effort */
         }
         await storage.clearAuth();
+        await cache.clear();
         delete apiClient.defaults.headers.common["Authorization"];
         setUser(null);
     }, []);
@@ -113,6 +129,12 @@ export function AuthProvider({ children }) {
             refreshingRef.current = false;
         }
     }, [logout]);
+
+    const userId = user?.id || null;
+    useEffect(() => {
+        if (loading) return;
+        syncAccountReminders(userId).catch(error => console.warn("Could not sync reminders", error.message));
+    }, [loading, userId]);
 
     const isAdmin = user?.role === "admin";
 

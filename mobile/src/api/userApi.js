@@ -1,5 +1,68 @@
 import apiClient from "./apiClient";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toUtcDateKey(value) {
+    if (!value) return null;
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        const parsed = new Date(trimmed);
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed.toISOString().split("T")[0];
+        }
+        return null;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().split("T")[0];
+}
+
+export function calculateConsecutiveStreak(activityDays, referenceDate = new Date()) {
+    if (!Array.isArray(activityDays) || activityDays.length === 0) return 0;
+
+    const todayStr = toUtcDateKey(referenceDate);
+    if (!todayStr) return 0;
+    const todayMs = Date.parse(`${todayStr}T00:00:00.000Z`);
+    const yesterdayStr = new Date(todayMs - DAY_MS).toISOString().split("T")[0];
+
+    const activeDates = [
+        ...new Set(
+            activityDays
+                .filter((item) => {
+                    if (typeof item === "string" || item instanceof Date) return true;
+                    return (item?.seconds_active ?? 0) > 0;
+                })
+                .map((item) =>
+                    typeof item === "string" || item instanceof Date
+                        ? toUtcDateKey(item)
+                        : toUtcDateKey(item?.date),
+                )
+                .filter((dateKey) => dateKey && dateKey <= todayStr),
+        ),
+    ]
+        .sort()
+        .reverse();
+
+    if (activeDates.length === 0) return 0;
+    if (activeDates[0] !== todayStr && activeDates[0] !== yesterdayStr) {
+        return 0;
+    }
+
+    let streak = 1;
+    for (let i = 1; i < activeDates.length; i += 1) {
+        const prevMs = Date.parse(`${activeDates[i - 1]}T00:00:00.000Z`);
+        const currMs = Date.parse(`${activeDates[i]}T00:00:00.000Z`);
+        if (Math.round((prevMs - currMs) / DAY_MS) === 1) {
+            streak += 1;
+        } else {
+            break;
+        }
+    }
+    return streak;
+}
+
 export const userApi = {
     /**
      * GET /api/user/profile
@@ -34,64 +97,32 @@ export const userApi = {
         return res.data;
     },
 
-    /**
-     * Build dashboard stats from multiple real endpoints.
-     * - totalInterviews from /api/ai/interview/history
-     * - currentStreak from /api/activity/weekly (counts active days)
-     * - problemsSolved from /api/dsa/progress → stats.total_solved
-     *
-     * All fields degrade to null if their endpoint fails (Promise.allSettled).
-     */
+    async deleteAccount(confirmation) {
+        const { data } = await apiClient.delete("/api/user/account", { data: { confirmation }, skipAuthRefresh: true });
+        if (!data?.success) throw new Error("Could not delete your account.");
+    },
+
     async getDashboardStats() {
-        const results = await Promise.allSettled([
-            apiClient.get("/api/ai/interview/history"),
-            apiClient.get("/api/activity/weekly"),
-            apiClient.get("/api/dsa/progress"),
-        ]);
-
-        const [historyRes, activityRes, progressRes] = results;
-
-        // Interview count
-        let totalInterviews = null;
-        if (historyRes.status === "fulfilled") {
-            const d = historyRes.value.data;
-            const list = Array.isArray(d) ? d : d.interviews || d.data || [];
-            totalInterviews = list.length;
+        const { data } = await apiClient.get("/api/user/dashboard");
+        if (!data || typeof data !== "object" || data.degraded) {
+            throw new Error("Dashboard stats unavailable");
         }
-
-        // Streak: count days with any activity this week
-        let currentStreak = null;
-        if (activityRes.status === "fulfilled") {
-            const d = activityRes.value.data;
-            if (Array.isArray(d)) {
-                currentStreak = d.filter(
-                    (day) => (day.seconds_active || 0) > 0,
-                ).length;
-            } else {
-                currentStreak = d?.streak ?? d?.currentStreak ?? null;
-            }
-        }
-
-        // Problems solved from /api/dsa/progress → { stats: { total_solved } }
-        let problemsSolved = null;
-        if (progressRes.status === "fulfilled") {
-            const d = progressRes.value.data;
-            // Backend returns { stats: { total_solved, problems_solved, ... }, recentActivity }
-            problemsSolved =
-                d?.stats?.total_solved ??
-                d?.stats?.problems_solved ??
-                d?.total_solved ??
-                null;
-        }
-
-        return { totalInterviews, currentStreak, problemsSolved };
+        return {
+            totalInterviews: data.stats?.mockInterviews ?? null,
+            currentStreak: data.streak ?? null,
+            problemsSolved: data.stats?.problemsSolved ?? null,
+            avgScore: data.avgScore ?? data.stats?.avgScore ?? null,
+        };
     },
 
     /**
-     * GET /api/activity/weekly
+     * GET /api/user/dashboard — consecutive active-day streak
      */
     async getStreak() {
-        const res = await apiClient.get("/api/activity/weekly");
-        return res.data;
+        const { data } = await apiClient.get("/api/user/dashboard");
+        if (!data || typeof data !== "object" || data.degraded) {
+            throw new Error("Streak unavailable");
+        }
+        return data.streak ?? 0;
     },
 };

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { authFetch } from '../utils/authFetch';
 import apiClient from '../utils/apiClient';
 import { mergeAuthHeaders } from '../utils/authHeaders';
+import { clearAccountStorage } from '../utils/accountStorage';
 
 const AuthContext = createContext(null);
 
@@ -163,6 +164,7 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('refreshToken');
+        clearAccountStorage();
       } finally {
         if (mounted) setLoading(false);
       }
@@ -176,6 +178,13 @@ export function AuthProvider({ children }) {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session) {
+          try {
+            const prevRaw = localStorage.getItem('user');
+            const prevUser = prevRaw ? JSON.parse(prevRaw) : null;
+            if (prevUser?.id && prevUser.id !== session.user.id) {
+              clearAccountStorage(prevUser.id);
+            }
+          } catch { /* ignore */ }
           const token = session.access_token;
           localStorage.setItem('token', token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -215,6 +224,12 @@ export function AuthProvider({ children }) {
               console.warn('Profile fetch note in background:', e?.message || e);
             });
         } else if (event === 'SIGNED_OUT') {
+          let prevUserId = null;
+          try {
+            const prevRaw = localStorage.getItem('user');
+            prevUserId = prevRaw ? JSON.parse(prevRaw)?.id : null;
+          } catch { /* ignore */ }
+          clearAccountStorage(prevUserId);
           if (mounted) {
             setUser(null);
             localStorage.removeItem('token');
@@ -243,6 +258,13 @@ export function AuthProvider({ children }) {
     const user = payload?.user ?? response?.user;
 
     if (token) {
+      try {
+        const prevRaw = localStorage.getItem('user');
+        const prevUser = prevRaw ? JSON.parse(prevRaw) : null;
+        if (prevUser?.id && prevUser.id !== user?.id) {
+          clearAccountStorage(prevUser.id);
+        }
+      } catch { /* ignore */ }
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -291,6 +313,13 @@ export function AuthProvider({ children }) {
     const user = payload?.user ?? response?.user;
 
     if (token) {
+      try {
+        const prevRaw = localStorage.getItem('user');
+        const prevUser = prevRaw ? JSON.parse(prevRaw) : null;
+        if (prevUser?.id && prevUser.id !== user?.id) {
+          clearAccountStorage(prevUser.id);
+        }
+      } catch { /* ignore */ }
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -301,6 +330,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    let prevUserId = null;
+    try {
+      const prevRaw = localStorage.getItem('user');
+      prevUserId = prevRaw ? JSON.parse(prevRaw)?.id : null;
+    } catch { /* ignore */ }
     try {
       if (supabase) {
         await supabase.auth.signOut();
@@ -312,6 +346,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.warn('Logout request failed:', err);
     } finally {
+      clearAccountStorage(prevUserId);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
@@ -429,7 +464,7 @@ export function AuthProvider({ children }) {
     if (typeof subscriptionTier === 'string') {
       setUser(current => {
         if (current?.id !== saved.id) return current;
-        const updated = { ...current, subscriptionTier, subscription_tier: subscriptionTier };
+        const updated = { ...current, subscriptionTier, subscription_tier: subscriptionTier, subscriptionExpiresAt: saved.subscriptionExpiresAt ?? null };
         try {
           localStorage.setItem('user', JSON.stringify(stripAuthToken(updated)));
         } catch {

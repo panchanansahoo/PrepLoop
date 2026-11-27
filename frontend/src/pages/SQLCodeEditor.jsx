@@ -1,3 +1,5 @@
+import { useAuth } from '../context/AuthContext';
+import { getAccountStorageKey, readDraft, writeDraft } from '../utils/accountStorage';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
@@ -65,12 +67,21 @@ export function parseSqlOutputToGrid(text) {
 
 export default function SQLCodeEditor() {
   const { problemId } = useParams();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const userId = user?.isGuest ? null : user?.id;
+  return <SQLCodeEditorContent key={`${userId || 'guest'}:${problemId}`} userId={userId} />;
+}
+
+function SQLCodeEditorContent({ userId }) {
+  const { problemId } = useParams();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const editorRef = useRef(null);
   const [problem, setProblem] = useState(null);
   const [schema, setSchema] = useState(null);
+  const [loadedDraftKey, setLoadedDraftKey] = useState(null);
   const [code, setCode] = useState('');
   const [dialect, setDialect] = useState('mysql');
   const [running, setRunning] = useState(false);
@@ -80,7 +91,7 @@ export default function SQLCodeEditor() {
   const [showHints, setShowHints] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
   const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
-    return localStorage.getItem(getSQLSolutionUnlockKey(problemId)) === 'true';
+    return readDraft(getAccountStorageKey(getSQLSolutionUnlockKey(problemId), userId) || getSQLSolutionUnlockKey(problemId), userId) === 'true';
   });
   const [focusMode, setFocusMode] = useState(false);
   const [leftWidth, setLeftWidth] = useState(22);
@@ -123,20 +134,19 @@ export default function SQLCodeEditor() {
     hintsShadow: isLight ? '-8px 0 30px rgba(0,0,0,0.08)' : '-8px 0 30px rgba(0,0,0,0.5)',
   };
 
+  const draftKey = getAccountStorageKey(`sql-code-${problemId}`, userId) || `sql-code-${problemId}`;
+
   // Load problem
   useEffect(() => {
     const p = getSQLProblemById(problemId);
     if (p) {
       setProblem(p);
       setSchema(getSchemaById(p.schemaId));
-      const saved = localStorage.getItem(`sql-code-${problemId}`);
-      setCode(saved || `-- ${p.title}\n-- Write your SQL query below\n\nSELECT \n`);
+      const saved = readDraft(draftKey, userId);
+      setLoadedDraftKey(draftKey);
+      setCode(saved ?? `-- ${p.title}\n-- Write your SQL query below\n\nSELECT \n`);
     }
-  }, [problemId]);
-
-  useEffect(() => {
-    setSolutionUnlocked(localStorage.getItem(getSQLSolutionUnlockKey(problemId)) === 'true');
-  }, [problemId]);
+  }, [problemId, draftKey, userId]);
 
   // Timer
   useEffect(() => {
@@ -146,8 +156,8 @@ export default function SQLCodeEditor() {
 
   // Auto-save
   useEffect(() => {
-    if (code && problemId) localStorage.setItem(`sql-code-${problemId}`, code);
-  }, [code, problemId]);
+    if (loadedDraftKey === draftKey) writeDraft(draftKey, userId, code);
+  }, [code, draftKey, loadedDraftKey, userId]);
 
   const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
@@ -221,10 +231,10 @@ export default function SQLCodeEditor() {
     if (headers.Authorization) {
       const unlockKey = getSQLSolutionUnlockKey(problemId);
       setSolutionUnlocked(true);
-      localStorage.setItem(unlockKey, 'true');
+      writeDraft(getAccountStorageKey(unlockKey, userId) || unlockKey, userId, 'true');
     }
     handleRun();
-  }, [handleRun, problemId]);
+  }, [handleRun, problemId, userId]);
 
   // Keyboard shortcuts
   useEffect(() => {

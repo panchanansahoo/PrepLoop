@@ -119,6 +119,31 @@ export const interviewApi = {
     },
 
     /**
+     * Evaluate and record a debugging or code review interview submission.
+     */
+    async submitDebugCodeReview({
+        mode = "debug",
+        title = "",
+        challengePrompt = "",
+        candidateResponse = "",
+        submittedCode = "",
+        durationSeconds = 0,
+    } = {}) {
+        const res = await apiClient.post(
+            "/api/interview-suite/debug-code-review/evaluate",
+            {
+                mode,
+                title,
+                challengePrompt,
+                candidateResponse,
+                submittedCode,
+                durationSeconds,
+            },
+        );
+        return res.data;
+    },
+
+    /**
      * Get company list for company-specific interviews.
      */
     async getCompanies() {

@@ -7,28 +7,30 @@ const router = express.Router();
 // Save a bookmark
 router.post("/bookmark", authenticateToken, async (req, res) => {
     try {
-        const { questionId, questionTitle, questionType, tags, note } = req.body;
+        const { questionId, questionTitle, questionType, tags, note } = req.body || {};
+        const standalone = questionId === undefined || questionId === null || /^custom_\d+$/.test(String(questionId));
 
-        if (!questionId) {
-            return res.status(400).json({ error: 'questionId is required' });
+        if (standalone && (typeof questionTitle !== 'string' || !questionTitle.trim())) {
+            return res.status(400).json({ error: 'A title is required for a standalone note' });
         }
-        // Check if already bookmarked
-        const { data: existing } = await supabaseAdmin
-            .from("bookmarks")
-            .select("id")
-            .eq("user_id", req.user.id)
-            .eq("question_id", questionId)
-            .single();
-
-        if (existing) {
-            return res.status(400).json({ error: "Already bookmarked" });
+        if (!standalone) {
+            const { data: existing, error: lookupError } = await supabaseAdmin
+                .from("bookmarks")
+                .select("id")
+                .eq("user_id", req.user.id)
+                .eq("question_id", questionId)
+                .eq("question_type", questionType || "dsa")
+                .limit(1)
+                .maybeSingle();
+            if (lookupError) throw lookupError;
+            if (existing) return res.status(400).json({ error: "Already bookmarked" });
         }
 
         const { data, error } = await supabaseAdmin
             .from("bookmarks")
             .insert({
                 user_id: req.user.id,
-                question_id: questionId,
+                question_id: standalone ? null : questionId,
                 question_title: questionTitle || "Untitled",
                 question_type: questionType || "dsa",
                 tags: tags || [],
@@ -48,7 +50,7 @@ router.post("/bookmark", authenticateToken, async (req, res) => {
 // Get all bookmarks with optional filters and bounded limit
 router.get("/bookmarks", authenticateToken, async (req, res) => {
     try {
-        const { tag, type, search } = req.query;
+        const { tag, type, search, questionId } = req.query;
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
         const offset = Math.max(0, (page - 1) * limit);
@@ -62,7 +64,8 @@ router.get("/bookmarks", authenticateToken, async (req, res) => {
             query = query.eq("question_type", type);
         }
 
-        query = query.order("created_at", { ascending: false });
+        if (questionId !== undefined && questionId !== '') query = query.eq("question_id", questionId);
+        query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
 
         // If no in-memory filters (tag, search) are requested, use DB range pagination
         if ((!tag || tag === "all") && !search) {

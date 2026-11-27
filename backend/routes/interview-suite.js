@@ -714,17 +714,26 @@ router.post('/debug-code-review/evaluate', authenticateToken, async (req, res) =
   try {
     const {
       mode = 'debug',
+      title = '',
       challengePrompt = '',
       candidateResponse = '',
       submittedCode = '',
+      durationSeconds = 0,
     } = req.body || {};
 
-    const responseText = `${candidateResponse}\n${submittedCode}`.trim();
+    const normalizedMode = asString(mode, 'debug').toLowerCase() === 'review' ? 'review' : 'debug';
+    const trimmedResponse = asString(candidateResponse).trim();
+    const trimmedCode = asString(submittedCode).trim();
+    if (!trimmedResponse && !trimmedCode) {
+      return res.status(400).json({ error: 'Please provide your response before submitting.' });
+    }
+
+    const responseText = `${trimmedResponse}\n${trimmedCode}`.trim();
     const words = wordCount(responseText);
 
-    const rootCauseScore = /root cause|because|caused by|bug is/i.test(responseText) ? 25 : 10;
-    const tradeoffScore = /trade-?off|risk|impact|regression/i.test(responseText) ? 20 : 8;
-    const actionScore = /fix|patch|refactor|test|rollback|monitor/i.test(responseText) ? 30 : 12;
+    const rootCauseScore = /root cause|because|caused by|bug is|sql injection|plain.?text|hash|bounds|negative|cookie|httponly|parameterized/i.test(responseText) ? 25 : 10;
+    const tradeoffScore = /trade-?off|risk|impact|regression|security|auth|edge/i.test(responseText) ? 20 : 8;
+    const actionScore = /fix|patch|refactor|test|rollback|monitor|prepared|bcrypt|infinity|length/i.test(responseText) ? 30 : 12;
     const clarityScore = words >= 60 ? 25 : words >= 25 ? 18 : 10;
 
     const heuristic = clamp(rootCauseScore + tradeoffScore + actionScore + clarityScore, 0, 100);
@@ -743,20 +752,76 @@ router.post('/debug-code-review/evaluate', authenticateToken, async (req, res) =
         actionScore >= 25 ? 'Fix path is practical and test-aware.' : 'Propose concrete patch + validation plan.',
         tradeoffScore >= 15 ? 'Risk and trade-off awareness is visible.' : 'Add regression and rollback considerations.',
       ],
-      mode,
+      mode: normalizedMode,
       challengePrompt,
     };
 
     const generated = await groqJson(
       'You evaluate debug/code-review interview answers. Return JSON with keys: score(0-100), breakdown(object with root_cause, risk_assessment, fix_quality, communication), verdict(strong|pass|needs_improvement), feedback(array).',
-      JSON.stringify({ mode, challengePrompt, candidateResponse, submittedCode }),
+      JSON.stringify({ mode: normalizedMode, challengePrompt, candidateResponse: trimmedResponse, submittedCode: trimmedCode }),
       fallback,
     );
 
-    res.json({
+    const evaluation = {
       ...fallback,
       ...generated,
+      mode: normalizedMode,
       source: groq ? 'ai+heuristic' : 'heuristic',
+    };
+
+    let interviewId = null;
+    if (req.user?.id && supabaseAdmin?.from) {
+      try {
+        const parsedDuration = Number(durationSeconds);
+        const sanitizedDuration = Number.isFinite(parsedDuration)
+          ? Math.min(86400, Math.max(0, Math.round(parsedDuration)))
+          : 0;
+        const overallScore = clamp(Math.round(Number(evaluation.score) || heuristic), 0, 100);
+        const breakdown = evaluation.breakdown || {};
+        const commScore = clamp(Math.round(((Number(breakdown.communication) || 15) / 25) * 100), 0, 100);
+        const techScore = clamp(Math.round((((Number(breakdown.root_cause) || 15) + (Number(breakdown.risk_assessment) || 12)) / 45) * 100), 0, 100);
+        const psScore = clamp(Math.round(((Number(breakdown.fix_quality) || 18) / 30) * 100), 0, 100);
+        const questionLabel = asString(title).trim() || asString(challengePrompt).trim() || `${normalizedMode} challenge`;
+
+        const { data: savedRow, error: saveError } = await supabaseAdmin
+          .from('mock_interviews')
+          .insert({
+            user_id: req.user.id,
+            interview_type: 'coding',
+            difficulty: 'medium',
+            duration: sanitizedDuration,
+            questions: [questionLabel],
+            responses: [
+              {
+                question: questionLabel,
+                answer: trimmedResponse,
+                submittedCode: trimmedCode,
+                mode: normalizedMode,
+                verdict: evaluation.verdict,
+                feedback: evaluation.feedback,
+              },
+            ],
+            overall_score: overallScore,
+            communication_score: commScore,
+            technical_score: techScore,
+            problem_solving_score: psScore,
+            completed_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (!saveError && savedRow?.id) {
+          interviewId = savedRow.id;
+        }
+      } catch (persistErr) {
+        console.warn('Non-fatal debug/code-review persistence warning:', persistErr?.message || persistErr);
+      }
+    }
+
+    res.json({
+      ...evaluation,
+      interviewId,
+      saved: Boolean(interviewId),
     });
   } catch (error) {
     console.error('Debug/code-review evaluation error:', error.message);

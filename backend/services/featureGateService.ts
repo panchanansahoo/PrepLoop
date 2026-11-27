@@ -1,3 +1,4 @@
+import { effectiveSubscriptionTier } from '../utils/subscriptionTier.js';
 import type { NextFunction, Request, Response } from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { createLogger } from '../utils/structuredLogger.js';
@@ -71,16 +72,28 @@ export function normalizeTier(rawTier?: string | null): SubscriptionTier {
   return 'free';
 }
 
-export async function getUserTier(userId: string): Promise<SubscriptionTier> {
+export async function getUserTier(userId: string, now: number = Date.now()): Promise<SubscriptionTier> {
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('subscription_tier')
+      .select('subscription_tier, subscription_expires_at, subscription_status, subscription_cancelled_at')
       .eq('id', userId)
       .maybeSingle();
 
+    if (error) {
+      const code = String((error as any)?.code || '').toUpperCase();
+      const msg = String((error as any)?.message || '').toLowerCase();
+      if (code === '42703' || msg.includes('does not exist') || msg.includes('could not find')) {
+        ({ data, error } = await supabaseAdmin
+          .from('profiles')
+          .select('subscription_tier, subscription_expires_at')
+          .eq('id', userId)
+          .maybeSingle());
+      }
+    }
+
     if (error || !data) return 'free';
-    return normalizeTier((data as any).subscription_tier);
+    return normalizeTier(effectiveSubscriptionTier(data, now));
   } catch {
     return 'free';
   }

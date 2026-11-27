@@ -29,7 +29,7 @@ import {
 } from '../utils/profileHelpers';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshSubscription } = useAuth();
   const { refreshBalance } = useCoins();
   const { data: dashboardData, refresh: refreshDashboard } = useDashboardData();
   const navigate = useNavigate();
@@ -67,6 +67,9 @@ export default function Profile() {
   const [toastExiting, setToastExiting] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [githubChartError, setGithubChartError] = useState(false);
+  const [subscriptionDetails, setSubscriptionDetails] = useState(null);
+  const [confirmingCancelSub, setConfirmingCancelSub] = useState(false);
+  const [cancellingSub, setCancellingSub] = useState(false);
   const toastHideTimerRef = useRef(null);
   const toastFadeTimerRef = useRef(null);
 
@@ -95,6 +98,19 @@ export default function Profile() {
             setLinkedinInput((prev) => prev || normalized.socialLinks.linkedin);
           }
         }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [user?.id]);
+
+  const fetchSubscriptionStatus = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/payment/subscription');
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (isMountedRef.current && data?.subscription) {
+        setSubscriptionDetails(data.subscription);
       }
     } catch (err) {
       console.error(err);
@@ -146,13 +162,14 @@ export default function Profile() {
   useEffect(() => {
     const controller = new AbortController();
     fetchProfile();
+    fetchSubscriptionStatus();
     fetchLatestResumeSnapshot();
     fetchJobMatches(controller.signal);
 
     return () => {
       controller.abort();
     };
-  }, [fetchProfile, fetchLatestResumeSnapshot, fetchJobMatches]);
+  }, [fetchProfile, fetchSubscriptionStatus, fetchLatestResumeSnapshot, fetchJobMatches]);
 
   useEffect(() => {
     if (!resumeSnapshot || hasAutofilledFromResumeRef.current) return;
@@ -926,7 +943,58 @@ export default function Profile() {
   const completionLabel = profileCompletion >= 100 ? 'Complete!' : `${profileCompletion}%`;
   const RING_CIRCUMFERENCE = 2 * Math.PI * 20;
   const ringDashoffset = RING_CIRCUMFERENCE - (profileCompletion / 100) * RING_CIRCUMFERENCE;
-  const planBadgeMeta = getPlanBadgeMeta(profile.subscriptionTier || user?.subscriptionTier);
+  const effectiveTier = subscriptionDetails?.tier || profile.subscriptionTier || user?.subscriptionTier || 'free';
+  const planBadgeMeta = getPlanBadgeMeta(effectiveTier);
+  const subscriptionBillingCycle = subscriptionDetails?.billingCycle ?? profile.subscriptionBillingCycle ?? user?.subscriptionBillingCycle ?? null;
+  const subscriptionExpiresAt = subscriptionDetails?.expiresAt ?? profile.subscriptionExpiresAt ?? user?.subscriptionExpiresAt ?? null;
+  const subscriptionStatus = subscriptionDetails?.status || profile.subscriptionStatus || (planBadgeMeta.isPaid ? 'active' : 'free');
+  const isSubscriptionCancelled = subscriptionStatus === 'cancelled' || Boolean(subscriptionDetails?.cancelAtPeriodEnd || profile.cancelAtPeriodEnd);
+  const formattedSubscriptionExpiry = subscriptionExpiresAt
+    ? new Date(subscriptionExpiresAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
+    : null;
+
+  const handleCancelSubscription = async () => {
+    if (cancellingSub) return;
+    setCancellingSub(true);
+    setStatus('idle');
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await authFetch('/api/payment/cancel', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Could not cancel subscription.');
+      }
+      if (data?.subscription) {
+        setSubscriptionDetails(data.subscription);
+        setProfile((prev) => ({
+          ...prev,
+          subscriptionTier: data.subscription.tier,
+          subscriptionExpiresAt: data.subscription.expiresAt,
+          subscriptionBillingCycle: data.subscription.billingCycle,
+          subscriptionStatus: data.subscription.status,
+          subscriptionCancelledAt: data.subscription.cancelledAt,
+          cancelAtPeriodEnd: Boolean(data.subscription.cancelAtPeriodEnd),
+        }));
+      }
+      try {
+        await refreshSubscription?.();
+      } catch (refreshErr) {
+        console.error('Subscription refresh failed after cancel:', refreshErr);
+      }
+      setConfirmingCancelSub(false);
+      setSuccessMessage(data?.message || 'Subscription cancelled.');
+      setStatus('saved');
+    } catch (err) {
+      setErrorMessage(err?.message || 'Could not cancel subscription.');
+      setStatus('error');
+    } finally {
+      setCancellingSub(false);
+    }
+  };
   const websiteHref = normalizeExternalUrl(profile.website);
   const linkedinHref = buildSocialUrl('linkedin', profile.socialLinks?.linkedin);
   const twitterHref = buildSocialUrl('twitter', profile.socialLinks?.twitter);
@@ -2114,6 +2182,50 @@ export default function Profile() {
             <div className="du-sub-meters">
               <div className="du-sub-meter">
                 <div className="du-sub-meter-top">
+                  <span className="du-sub-meter-label">Plan</span>
+                  <span className="du-sub-meter-value">{planBadgeMeta.label}</span>
+                </div>
+              </div>
+              {subscriptionBillingCycle && (
+                <div className="du-sub-meter">
+                  <div className="du-sub-meter-top">
+                    <span className="du-sub-meter-label">Billing Period</span>
+                    <span className="du-sub-meter-value">
+                      {subscriptionBillingCycle === 'annual' ? 'Annual' : 'Monthly'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="du-sub-meter">
+                <div className="du-sub-meter-top">
+                  <span className="du-sub-meter-label">Status</span>
+                  <span className="du-sub-meter-value">
+                    {isSubscriptionCancelled && planBadgeMeta.isPaid
+                      ? 'Cancelled (active until period end)'
+                      : subscriptionStatus === 'expired'
+                        ? 'Expired'
+                        : planBadgeMeta.isPaid
+                          ? 'Active'
+                          : 'Free Tier'}
+                  </span>
+                </div>
+              </div>
+              {formattedSubscriptionExpiry && (
+                <div className="du-sub-meter">
+                  <div className="du-sub-meter-top">
+                    <span className="du-sub-meter-label">
+                      {subscriptionStatus === 'expired'
+                        ? 'Expired On'
+                        : isSubscriptionCancelled
+                          ? 'Access Ends On'
+                          : 'Current Period Ends'}
+                    </span>
+                    <span className="du-sub-meter-value">{formattedSubscriptionExpiry}</span>
+                  </div>
+                </div>
+              )}
+              <div className="du-sub-meter">
+                <div className="du-sub-meter-top">
                   <span className="du-sub-meter-label">Problems Solved</span>
                   <span className="du-sub-meter-value">{aiMatches}/100</span>
                 </div>
@@ -2140,10 +2252,59 @@ export default function Profile() {
                 </div>
               </div>
             </div>
-            <Link to="/pricing" className="du-pro-btn">
-              <Sparkles size={16} />
-              Get Pro & Premium
-            </Link>
+            {planBadgeMeta.isPaid ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                {isSubscriptionCancelled ? (
+                  <>
+                    <p style={{ fontSize: '12px', color: '#fbbf24', margin: 0 }}>
+                      Subscription cancelled.{formattedSubscriptionExpiry ? ` Access continues until ${formattedSubscriptionExpiry}.` : ''}
+                    </p>
+                    <Link to="/pricing" className="du-pro-btn">
+                      <Sparkles size={16} />
+                      View Plans
+                    </Link>
+                  </>
+                ) : confirmingCancelSub ? (
+                  <div style={{ padding: '10px', borderRadius: '10px', border: '1px solid rgba(248, 113, 113, 0.35)', background: 'rgba(248, 113, 113, 0.08)' }}>
+                    <p style={{ fontSize: '12px', color: '#fecaca', margin: '0 0 8px' }}>
+                      Cancel your {planBadgeMeta.label} plan?{formattedSubscriptionExpiry ? ` You will retain access until ${formattedSubscriptionExpiry}.` : ''}
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="du-signout-btn"
+                        onClick={handleCancelSubscription}
+                        disabled={cancellingSub}
+                      >
+                        {cancellingSub ? 'Cancelling...' : 'Confirm Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        className="du-cancel-btn"
+                        onClick={() => setConfirmingCancelSub(false)}
+                        disabled={cancellingSub}
+                      >
+                        Keep Plan
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="du-cancel-btn"
+                    style={{ width: '100%' }}
+                    onClick={() => setConfirmingCancelSub(true)}
+                  >
+                    Cancel Subscription
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Link to="/pricing" className="du-pro-btn">
+                <Sparkles size={16} />
+                {subscriptionStatus === 'expired' ? 'Renew Plan' : 'Get Pro & Elite'}
+              </Link>
+            )}
           </div>
 
           {/* Resume */}

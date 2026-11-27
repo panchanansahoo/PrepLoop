@@ -1,12 +1,22 @@
+import { useAuth } from '../context/AuthContext';
+import { readInterviewHistory } from '../utils/accountStorage';
 import { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Filter, ChevronRight, Clock } from 'lucide-react';
 
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
-export default function InterviewHistory({ _userId, onSelectInterview }) {
+export default function InterviewHistory({ onSelectInterview }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const userId = user?.isGuest ? null : user?.id;
+  return <InterviewHistoryContent key={userId || 'guest'} userId={userId} onSelectInterview={onSelectInterview} />;
+}
+
+function InterviewHistoryContent({ userId, onSelectInterview }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
 
@@ -15,36 +25,26 @@ export default function InterviewHistory({ _userId, onSelectInterview }) {
   }, []);
 
   const fetchInterviewHistory = async () => {
+    setError('');
+    if (!userId) {
+      setInterviews([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const response = await authFetch(`${API_URL}/api/interview/history`);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data.interviews) && data.interviews.length > 0) {
-          setInterviews(data.interviews);
-          setLoading(false);
-          return;
-        }
+      if (!response.ok) {
+        throw new Error('Could not load interview history.');
       }
 
-      try {
-        const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
-        if (Array.isArray(local) && local.length > 0) {
-          setInterviews(local.map(item => ({
-            id: item.id,
-            type: item.stage || 'Technical',
-            difficulty: item.difficulty || 'medium',
-            score: item.overall_score || 0,
-            created_at: item.completed_at || new Date().toISOString(),
-            feedback: item.summary || ''
-          })));
-          setLoading(false);
-          return;
-        }
-      } catch { /* empty */ }
-    } catch (error) {
-      console.error('Error fetching interview history:', error);
+      const data = await response.json();
+      setInterviews(Array.isArray(data.interviews) ? data.interviews : []);
+    } catch (err) {
+      console.error('Error fetching interview history:', err);
+      setInterviews([]);
+      setError('Could not load interview history.');
     } finally {
       setLoading(false);
     }
@@ -175,6 +175,7 @@ export default function InterviewHistory({ _userId, onSelectInterview }) {
       </div>
 
       {/* Interview List */}
+      {error && <p role="alert" className="text-red-400 text-sm">{error}</p>}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (

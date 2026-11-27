@@ -1,83 +1,108 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { registerHooks } = require('node:module');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
-// Extracted dashboard stats aggregator logic from userApi.js
-function calculateDashboardStats({ historyResult, activityResult, progressResult }) {
-  let totalInterviews = null;
-  if (historyResult && historyResult.status === 'fulfilled') {
-    const d = historyResult.value?.data;
-    const list = Array.isArray(d) ? d : d?.interviews || d?.data || [];
-    totalInterviews = list.length;
-  }
+const mockApiCalls = [];
+let mockHandler = async () => ({ data: {} });
 
-  let currentStreak = null;
-  if (activityResult && activityResult.status === 'fulfilled') {
-    const d = activityResult.value?.data;
-    if (Array.isArray(d)) {
-      currentStreak = d.filter((day) => (day.seconds_active || 0) > 0).length;
-    } else {
-      currentStreak = d?.streak ?? d?.currentStreak ?? null;
+const apiClientUrl = pathToFileURL(path.resolve(__dirname, '../apiClient.js')).href;
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === './apiClient' && context.parentURL?.includes('userApi.js')) {
+      return { shortCircuit: true, url: 'mock://apiClient' };
     }
-  }
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (url === 'mock://apiClient') {
+      return {
+        shortCircuit: true,
+        format: 'module',
+        source: `
+          export default {
+            async get(endpoint, config) { return globalThis.__userApiTestMock('GET', endpoint, config); },
+            async put(endpoint, body) { return globalThis.__userApiTestMock('PUT', endpoint, body); },
+            async delete(endpoint, config) { return globalThis.__userApiTestMock('DELETE', endpoint, config); },
+          };
+        `,
+      };
+    }
+    return nextLoad(url, context);
+  },
+});
 
-  let problemsSolved = null;
-  if (progressResult && progressResult.status === 'fulfilled') {
-    const d = progressResult.value?.data;
-    problemsSolved =
-      d?.stats?.total_solved ??
-      d?.stats?.problems_solved ??
-      d?.total_solved ??
-      null;
-  }
+globalThis.__userApiTestMock = (method, endpoint, arg) => {
+  mockApiCalls.push({ method, endpoint, arg });
+  return mockHandler(method, endpoint, arg);
+};
 
-  return { totalInterviews, currentStreak, problemsSolved };
+async function loadUserApi() {
+  const userApiUrl = pathToFileURL(path.resolve(__dirname, '../userApi.js')).href;
+  return import(userApiUrl);
 }
 
-test('calculateDashboardStats extracts accurate stats from standard backend envelopes', () => {
-  const stats = calculateDashboardStats({
-    historyResult: {
-      status: 'fulfilled',
-      value: { data: { interviews: [{ id: 1 }, { id: 2 }, { id: 3 }] } },
-    },
-    activityResult: {
-      status: 'fulfilled',
-      value: {
-        data: [
-          { date: '2026-11-01', seconds_active: 1200 },
-          { date: '2026-11-02', seconds_active: 3600 },
-          { date: '2026-11-03', seconds_active: 0 },
-        ],
-      },
-    },
-    progressResult: {
-      status: 'fulfilled',
-      value: { data: { stats: { total_solved: 42, easy_solved: 20 } } },
+test('userApi.getDashboardStats maps backend /api/user/dashboard response accurately', async () => {
+  const { userApi } = await loadUserApi();
+  mockApiCalls.length = 0;
+  mockHandler = async () => ({
+    data: {
+      stats: { mockInterviews: 4, problemsSolved: 42, avgScore: 88 },
+      streak: 3,
     },
   });
 
-  assert.equal(stats.totalInterviews, 3);
-  assert.equal(stats.currentStreak, 2);
-  assert.equal(stats.problemsSolved, 42);
-});
-
-test('calculateDashboardStats degrades gracefully with partial failures', () => {
-  const stats = calculateDashboardStats({
-    historyResult: {
-      status: 'rejected',
-      reason: new Error('Network timeout'),
-    },
-    activityResult: {
-      status: 'fulfilled',
-      value: { data: { streak: 5 } },
-    },
-    progressResult: {
-      status: 'fulfilled',
-      value: { data: { total_solved: 15 } },
-    },
+  const stats = await userApi.getDashboardStats();
+  assert.equal(mockApiCalls[0].endpoint, '/api/user/dashboard');
+  assert.deepEqual(stats, {
+    totalInterviews: 4,
+    currentStreak: 3,
+    problemsSolved: 42,
+    avgScore: 88,
   });
-
-  assert.equal(stats.totalInterviews, null);
-  assert.equal(stats.currentStreak, 5);
-  assert.equal(stats.problemsSolved, 15);
 });
 
+test('userApi.getDashboardStats rejects degraded or missing payloads', async () => {
+  const { userApi } = await loadUserApi();
+  mockHandler = async () => ({ data: { degraded: true } });
+  await assert.rejects(() => userApi.getDashboardStats(), /unavailable/i);
+});
+
+test('calculateConsecutiveStreak does not count scattered nonconsecutive days as a multi-day streak', async () => {
+  const { calculateConsecutiveStreak } = await loadUserApi();
+  const ref = new Date('2026-11-27T12:00:00.000Z');
+
+  // Three nonconsecutive days: today, 2 days ago, 4 days ago => streak is 1, not 3
+  const scattered = [
+    { date: '2026-11-27', seconds_active: 300 },
+    { date: '2026-11-25', seconds_active: 600 },
+    { date: '2026-11-23', seconds_active: 900 },
+  ];
+  assert.equal(calculateConsecutiveStreak(scattered, ref), 1);
+
+  // Three consecutive days ending yesterday => streak is 3
+  const endingYesterday = [
+    { date: '2026-11-26', seconds_active: 300 },
+    { date: '2026-11-25', seconds_active: 400 },
+    { date: '2026-11-24', seconds_active: 500 },
+  ];
+  assert.equal(calculateConsecutiveStreak(endingYesterday, ref), 3);
+
+  // Three consecutive days ending 2 days ago => streak broken (0)
+  const brokenStreak = [
+    { date: '2026-11-25', seconds_active: 300 },
+    { date: '2026-11-24', seconds_active: 400 },
+    { date: '2026-11-23', seconds_active: 500 },
+  ];
+  assert.equal(calculateConsecutiveStreak(brokenStreak, ref), 0);
+
+  // Zero-second days do not extend streak; timezone-offset ISO strings normalize to UTC day
+  const tzAndZero = [
+    { date: '2026-11-27T01:30:00+05:30', seconds_active: 120 }, // 2026-11-26 UTC (yesterday)
+    { date: '2026-11-25', seconds_active: 120 },
+    { date: '2026-11-24', seconds_active: 0 },
+  ];
+  assert.equal(calculateConsecutiveStreak(tzAndZero, ref), 2);
+});

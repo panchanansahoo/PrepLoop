@@ -1,3 +1,4 @@
+import { deleteSavedInterview } from '../../services/deleteSavedInterview.js';
 import express from 'express';
 import _Groq from 'groq-sdk';
 import _multer from 'multer';
@@ -948,10 +949,11 @@ router.post('/save-session', optionalAuth, async (req, res) => {
         .filter(m => m.role === 'candidate' || m.role === 'user')
         .map(m => m.content || m.text || '');
 
-      await supabaseAdmin
+      const { error: mirrorError } = await supabaseAdmin
         .from('mock_interviews')
         .insert({
           user_id: userId,
+          source_interview_session_id: data.id,
           interview_type: type === 'multi-round' ? 'Multi-Round' : (stage || type || 'Technical'),
           difficulty: difficulty || 'medium',
           company: company || 'General',
@@ -965,8 +967,9 @@ router.post('/save-session', optionalAuth, async (req, res) => {
           technical_score: summaryData?.technicalScore ?? (scores?.[1] || null),
           problem_solving_score: summaryData?.problemSolvingScore ?? (scores?.[2] || null),
           started_at: req.body.startedAt || completedAt || new Date().toISOString(),
-          completed_at: completedAt || new Date().toISOString()
+          completed_at: data.completed_at
         });
+      if (mirrorError) throw mirrorError;
     } catch (mockErr) {
       console.warn('Failed to mirror to mock_interviews (non-critical):', mockErr.message);
     }
@@ -1133,6 +1136,7 @@ router.get('/sessions', optionalAuth, async (req, res) => {
         .from('mock_interviews')
         .select('*')
         .eq('user_id', userId)
+        .is('source_interview_session_id', null)
         .order('completed_at', { ascending: false })
         .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
@@ -1273,27 +1277,7 @@ router.delete('/sessions/:id', authenticateToken, async (req, res) => {
   const sessionId = req.params.id;
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
-    if (isUuid) {
-      await supabaseAdmin
-        .from('interview_sessions')
-        .delete()
-        .eq('id', sessionId)
-        .eq('user_id', userId);
-    } else {
-      await supabaseAdmin
-        .from('interview_sessions')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('user_id', userId);
-    }
-
-    // Also delete from mock_interviews if present
-    await supabaseAdmin
-      .from('mock_interviews')
-      .delete()
-      .eq('id', sessionId)
-      .eq('user_id', userId);
+    await deleteSavedInterview(supabaseAdmin, userId, sessionId);
 
     res.json({ success: true, deleted: true });
   } catch (error) {
